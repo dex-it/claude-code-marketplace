@@ -1,0 +1,61 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..9368ca0
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,40 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const int BatchSize = 500;
++    private const string Subject = "Shop";
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    // Список id приходит из маркетинговой системы: может быть большим, с дубликатами
++    // и с id несуществующих клиентов. Один клиент — одно письмо.
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        ArgumentNullException.ThrowIfNull(customerIds);
++        ArgumentNullException.ThrowIfNull(text);
++
++        var uniqueIds = customerIds.Distinct().ToList();
++        if (uniqueIds.Count == 0) return;
++
++        foreach (var batch in uniqueIds.Chunk(BatchSize))
++        {
++            var emails = await _db.Customers
++                .Where(c => batch.Contains(c.Id) && c.Email != "")
++                .Select(c => c.Email)
++                .ToListAsync(ct);
++
++            foreach (var email in emails)
++                await _emailSender.SendAsync(email, Subject, text, ct);
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..f031fb4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Файлы:
++- `CustomerNotifier.cs` — создан (`CustomerNotifier.NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)`, возвращает `Task`, потому что `IEmailSender` асинхронный)
++- `_answer.md` — этот ответ
++
++Решения:
++- Входной `IEnumerable` перебирается один раз: дубликаты id убираются через `Distinct().ToList()`, то есть одному клиенту уходит одно письмо. Для пустого списка метод сразу завершается.
++- Клиенты загружаются не по одному в цикле, а пачками по 500 id (`Chunk`, в SQL — `WHERE Id IN (...)`), чтобы не раздувать список параметров в PostgreSQL. Из БД берётся только `Email`. Несуществующие id и клиенты с пустым email пропускаются.
++- Письма отправляются последовательно, тема задана константой. Ошибка отправки прерывает всю рассылку, а часть писем к этому моменту уже уйдёт. Повторы и журнал отправленных писем не делал.
++- Сборку и тесты не запускал.

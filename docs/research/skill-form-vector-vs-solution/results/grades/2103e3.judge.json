@@ -1,0 +1,92 @@
+{
+  "id": "2103e3",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.120367,
+    "durationMs": 20520,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9609,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2153,
+      "output_tokens_details": {
+        "thinking_tokens": 1023
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9609,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2153,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9609,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9609
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "после `Select` идут `.Where(r => r.OffDay)` и `.OrderByDescending(r => r.Km)`, поэтому EF Core выбросит `InvalidOperationException: could not be translated`",
+      "why": "Исполнитель указал, что OffDay считается клиентским WorkCalendar.IsWorkingDay и Where по нему не транслируется, а как исправление предложил ToListAsync с фильтрацией в памяти или интервалы в SQL."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Из-за `;` внутри подзапроса получается синтаксическая ошибка PostgreSQL и 500",
+      "why": "Механизм назван верно: при vehicleId EF оборачивает SQL в подзапрос, а без фильтра запрос работает. Предложено убрать ';' и перенести ORDER BY в LINQ."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` не делает `Include(v => v.Equipment)`, поэтому `vehicle.Equipment` пустой и `Clear()` ничего не удаляет",
+      "why": "Названы оба последствия: падение на уникальном индексе (vehicle_id, code) и накопление старых позиций. Исправление через Include тоже предложено."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "PostgreSQL при `ALTER COLUMN ... TYPE varchar(40)` не обрезает значения, а падает с ошибкой `value too long for type character varying(40)`",
+      "why": "Отмечено падение миграции на prod из-за длинных названий. Предложено обрезать при печати или перенести данные до сужения."
+    },
+    "GR-last-inspection": {
+      "verdict": "PASS",
+      "quote": "у всех осмотров пачки одинаковый `created_at`. Порядок между ними не определён",
+      "why": "Найден неуникальный порядок по CreatedAt внутри пачки, ведущий к ошибочному выпуску на линию, и предложен ThenByDescending(Id). Механизм расхождения запросов при SplitQuery исполнитель не назвал, но дефект и исправление совпадают по существу."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "`p.ValidUntil > today` исключает дату `ValidUntil`. По требованию допуск действует по указанную дату включительно, поэтому нужно `>=`",
+      "why": "Дефект назван точно."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "`PUT /vehicles/{id}/equipment`: нет политики авторизации",
+      "why": "Указано, что эндпоинт доступен любому аутентифицированному пользователю, включая водителя."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "как это сделано в `DriverService.ReplacePermitsAsync`",
+      "why": "ReplacePermitsAsync исполнитель приводит как правильный образец, а не как дефект."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

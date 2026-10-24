@@ -1,0 +1,236 @@
+diff --git a/EventService.cs b/EventService.cs
+index e341c21..24da05d 100644
+--- a/EventService.cs
++++ b/EventService.cs
+@@ -4,14 +4,29 @@ namespace Forum.Events;
+ 
+ public record ProgramItemDto(TimeOnly StartsAt, string Title, string? Speaker, string? HallName);
+ 
++public record BadgeDto(int RegistrationId, string FullName, string? Company, string EventTitle, DateTime CheckedInAt, List<string> Workshops);
++
++public record HallRevenueDto(int HallId, string HallName, decimal Revenue, int SeatsSold);
++
++public record ProgramDto(int EventId, int VersionId, DateOnly PublishedOn, string PublishedBy, List<ProgramItemDto> Items);
++
++// e-mail зарегистрирован на несколько мероприятий, и выбрать одно однозначно нельзя.
++public class AmbiguousRegistrationException : Exception
++{
++    public List<(int EventId, string Title)> Candidates { get; }
++    public AmbiguousRegistrationException(List<(int EventId, string Title)> candidates) => Candidates = candidates;
++}
++
+ public class EventService
+ {
+     private readonly ForumDbContext _db;
+ 
+     public EventService(ForumDbContext db) => _db = db;
+ 
+-    public async Task<int> RegisterAsync(int eventId, string email, string fullName)
++    public async Task<int> RegisterAsync(int eventId, string email, string fullName, string? company = null)
+     {
++        company = string.IsNullOrWhiteSpace(company) ? null : company.Trim();
++
+         email = email.Trim().ToLowerInvariant();
+ 
+         var existing = await _db.Registrations
+@@ -24,6 +39,7 @@ public class EventService
+             EventId = eventId,
+             Email = email,
+             FullName = fullName,
++            Company = company,
+             RegisteredAt = DateTime.UtcNow,
+         };
+         _db.Registrations.Add(registration);
+@@ -31,6 +47,96 @@ public class EventService
+         return registration.Id;
+     }
+ 
++    // Стойка регистрации. E-mail уникален только в пределах мероприятия, поэтому
++    // без явного eventId ищем регистрацию среди мероприятий сегодняшнего дня.
++    public async Task<BadgeDto?> CheckInAsync(string email, int? eventId, DateOnly today)
++    {
++        email = email.Trim().ToLowerInvariant();
++
++        var query = _db.Registrations.Where(r => r.Email == email);
++        query = eventId is int id
++            ? query.Where(r => r.EventId == id)
++            : query.Where(r => r.Event.Date == today);
++
++        var candidates = await query
++            .Select(r => new { r.Id, r.EventId, r.Event.Title })
++            .ToListAsync();
++        if (candidates.Count == 0)
++            return null;
++        if (candidates.Count > 1)
++            throw new AmbiguousRegistrationException(candidates.Select(c => (c.EventId, c.Title)).ToList());
++
++        var registration = await _db.Registrations.SingleAsync(r => r.Id == candidates[0].Id);
++        // Повторный подход к стойке (перепечатка бейджа) не сдвигает время первого прихода.
++        registration.CheckedInAt ??= DateTime.UtcNow;
++        await _db.SaveChangesAsync();
++
++        // Проекция без навигации к Hall: фильтр выведенных залов не должен прятать оплаченные воркшопы.
++        var workshops = await _db.WorkshopTickets
++            .Where(t => t.RegistrationId == registration.Id)
++            .OrderBy(t => t.Workshop.StartsAt)
++            .Select(t => t.Workshop.Title)
++            .ToListAsync();
++
++        return new BadgeDto(registration.Id, registration.FullName, registration.Company,
++            candidates[0].Title, registration.CheckedInAt.Value, workshops);
++    }
++
++    // Выручка воркшопов за квартал по дате оплаты, в разрезе залов.
++    // Залы, выведенные из эксплуатации, в отчёт попадают: деньги по ним реально получены.
++    public async Task<List<HallRevenueDto>> GetWorkshopRevenueAsync(int year, int quarter)
++    {
++        var from = new DateOnly(year, (quarter - 1) * 3 + 1, 1);
++        var to = from.AddMonths(3);
++
++        var sold = await (
++                from t in _db.WorkshopTickets
++                join w in _db.Workshops on t.WorkshopId equals w.Id
++                where t.PaidOn >= from && t.PaidOn < to
++                group t by w.HallId into g
++                select new { HallId = g.Key, Revenue = g.Sum(t => t.PaidAmount), SeatsSold = g.Count() })
++            .ToListAsync();
++
++        var halls = await _db.Halls
++            .IgnoreQueryFilters()
++            .Select(h => new { h.Id, h.Name, h.IsDeleted })
++            .ToListAsync();
++
++        var soldByHall = sold.ToDictionary(s => s.HallId);
++        return halls
++            .Where(h => !h.IsDeleted || soldByHall.ContainsKey(h.Id))
++            .Select(h => soldByHall.TryGetValue(h.Id, out var s)
++                ? new HallRevenueDto(h.Id, h.Name, s.Revenue, s.SeatsSold)
++                : new HallRevenueDto(h.Id, h.Name, 0m, 0))
++            .OrderBy(r => r.HallName)
++            .ToList();
++    }
++
++    // Актуальная программа: последняя опубликованная версия. PublishedOn - только дата,
++    // за день может быть несколько публикаций, поэтому при равенстве берём более позднюю по Id.
++    public async Task<ProgramDto?> GetCurrentProgramAsync(int eventId)
++    {
++        var version = await _db.ProgramVersions
++            .AsNoTracking()
++            .Where(v => v.EventId == eventId)
++            .OrderByDescending(v => v.PublishedOn)
++            .ThenByDescending(v => v.Id)
++            .Select(v => new { v.Id, v.PublishedOn, v.PublishedBy })
++            .FirstOrDefaultAsync();
++        if (version is null)
++            return null;
++
++        var items = await _db.Set<ProgramItem>()
++            .AsNoTracking()
++            .Where(i => i.ProgramVersionId == version.Id)
++            .OrderBy(i => i.StartsAt)
++            .ThenBy(i => i.Id)
++            .Select(i => new ProgramItemDto(i.StartsAt, i.Title, i.Speaker, i.HallName))
++            .ToListAsync();
++
++        return new ProgramDto(eventId, version.Id, version.PublishedOn, version.PublishedBy, items);
++    }
++
+     public async Task<int> PublishProgramAsync(int eventId, string publishedBy, List<ProgramItemDto> items)
+     {
+         var version = new ProgramVersion
+diff --git a/ForumDbContext.cs b/ForumDbContext.cs
+index 52ed277..1f26005 100644
+--- a/ForumDbContext.cs
++++ b/ForumDbContext.cs
+@@ -27,6 +27,7 @@ public class ForumDbContext : DbContext
+         {
+             e.HasIndex(r => new { r.EventId, r.Email }).IsUnique();
+             e.Property(r => r.Email).HasMaxLength(254);
++            e.Property(r => r.Company).HasMaxLength(200);
+         });
+ 
+         b.Entity<WorkshopTicket>(e =>
+diff --git a/Models.cs b/Models.cs
+index 16ef805..f63bb53 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -37,6 +37,7 @@ public class Registration
+     public Event Event { get; set; } = null!;
+     public string Email { get; set; } = "";
+     public string FullName { get; set; } = "";
++    public string? Company { get; set; } // необязательное, печатается на бейдже
+     public DateTime RegisteredAt { get; set; }
+     public DateTime? CheckedInAt { get; set; }
+     public List<WorkshopTicket> Tickets { get; set; } = new();
+diff --git a/Program.cs b/Program.cs
+index 78965f1..c1451d5 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -12,8 +12,40 @@ builder.Services.AddScoped<EventService>();
+ 
+ var app = builder.Build();
+ 
++// "Сегодня" считаем по часовому поясу площадки, а не сервера.
++var venueTimeZone = TimeZoneInfo.FindSystemTimeZoneById(app.Configuration["Venue:TimeZone"] ?? "UTC");
++
+ app.MapPost("/events/{eventId:int}/registrations", async (int eventId, RegisterRequest req, EventService s) =>
+-    Results.Ok(await s.RegisterAsync(eventId, req.Email, req.FullName)));
++    Results.Ok(await s.RegisterAsync(eventId, req.Email, req.FullName, req.Company)));
++
++app.MapGet("/events/{eventId:int}/program", async (int eventId, EventService s) =>
++    await s.GetCurrentProgramAsync(eventId) is { } program ? Results.Ok(program) : Results.NotFound());
++
++app.MapPost("/checkin", async (CheckInRequest req, EventService s) =>
++{
++    if (string.IsNullOrWhiteSpace(req.Email))
++        return Results.BadRequest("email is required");
++
++    var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, venueTimeZone));
++    try
++    {
++        return await s.CheckInAsync(req.Email, req.EventId, today) is { } badge
++            ? Results.Ok(badge)
++            : Results.NotFound();
++    }
++    catch (AmbiguousRegistrationException e)
++    {
++        // Стойка повторяет запрос с выбранным eventId.
++        return Results.Conflict(e.Candidates.Select(c => new { c.EventId, c.Title }));
++    }
++});
++
++app.MapGet("/reports/workshops", async (int year, int quarter, EventService s) =>
++{
++    if (quarter is < 1 or > 4 || year is < 2000 or > 2100)
++        return Results.BadRequest("quarter must be 1..4, year 2000..2100");
++    return Results.Ok(await s.GetWorkshopRevenueAsync(year, quarter));
++});
+ 
+ app.MapPost("/events/{eventId:int}/program", async (int eventId, PublishProgramRequest req, EventService s) =>
+     Results.Ok(await s.PublishProgramAsync(eventId, req.PublishedBy, req.Items)));
+@@ -26,5 +58,6 @@ app.MapDelete("/halls/{id:int}", async (int id, EventService s) =>
+ 
+ app.Run();
+ 
+-public record RegisterRequest(string Email, string FullName);
++public record RegisterRequest(string Email, string FullName, string? Company = null);
++public record CheckInRequest(string Email, int? EventId = null);
+ public record PublishProgramRequest(string PublishedBy, List<ProgramItemDto> Items);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..a0d6f53
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++Изменённые файлы (новых нет):
++- `Models.cs`: в `Registration` добавлено поле `Company` (string?).
++- `ForumDbContext.cs`: для `Company` задана длина `HasMaxLength(200)`.
++- `EventService.cs`: добавлены DTO и методы `CheckInAsync`, `GetWorkshopRevenueAsync`, `GetCurrentProgramAsync`; `RegisterAsync` принимает `company`.
++- `Program.cs`: добавлены `POST /checkin`, `GET /reports/workshops`, `GET /events/{id}/program`; в `RegisterRequest` появилось поле `Company`; добавлена настройка `Venue:TimeZone`.
++
++Решения:
++- **Отметка прихода.** E-mail уникален только в пределах одного мероприятия. Поэтому `/checkin` ищет регистрацию среди мероприятий, которые идут сегодня (по часовому поясу площадки), или по `eventId`, если он передан. Если найдено несколько регистраций, возвращается 409 со списком мероприятий. При повторной отметке `CheckedInAt` не меняется.
++- **Удалённые залы.** На `Hall` действует фильтр `IsDeleted`. В бейдже воркшопы берутся без обращения к залу, а отчёт использует `IgnoreQueryFilters`. Так оплаченные воркшопы и выручка по выведенным из работы залам не пропадают. Отчёт строится по `PaidOn` в полуоткрытом интервале квартала и суммирует `PaidAmount`, а не `Price`.
++- **Последняя версия программы.** `PublishedOn` хранит только дату, а за один день может быть несколько публикаций. Поэтому при одинаковой дате берётся версия с большим `Id`, пункты сортируются по `StartsAt`.
++
++Сборка и тесты не запускались. Миграций в проекте нет: для колонки `Company` миграцию нужно добавить отдельно.

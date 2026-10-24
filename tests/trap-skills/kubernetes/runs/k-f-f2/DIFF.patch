@@ -1,0 +1,103 @@
+diff --git a/deploy/k8s/deployment.yaml b/deploy/k8s/deployment.yaml
+index 6250202..35dd367 100644
+--- a/deploy/k8s/deployment.yaml
++++ b/deploy/k8s/deployment.yaml
+@@ -5,6 +5,11 @@ metadata:
+   namespace: depot
+ spec:
+   replicas: 3
++  strategy:
++    type: RollingUpdate
++    rollingUpdate:
++      maxUnavailable: 0
++      maxSurge: 1
+   selector:
+     matchLabels:
+       app.kubernetes.io/name: depot-api
+@@ -15,6 +20,17 @@ spec:
+     spec:
+       imagePullSecrets:
+         - name: regcred
++      terminationGracePeriodSeconds: 30
++      securityContext:
++        runAsNonRoot: true
++        runAsUser: 1654
++      topologySpreadConstraints:
++        - maxSkew: 1
++          topologyKey: kubernetes.io/hostname
++          whenUnsatisfiable: ScheduleAnyway
++          labelSelector:
++            matchLabels:
++              app.kubernetes.io/name: depot-api
+       containers:
+         - name: api
+           image: registry.example.com/depot/api:1.4.0
+@@ -23,12 +39,49 @@ spec:
+           envFrom:
+             - secretRef:
+                 name: depot-secrets
+-          securityContext: {}
++          resources:
++            requests: { cpu: 100m, memory: 384Mi }
++            limits: { cpu: 500m, memory: 512Mi }
++          securityContext:
++            allowPrivilegeEscalation: false
++            readOnlyRootFilesystem: true
++            capabilities: { drop: ["ALL"] }
++          volumeMounts:
++            - name: tmp
++              mountPath: /tmp
++          # Холодный старт (миграции) до 35 с p95, порт открывается после миграций.
++          # Окно старта 5 * 30 = 150 с; пока startupProbe не прошла, liveness не работает.
++          startupProbe:
++            tcpSocket: { port: 8080 }
++            periodSeconds: 5
++            failureThreshold: 30
++          # Liveness не ходит в БД: единственный /health проверяет Postgres,
++          # и падение БД перезапускало бы все поды разом.
+           livenessProbe:
+-            httpGet: { path: /health, port: 8080 }
+-            initialDelaySeconds: 0
+-            periodSeconds: 1
+-            failureThreshold: 1
++            tcpSocket: { port: 8080 }
++            periodSeconds: 10
++            failureThreshold: 3
++          # Readiness - /health: под без БД выводится из Service, но не перезапускается.
+           readinessProbe:
+             httpGet: { path: /health, port: 8080 }
+             periodSeconds: 5
++            timeoutSeconds: 3
++            failureThreshold: 3
++          lifecycle:
++            preStop:
++              exec:
++                command: ["sleep", "5"]
++      volumes:
++        - name: tmp
++          emptyDir: {}
++---
++apiVersion: policy/v1
++kind: PodDisruptionBudget
++metadata:
++  name: depot-api
++  namespace: depot
++spec:
++  maxUnavailable: 1
++  selector:
++    matchLabels:
++      app.kubernetes.io/name: depot-api
+diff --git a/deploy/k8s/service.yaml b/deploy/k8s/service.yaml
+index 35b8637..8728727 100644
+--- a/deploy/k8s/service.yaml
++++ b/deploy/k8s/service.yaml
+@@ -5,7 +5,7 @@ metadata:
+   namespace: depot
+ spec:
+   selector:
+-    app: depot-api
++    app.kubernetes.io/name: depot-api
+   ports:
+     - port: 80
+-      targetPort: 80
++      targetPort: 8080

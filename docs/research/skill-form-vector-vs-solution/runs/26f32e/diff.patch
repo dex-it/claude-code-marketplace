@@ -1,0 +1,55 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..c528762
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,35 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const string Subject = "Shop";
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    // Список id приходит из маркетинговой системы: возможны дубли и несуществующие id.
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        // Один проход по входу и снятие дублей: один клиент - одно письмо.
++        var ids = customerIds.Distinct().ToArray();
++        if (ids.Length == 0) return;
++
++        // Один запрос: в Npgsql Contains -> "Id = ANY(@ids)" одним параметром-массивом.
++        var emails = await _db.Customers
++            .AsNoTracking()
++            .Where(c => ids.Contains(c.Id))
++            .Select(c => c.Email)
++            .ToListAsync(ct);
++
++        foreach (var email in emails)
++            await _emailSender.SendAsync(email, Subject, text, ct);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..346adaa
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Файлы:
++- `CustomerNotifier.cs` — создан.
++- `_answer.md` — создан (этот ответ).
++
++Решения:
++- Дубли id снимаю через `Distinct()` до обработки, чтобы на один id уходило одно письмо. Вход перечисляю один раз (`ToArray`). Если список пустой, метод выходит без запроса к БД.
++- Все email достаю одним запросом без отслеживания изменений: `ids.Contains(c.Id)` превращается в Npgsql в `Id = ANY(@p)` с одним параметром, поэтому список на пачки не режу. Запросов в цикле нет, полные сущности не загружаю — только `Email`. Несуществующие id просто пропускаются.
++- `IEmailSender` асинхронный, поэтому метод возвращает `Task` и принимает `CancellationToken`. Тема письма — константа `"Shop"`, потому что в задаче она не указана. Сборку и тесты не запускал.

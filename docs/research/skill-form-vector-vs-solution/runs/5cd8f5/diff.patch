@@ -1,0 +1,81 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..7bf46b4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,75 @@
++# Code Review: Notify.Worker (outbox-воркер рассылки)
++
++## Critical
++
++**1. `OutboxWorker.ExecuteAsync` — перепутаны единицы измерения `PollInterval`**
++`await Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct);` при значении `Outbox:PollInterval = 500` даёт задержку **500 секунд (~8.3 минуты)**, а не «раз в полсекунды», как явно требует описание MR. Либо `PollInterval` должен трактоваться как миллисекунды (`TimeSpan.FromMilliseconds`), либо конфиг должен содержать `0.5`. Сейчас воркер фактически не выполняет свою главную задачу — почти не опрашивает outbox.
++Severity: **critical**
++
++**2. `ThrottleService.WaitAsync` — несовпадение ключа конфигурации**
++Код читает `config.GetValue<int>("Throttle:MessagesPerMinute")`, а во всех appsettings секция называется `Throttle:PerMinute` (`appsettings.json`, `appsettings.Production.json`). `GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` кидает `DivideByZeroException` при каждой попытке отправки. Исключение перехватывается в `OutboxWorker.ProcessBatchAsync` (пишется warning, `Attempts++`), поэтому `sender.SendAsync` вообще никогда не вызывается — письма не отправляются никогда, при этом воркер выглядит «работающим».
++Severity: **critical**
++
++**3. `OutboxWorker.ProcessBatchAsync` — `SentAt` выставляется до фактической отправки и не откатывается при ошибке**
++```csharp
++foreach (var m in batch)
++{
++    m.LockedUntil = now + o.LockTimeout;
++    m.SentAt = now;          // <-- выставлено ДО отправки
++}
++await db.SaveChangesAsync(ct);
++...
++catch (Exception ex)
++{
++    m.Attempts++;            // SentAt не сбрасывается в null
++    log.LogWarning(...);
++}
++```
++Любое сообщение из выбранной пачки помечается как «отправлено» ещё до вызова `sender.SendAsync`. Если отправка падает (или процесс падает/перезапускается между первым `SaveChangesAsync` и реальной отправкой), сообщение навсегда остаётся с `SentAt != null` и больше никогда не попадёт в выборку (`m.SentAt == null` в фильтре) — то есть письмо фактически не доставлено, но в БД помечено как отправленное, а поле `Attempts`/`MaxRetries` для повторных попыток по факту мертво. Это и потеря писем, и ложные данные о доставке.
++Severity: **critical**
++
++**4. `Program.cs` / `OutboxWorker` — используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`**
++MR явно требует: «Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта». `IOptions<T>.Value` вычисляется и кэшируется один раз при первом обращении и не обновляется при изменении файла конфигурации (в отличие от `IOptionsMonitor<T>.CurrentValue` или `IOptionsSnapshot<T>`). `OutboxWorker` — синглтон-`BackgroundService`, читающий `options.Value` в цикле, поэтому изменение `MaxInFlight`/`MaxBatchSize` в appsettings без рестарта процесса эффекта не даст. Основное требование MR не выполнено.
++Severity: **critical**
++
++**5. `appsettings.Production.json` — секреты в открытом виде в репозитории**
++Пароль от БД (`Password=Kx7!pQ2vR9wz`) и API-ключ SMTP-релея (`"Password": "rl_live_9f3a1c77e2b04d6d"`) закоммичены как есть. `appsettings.Staging.json` для сравнения корректно использует плейсхолдер `${NOTIFY_DB_PASSWORD}` — в Production такого паттерна нет. Утечка реальных боевых секретов в git-историю.
++Severity: **critical**
++
++## High
++
++**6. `OutboxWorker.ProcessBatchAsync` — гонка между выборкой и захватом блокировки сообщений**
++Пачка выбирается через `SELECT ... WHERE SentAt IS NULL AND (LockedUntil IS NULL OR LockedUntil < now)`, а блокировка (`LockedUntil`) выставляется отдельным `SaveChangesAsync` уже после чтения в память — это не атомарная операция (нет `FOR UPDATE SKIP LOCKED`, нет одного атомарного `UPDATE ... RETURNING`, нет транзакции с сериализуемой изоляцией). При двух и более одновременно работающих инстансах воркера (обычная практика для отказоустойчивости/масштабирования) оба могут выбрать одни и те же строки и отправить письмо дважды.
++Severity: **high**
++
++**7. `Options/OutboxOptionsValidator.cs` не подключён в DI**
++Класс написан и покрыт тестами, но в `Program.cs` нигде не зарегистрирован (`AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` / `ValidateOnStart()` отсутствуют). В рантайме валидация опций не выполняется вообще, и некорректная конфигурация проходит незамеченной — см. следующий пункт.
++Severity: **high**
++
++## Medium
++
++**8. `appsettings.Production.json` — `MinBatchSize: 200 > MaxBatchSize: 100`**
++Такая конфигурация уже находится в репозитории. Из-за проверки `if (o.MinBatchSize < o.MaxBatchSize)` в `OutboxWorker.ExecuteAsync` адаптивное изменение размера пачки в проде тихо отключается — вероятно, это не то, что задумывалось, и валидатор (см. п.9) это не отловил бы даже при подключении.
++Severity: **medium**
++
++**9. `OutboxOptionsValidator.Validate` — неполный набор правил**
++Не проверяются: `MinBatchSize <= MaxBatchSize`, `MinBatchSize > 0`, `PollInterval > 0`. Даже если подключить валидатор к DI (п.7), баг из п.8 он не поймает.
++Severity: **medium**
++
++**10. `OutboxWorker.ProcessBatchAsync` — catch перехватывает и `OperationCanceledException`**
++Общий `catch (Exception ex)` внутри задач отправки ловит в том числе отмену по `ct` при штатном остановке хоста. В результате при обычном graceful shutdown сообщения, которые не были реально отправлены, получают `Attempts++` и warning-лог «Send failed», расходуя попытки повторной отправки на пустом месте.
++Severity: **medium**
++
++**11. `ThrottleService` не является настоящим общим ограничителем скорости**
++`WaitAsync` вычисляет фиксированную задержку `60_000 / perMinute` и вызывается независимо в каждой из до `MaxInFlight` параллельных задач без общего состояния (токен-бакет, общий таймер и т.п.). При параллельных отправках (`MaxInFlight > 1`) суммарный темп может превышать заданный `PerMinute` кратно `MaxInFlight`, то есть троттлинг не гарантирует заявленный лимит под нагрузкой (независимо от бага с ключом конфигурации, см. п.2).
++Severity: **medium**
++
++## Low
++
++**12. `Options/SmtpOptions.cs` — non-nullable свойства без значений по умолчанию**
++`Host`, `FromAddress` объявлены как `string` (не `string?`) без инициализатора, при этом в `.csproj` включён `<Nullable>enable</Nullable>`. Это даёт предупреждение компилятора CS8618 и не защищает от отсутствия секции `Smtp` в конфиге — свойства останутся `null` в рантайме без явной ошибки при старте.
++Severity: **low**
++
++**13. Тестовое покрытие ограничено валидатором, который к тому же не подключён**
++`tests/OutboxOptionsValidatorTests.cs` проверяет только `OutboxOptionsValidator` (см. п.7 — не используется в проде). Ключевая новая логика — `OutboxWorker` (батчинг, блокировки, ретраи) и `ThrottleService` — вообще не покрыта тестами; именно там находятся самые серьёзные баги (п.1–3).
++Severity: **low**

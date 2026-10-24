@@ -1,0 +1,69 @@
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..08e2d61
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,63 @@
++import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
++
++const alice = { email: 'alice@shopdesk.example', password: 'alice-demo' };
++
++async function loginViaUi(page: Page): Promise<void> {
++  await page.goto('/');
++  await page.getByLabel('Email').fill(alice.email);
++  await page.getByLabel('Пароль').fill(alice.password);
++  await page.getByRole('button', { name: 'Войти' }).click();
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++}
++
++// Отмена меняет данные на сервере, а сервер может переиспользоваться между запусками,
++// поэтому для неё создаём свежий заказ, а не трогаем демо-заказы.
++async function createOrderViaApi(request: APIRequestContext): Promise<number> {
++  const loginRes = await request.post('/api/login', { data: alice });
++  expect(loginRes.ok()).toBeTruthy();
++  const { token } = await loginRes.json();
++  const orderRes = await request.post('/api/orders', {
++    headers: { Authorization: `Bearer ${token}` },
++    data: { items: [{ productId: 'p-spoon', quantity: 1 }] },
++  });
++  expect(orderRes.status()).toBe(201);
++  return (await orderRes.json()).number;
++}
++
++function orderRow(page: Page, number: number) {
++  return page.getByRole('listitem').filter({ hasText: new RegExp(`Заказ #${number}(?!\\d)`) });
++}
++
++test('alice входит и видит свои заказы', async ({ page }) => {
++  await loginViaUi(page);
++
++  await expect(orderRow(page, 1001)).toBeVisible();
++  await expect(orderRow(page, 1002)).toBeVisible();
++  await expect(orderRow(page, 1003)).toContainText('Оплачен');
++  await expect(orderRow(page, 1004)).toHaveCount(0); // заказ bob
++});
++
++test('отмена нового заказа', async ({ page, request }) => {
++  const number = await createOrderViaApi(request);
++  await loginViaUi(page);
++
++  const row = orderRow(page, number);
++  await expect(row).toContainText('Новый');
++  await row.getByRole('button', { name: 'Отменить' }).click();
++
++  await expect(row).toContainText('Отменён');
++  await expect(row.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++});
++
++test('ошибка сервера при загрузке заказов', async ({ page }) => {
++  await page.route('**/api/orders', (route) =>
++    route.fulfill({
++      status: 500,
++      contentType: 'application/json',
++      body: JSON.stringify({ error: { code: 'internal', message: 'boom' } }),
++    }),
++  );
++  await loginViaUi(page);
++
++  await expect(page.getByRole('alert')).toHaveText('Не удалось загрузить заказы');
++});

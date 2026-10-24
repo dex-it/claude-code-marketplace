@@ -1,0 +1,11 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'cd /work/vendor && ls -la && file * ; echo ---; readelf -h libcalc.so | grep -E "Machine|Class"; echo ---NEEDED; readelf -d libcalc.so | grep -E "NEEDED|SONAME|RPATH|RUNPATH"; echo ---SYMS; nm -D --defined-only libcalc.so; echo ---DEMANGLED; nm -D -C --defined-only libcalc.so; echo ---UNDEF; nm -D -C --undefined-only libcalc.so'
+docker exec <ctr> sh -c 'cd /work/vendor && readelf -h vendor-tool | grep -E "Class|Machine|Type"; readelf -d vendor-tool | grep -E "NEEDED|RPATH|RUNPATH"; readelf -l vendor-tool | grep -i interp; echo ---STRINGS; strings -a -n 4 vendor-tool | head -150'
+docker exec <ctr> sh -c 'cd /work/vendor && objdump -d --no-show-raw-insn vendor-tool | head -60; echo ---RODATA; objdump -s -j .rodata vendor-tool; echo ---TOOLS; which ilspycmd monodis ikdasm rizin r2 2>&1; ls ~/.dotnet/tools 2>/dev/null'
+docker exec <ctr> sh -c 'mkdir -p /tmp/dec && ilspycmd /work/vendor/Legacy.Pricing.dll 2>&1 | head -80'
+[Write] <lab>/REPORT.md

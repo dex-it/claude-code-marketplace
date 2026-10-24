@@ -1,0 +1,466 @@
+diff --git a/HousingDbContext.cs b/HousingDbContext.cs
+index 936c944..90861fb 100644
+--- a/HousingDbContext.cs
++++ b/HousingDbContext.cs
+@@ -4,6 +4,8 @@ namespace Domovoy.Housing;
+ 
+ public class HousingDbContext : DbContext
+ {
++    public const string ApartmentAccountUniqueIndex = "ux_apartments_account_number";
++
+     public HousingDbContext(DbContextOptions<HousingDbContext> options) : base(options) { }
+ 
+     public DbSet<House> Houses => Set<House>();
+@@ -21,7 +23,11 @@ public class HousingDbContext : DbContext
+         b.Entity<Apartment>(e =>
+         {
+             e.Property(a => a.AccountNumber).HasMaxLength(10);
+-            e.HasIndex(a => a.AccountNumber);
++            // Миграция UniqueAccountNumber: старые дубли помечены is_superseded и в уникальность не входят.
++            e.HasIndex(a => a.AccountNumber)
++                .IsUnique()
++                .HasFilter("NOT is_superseded AND account_number <> ''")
++                .HasDatabaseName(ApartmentAccountUniqueIndex);
+             e.HasIndex(a => new { a.HouseId, a.Number });
+         });
+ 
+diff --git a/HousingEndpoints.cs b/HousingEndpoints.cs
+new file mode 100644
+index 0000000..59967c2
+--- /dev/null
++++ b/HousingEndpoints.cs
+@@ -0,0 +1,42 @@
++namespace Domovoy.Housing;
++
++// Подключение: app.MapHousingEndpoints() в Program.cs.
++public static class HousingEndpoints
++{
++    public static IEndpointRouteBuilder MapHousingEndpoints(this IEndpointRouteBuilder app)
++    {
++        // GET /requests?text=&status=&sort=id|created_at|address|status|category&dir=asc|desc&page=&pageSize=
++        app.MapGet("/requests", async (HousingService svc, string? text, RequestStatus? status,
++            string? sort, string? dir, int? page, int? pageSize) =>
++        {
++            try
++            {
++                return Results.Ok(await svc.SearchAsync(
++                    new RequestSearch(text, status, page ?? 1, pageSize ?? 50, sort, dir)));
++            }
++            catch (ArgumentException ex)
++            {
++                return Results.BadRequest(new { error = ex.Message });
++            }
++        });
++
++        app.MapPut("/houses/{id:int}/plan", async (int id, List<PlanItemInput> items, PlanService svc) =>
++        {
++            try
++            {
++                await svc.ReplacePlanAsync(id, items);
++                return Results.Ok(await svc.GetPlanAsync(id));
++            }
++            catch (ArgumentException ex)
++            {
++                return Results.BadRequest(new { error = ex.Message });
++            }
++            catch (KeyNotFoundException ex)
++            {
++                return Results.NotFound(new { error = ex.Message });
++            }
++        });
++
++        return app;
++    }
++}
+diff --git a/HousingService.cs b/HousingService.cs
+index cac54c6..2405aa9 100644
+--- a/HousingService.cs
++++ b/HousingService.cs
+@@ -3,22 +3,61 @@ using Npgsql;
+ 
+ namespace Domovoy.Housing;
+ 
+-public record RequestSearch(string? Text, RequestStatus? Status, int Page = 1, int PageSize = 50);
++// Sort: id | created_at | address | status | category; Dir: asc | desc.
++public record RequestSearch(string? Text, RequestStatus? Status, int Page = 1, int PageSize = 50,
++    string? Sort = null, string? Dir = null);
+ 
+ public record RequestRow(int Id, DateTime CreatedAt, string Address, string Apartment,
+     RequestStatus Status, string Category, string Text);
+ 
++public record RequestPage(List<RequestRow> Items, long Total);
++
++public class DuplicateAccountException : Exception
++{
++    public DuplicateAccountException(string accountNumber)
++        : base($"Лицевой счёт {accountNumber} уже заведён") { }
++}
++
+ public class HousingService
+ {
++    // Столбцы, по которым разрешена сортировка реестра. В SQL попадают только значения из этой таблицы,
++    // пользовательская строка в запрос не подставляется.
++    private static readonly Dictionary<string, string> SortColumns = new()
++    {
++        ["id"] = "r.id",
++        ["created_at"] = "r.created_at",
++        ["address"] = "h.address",
++        ["status"] = "CASE r.status " + string.Join(" ",
++            Enum.GetValues<RequestStatus>().Select(v => $"WHEN '{v}' THEN {(int)v}")) + " END",
++        ["category"] = "r.category",
++    };
++
+     private readonly HousingDbContext _db;
+ 
+     public HousingService(HousingDbContext db) => _db = db;
+ 
+     public async Task<int> AddApartmentAsync(int houseId, string number, string accountNumber)
+     {
++        accountNumber = accountNumber.Trim();
++        if (accountNumber != "" && await _db.Apartments.AnyAsync(a => a.AccountNumber == accountNumber))
++            throw new DuplicateAccountException(accountNumber);
++
+         var apartment = new Apartment { HouseId = houseId, Number = number, AccountNumber = accountNumber };
+         _db.Apartments.Add(apartment);
+-        await _db.SaveChangesAsync();
++        try
++        {
++            await _db.SaveChangesAsync();
++        }
++        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
++        {
++            SqlState: PostgresErrorCodes.UniqueViolation,
++            ConstraintName: HousingDbContext.ApartmentAccountUniqueIndex,
++        })
++        {
++            // Параллельное заведение того же счёта: проверку выше прошли оба, отсёк уникальный индекс.
++            _db.Entry(apartment).State = EntityState.Detached;
++            throw new DuplicateAccountException(accountNumber);
++        }
+         return apartment.Id;
+     }
+ 
+@@ -34,35 +73,59 @@ public class HousingService
+     }
+ 
+     // Реестр заявок для диспетчерской.
+-    public async Task<List<RequestRow>> SearchAsync(RequestSearch s)
++    public async Task<RequestPage> SearchAsync(RequestSearch s)
+     {
+-        var sql = """
+-            SELECT r.* FROM service_requests r
++        var sortKey = (s.Sort ?? "created_at").Trim().ToLowerInvariant();
++        if (!SortColumns.TryGetValue(sortKey, out var sortExpr))
++            throw new ArgumentException($"Недопустимый столбец сортировки: {s.Sort}", nameof(s.Sort));
++
++        var dir = (s.Dir ?? (sortKey == "created_at" ? "desc" : "asc")).Trim().ToLowerInvariant() switch
++        {
++            "asc" => "ASC",
++            "desc" => "DESC",
++            _ => throw new ArgumentException($"Недопустимое направление сортировки: {s.Dir}", nameof(s.Dir)),
++        };
++
++        var from = """
++            FROM service_requests r
+             JOIN apartments a ON a.id = r.apartment_id
+             JOIN houses h ON h.id = a.house_id
+             WHERE TRUE
+             """;
+-        var parameters = new List<NpgsqlParameter>();
++        // Параметры храним значениями: NpgsqlParameter нельзя переиспользовать в двух командах.
++        var parameters = new List<(string Name, object Value)>();
+ 
+         if (!string.IsNullOrWhiteSpace(s.Text))
+         {
+-            sql += " AND r.search_vector @@ plainto_tsquery('russian', @text)";
+-            parameters.Add(new NpgsqlParameter("text", s.Text));
++            from += " AND r.search_vector @@ plainto_tsquery('russian', @text)";
++            parameters.Add(("text", s.Text));
+         }
+ 
+         if (s.Status is { } status)
+         {
+-            sql += " AND r.status = @status";
+-            parameters.Add(new NpgsqlParameter("status", status.ToString()));
++            from += " AND r.status = @status";
++            parameters.Add(("status", status.ToString()));
+         }
+ 
++        NpgsqlParameter[] Params() => parameters.Select(p => new NpgsqlParameter(p.Name, p.Value)).ToArray();
++
++        var total = await _db.Database
++            .SqlQueryRaw<long>($"SELECT COUNT(*) AS \"Value\" {from}", Params())
++            .SingleAsync();
++
+         var pageSize = Math.Clamp(s.PageSize, 1, 200);
+         var offset = (Math.Max(s.Page, 1) - 1) * pageSize;
+-        sql += " ORDER BY r.created_at DESC";
+-        sql += $" LIMIT {pageSize} OFFSET {offset}";
++        // r.id - добивка для устойчивого порядка при равных значениях, иначе строки скачут между страницами.
++        var orderBy = sortKey switch
++        {
++            "id" => $"r.id {dir}",
++            "address" => $"h.address {dir}, a.number {dir}, r.id {dir}",
++            _ => $"{sortExpr} {dir}, r.id {dir}",
++        };
++        var sql = $"SELECT r.* {from} ORDER BY {orderBy} LIMIT {pageSize} OFFSET {offset}";
+ 
+         var requests = await _db.ServiceRequests
+-            .FromSqlRaw(sql, parameters.ToArray())
++            .FromSqlRaw(sql, Params())
+             .AsNoTracking()
+             .ToListAsync();
+ 
+@@ -73,9 +136,11 @@ public class HousingService
+             .Select(a => new { a.Id, a.Number, a.House.Address })
+             .ToDictionaryAsync(a => a.Id);
+ 
+-        return requests
++        var items = requests
+             .Select(r => new RequestRow(r.Id, r.CreatedAt, apartments[r.ApartmentId].Address,
+                 apartments[r.ApartmentId].Number, r.Status, r.Category, r.Text))
+             .ToList();
++
++        return new RequestPage(items, total);
+     }
+ }
+diff --git a/Migrations/20261002120000_UniqueAccountNumber.cs b/Migrations/20261002120000_UniqueAccountNumber.cs
+new file mode 100644
+index 0000000..9145f13
+--- /dev/null
++++ b/Migrations/20261002120000_UniqueAccountNumber.cs
+@@ -0,0 +1,61 @@
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Domovoy.Housing.Migrations;
++
++// Уникальность лицевого счёта.
++// В проде есть дубли лицевых счетов после переноса из старого биллинга (2023), на них ссылаются заявки,
++// поэтому просто создать уникальный индекс нельзя (миграция упадёт), а удалять строки - нельзя тем более.
++// Все записи по счёту, кроме последней (она актуальна - см. FindByAccountAsync), помечаются is_superseded
++// и в уникальный индекс не входят. Пустые лицевые счета тоже не проверяются.
++[DbContext(typeof(HousingDbContext))]
++[Migration("20261002120000_UniqueAccountNumber")]
++public partial class UniqueAccountNumber : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.AddColumn<bool>(
++            name: "is_superseded",
++            table: "apartments",
++            type: "boolean",
++            nullable: false,
++            defaultValue: false);
++
++        migrationBuilder.Sql("""
++            UPDATE apartments a
++            SET is_superseded = TRUE
++            WHERE a.account_number <> ''
++              AND EXISTS (SELECT 1 FROM apartments b
++                          WHERE b.account_number = a.account_number AND b.id > a.id);
++            """);
++
++        migrationBuilder.DropIndex(
++            name: "ix_apartments_account_number",
++            table: "apartments");
++
++        migrationBuilder.CreateIndex(
++            name: "ux_apartments_account_number",
++            table: "apartments",
++            column: "account_number",
++            unique: true,
++            filter: "NOT is_superseded AND account_number <> ''");
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropIndex(
++            name: "ux_apartments_account_number",
++            table: "apartments");
++
++        migrationBuilder.CreateIndex(
++            name: "ix_apartments_account_number",
++            table: "apartments",
++            column: "account_number");
++
++        migrationBuilder.DropColumn(
++            name: "is_superseded",
++            table: "apartments");
++    }
++}
+diff --git a/Migrations/20261002120100_PlanItemRemovedAt.cs b/Migrations/20261002120100_PlanItemRemovedAt.cs
+new file mode 100644
+index 0000000..92d310e
+--- /dev/null
++++ b/Migrations/20261002120100_PlanItemRemovedAt.cs
+@@ -0,0 +1,30 @@
++using System;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Domovoy.Housing.Migrations;
++
++// Мягкое исключение работы из плана: при замене плана (PUT /houses/{id}/plan) строка plan_items
++// не удаляется, чтобы не потерять акты выполнения (plan_item_completions, каскад по FK).
++[DbContext(typeof(HousingDbContext))]
++[Migration("20261002120100_PlanItemRemovedAt")]
++public partial class PlanItemRemovedAt : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.AddColumn<DateTime>(
++            name: "removed_at",
++            table: "plan_items",
++            type: "timestamp with time zone",
++            nullable: true);
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropColumn(
++            name: "removed_at",
++            table: "plan_items");
++    }
++}
+diff --git a/Models.cs b/Models.cs
+index 798e9d1..dfb95ea 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -17,6 +17,9 @@ public class Apartment
+     public string Number { get; set; } = "";
+     // Лицевой счёт в биллинге (10 цифр).
+     public string AccountNumber { get; set; } = "";
++    // Дубль лицевого счёта, оставшийся после переноса из старого биллинга (не последняя запись по счёту).
++    // Уникальность лицевого счёта в БД проверяется только среди записей с IsSuperseded = false.
++    public bool IsSuperseded { get; set; }
+ }
+ 
+ public class ServiceRequest
+@@ -47,6 +50,8 @@ public class PlanItem
+     public string WorkCode { get; set; } = "";      // код работы по классификатору: "ROOF-INSP", "VENT-CLEAN"...
+     public string Title { get; set; } = "";
+     public int PeriodDays { get; set; }
++    // Работа исключена из плана; строка остаётся, чтобы не терять историю выполнения (акты).
++    public DateTime? RemovedAt { get; set; }
+     public List<PlanItemCompletion> Completions { get; set; } = new();
+ }
+ 
+diff --git a/PlanService.cs b/PlanService.cs
+index 275ddc6..8579970 100644
+--- a/PlanService.cs
++++ b/PlanService.cs
+@@ -4,6 +4,8 @@ namespace Domovoy.Housing;
+ 
+ public record PlanItemDto(string WorkCode, string Title, int PeriodDays, DateOnly? LastDoneOn, DateOnly? NextDueOn);
+ 
++public record PlanItemInput(string WorkCode, string Title, int PeriodDays);
++
+ public class PlanService
+ {
+     private readonly HousingDbContext _db;
+@@ -14,7 +16,7 @@ public class PlanService
+     {
+         var items = await _db.PlanItems
+             .AsNoTracking()
+-            .Where(i => i.Plan.HouseId == houseId)
++            .Where(i => i.Plan.HouseId == houseId && i.RemovedAt == null)
+             .Select(i => new
+             {
+                 i.WorkCode,
+@@ -34,7 +36,7 @@ public class PlanService
+     public async Task MarkDoneAsync(int houseId, string workCode, DateOnly doneOn, string contractor, string actNumber)
+     {
+         var item = await _db.PlanItems
+-            .FirstOrDefaultAsync(i => i.Plan.HouseId == houseId && i.WorkCode == workCode)
++            .FirstOrDefaultAsync(i => i.Plan.HouseId == houseId && i.WorkCode == workCode && i.RemovedAt == null)
+             ?? throw new KeyNotFoundException($"Работа {workCode} не входит в план дома");
+ 
+         item.Completions.Add(new PlanItemCompletion
+@@ -45,4 +47,66 @@ public class PlanService
+         });
+         await _db.SaveChangesAsync();
+     }
++
++    // Полная замена плана дома присланным списком работ. Работы сопоставляются по коду:
++    // существующие обновляются (история выполнения сохраняется), новые добавляются,
++    // отсутствующие в списке помечаются RemovedAt - акты по ним не удаляются.
++    public async Task ReplacePlanAsync(int houseId, IReadOnlyList<PlanItemInput> items)
++    {
++        var input = items
++            .Select(i => new PlanItemInput(i.WorkCode?.Trim() ?? "", i.Title?.Trim() ?? "", i.PeriodDays))
++            .ToList();
++
++        if (input.FirstOrDefault(i => i.WorkCode == "") is not null)
++            throw new ArgumentException("Не указан код работы");
++        if (input.FirstOrDefault(i => i.Title == "") is { } noTitle)
++            throw new ArgumentException($"Не указано название работы {noTitle.WorkCode}");
++        if (input.FirstOrDefault(i => i.PeriodDays <= 0) is { } badPeriod)
++            throw new ArgumentException($"Периодичность работы {badPeriod.WorkCode} должна быть больше нуля");
++        var duplicate = input.GroupBy(i => i.WorkCode).FirstOrDefault(g => g.Count() > 1);
++        if (duplicate is not null)
++            throw new ArgumentException($"Работа {duplicate.Key} указана в плане несколько раз");
++
++        await using var tx = await _db.Database.BeginTransactionAsync();
++
++        // Блокируем дом: параллельные замены плана одного дома выполняются по очереди
++        // (иначе возможны два плана на дом или потерянные изменения).
++        var house = await _db.Houses
++            .FromSql($"SELECT * FROM houses WHERE id = {houseId} FOR UPDATE")
++            .ToListAsync();
++        if (house.Count == 0)
++            throw new KeyNotFoundException($"Дом {houseId} не найден");
++
++        var plan = await _db.MaintenancePlans
++            .Include(p => p.Items)
++            .FirstOrDefaultAsync(p => p.HouseId == houseId);
++        if (plan is null)
++        {
++            plan = new MaintenancePlan { HouseId = houseId };
++            _db.MaintenancePlans.Add(plan);
++        }
++
++        var existing = plan.Items.ToDictionary(i => i.WorkCode);
++        foreach (var i in input)
++        {
++            if (existing.TryGetValue(i.WorkCode, out var item))
++            {
++                item.Title = i.Title;
++                item.PeriodDays = i.PeriodDays;
++                item.RemovedAt = null;
++            }
++            else
++            {
++                plan.Items.Add(new PlanItem { WorkCode = i.WorkCode, Title = i.Title, PeriodDays = i.PeriodDays });
++            }
++        }
++
++        var keep = input.Select(i => i.WorkCode).ToHashSet();
++        var now = DateTime.UtcNow;
++        foreach (var item in existing.Values.Where(i => i.RemovedAt == null && !keep.Contains(i.WorkCode)))
++            item.RemovedAt = now;
++
++        await _db.SaveChangesAsync();
++        await tx.CommitAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..90d7ff5
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++**Файлы**
++- изменены: `Models.cs`, `HousingDbContext.cs`, `HousingService.cs`, `PlanService.cs`
++- созданы: `HousingEndpoints.cs`, `Migrations/20261002120000_UniqueAccountNumber.cs`, `Migrations/20261002120100_PlanItemRemovedAt.cs`, `_answer.md`
++
++**Решения**
++- (а, б) Значения `sort` и `dir` из query string не попадают в SQL: имя столбца берётся из белого списка, на неизвестное значение отвечаем 400. Статус сортируется по порядку этапов, а не по алфавиту. При равных значениях добавляется сортировка по `r.id`, чтобы порядок строк между страницами был стабильным. Ответ: `RequestPage(Items, Total)`, где `Total` считается отдельным `COUNT(*)` с теми же фильтрами.
++- (в) В проде уже есть дубли лицевых счетов после переноса из старого биллинга (2023), и на них ссылаются заявки. Поэтому обычный уникальный индекс уронил бы миграцию при релизе. Миграция помечает все записи по счёту, кроме последней, флагом `is_superseded` и создаёт частичный уникальный индекс `WHERE NOT is_superseded AND account_number <> ''`. Сервис сначала проверяет счёт сам, а если две квартиры с одним счётом заводят одновременно, ошибку уникальности (23505) превращает в `DuplicateAccountException`.
++- (г) `PUT /houses/{id}/plan` сопоставляет работы по коду: существующие обновляет, новые добавляет, а отсутствующие в присланном списке помечает `removed_at`. Удалять и вставлять заново нельзя: каскадом пропали бы акты выполнения. Проверяем входные данные (дубли кодов, периодичность > 0). Строка дома блокируется `FOR UPDATE`, чтобы параллельные замены плана шли по очереди.
++
++Не проверено, сборка и тесты не запускались. В каталоге нет `ModelSnapshot` и `Program.cs`: снапшот нужно обновить, а в `Program.cs` добавить `app.MapHousingEndpoints()`. Также `SearchAsync` теперь возвращает `RequestPage` вместо списка, и вызывающий код нужно поправить.

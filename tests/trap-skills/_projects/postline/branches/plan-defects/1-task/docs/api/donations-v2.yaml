@@ -1,0 +1,28 @@
+openapi: 3.1.0
+info: { title: Postline Donations API, version: 2.0.0 }
+paths:
+  /v2/donations:
+    get:
+      parameters:
+        - { name: author_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Страница донатов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, amount_minor, commission_minor, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        amount_minor: { type: integer, format: int64 }
+                        commission_minor: { type: integer, format: int64 }
+                        created_at: { type: string, format: date-time }
+                  next_cursor: { type: string }
+        "400": { description: Ошибка запроса, content: { application/problem+json: {} } }

@@ -1,0 +1,79 @@
+diff --git a/src/parcel.js b/src/parcel.js
+index 7791970..836dee9 100644
+--- a/src/parcel.js
++++ b/src/parcel.js
+@@ -6,7 +6,12 @@ const WITH_UNIT = /^(\d+(?:[.,]\d+)?)\s*(kg|g)$/i;
+ export function parseWeight(input) {
+   if (typeof input === 'number') return Math.round(input * 1000);
+   const s = String(input ?? '').trim();
+-  if (!/[a-z]/i.test(s)) return Math.round(Number(s) * 1000); // виджет партнёра: килограммы строкой
++  if (!/[a-z]/i.test(s)) {
++    // виджет партнёра: килограммы строкой, разделитель - точка или запятая (docs/api.md)
++    const kg = Number(s.replace(',', '.'));
++    if (Number.isNaN(kg)) throw new HttpError(400, `вес: неизвестный формат "${input}"`);
++    return Math.round(kg * 1000);
++  }
+   const m = WITH_UNIT.exec(s);
+   if (!m) throw new HttpError(400, `вес: неизвестный формат "${input}"`);
+   const value = Number(m[1].replace(',', '.'));
+diff --git a/src/zones.js b/src/zones.js
+index deb4ac0..ac705f7 100644
+--- a/src/zones.js
++++ b/src/zones.js
+@@ -5,6 +5,6 @@ import { readConfig } from './config.js';
+ const ZONES = readConfig('zones.json');
+ 
+ export function zoneFor(postcode, zones = ZONES) {
+-  const code = Number(postcode); // числом - как в логах и метриках по регионам
+-  return zones.exact[code] ?? zones.regions[Math.floor(code / 1000)];
++  const pc = String(postcode); // строкой: ведущий ноль значим (01067 - Дрезден)
++  return zones.exact[pc] ?? zones.regions[pc.slice(0, 2)];
+ }
+diff --git a/test/app.test.js b/test/app.test.js
+index fa9e8e0..b03e746 100644
+--- a/test/app.test.js
++++ b/test/app.test.js
+@@ -32,6 +32,13 @@ test('виджет партнёра: вес строкой - 201', async () => {
+   assert.equal(r.body.weightGrams, 800);
+ });
+ 
++test('виджет партнёра: вес через запятую, индекс с ведущим нулём - 201', async () => {
++  const r = await post('/shipments', { weight: '1,5', postcode: '01067' });
++  assert.equal(r.status, 201);
++  assert.equal(r.body.weightGrams, 1500);
++  assert.equal(r.body.zone, 'B');
++});
++
+ test('вес неизвестного формата - 400', async () => {
+   const r = await post('/quote', { weight: '1.5lb', postcode: '10115' });
+   assert.equal(r.status, 400);
+diff --git a/test/parcel.test.js b/test/parcel.test.js
+index 554fcdf..c1a149d 100644
+--- a/test/parcel.test.js
++++ b/test/parcel.test.js
+@@ -16,6 +16,7 @@ test('вес строкой с единицей', () => {
+ test('вес строкой без единицы - килограммы (виджет партнёра)', () => {
+   assert.equal(parseWeight('1.5'), 1500);
+   assert.equal(parseWeight('2'), 2000);
++  assert.equal(parseWeight('1,5'), 1500);
+ });
+ 
+ test('расчётный вес - вверх до 0,5 кг', () => {
+@@ -26,4 +27,5 @@ test('расчётный вес - вверх до 0,5 кг', () => {
+ 
+ test('неизвестный формат - 400', () => {
+   assert.throws(() => parseWeight('1.5lb'), { status: 400 });
++  assert.throws(() => parseWeight('1;5'), { status: 400 });
+ });
+diff --git a/test/zones.test.js b/test/zones.test.js
+index 125192f..5aff07f 100644
+--- a/test/zones.test.js
++++ b/test/zones.test.js
+@@ -4,6 +4,7 @@ import { zoneFor } from '../src/zones.js';
+ 
+ const cases = [
+   ['10115', 'A'],
++  ['01067', 'B'],
+   ['17033', 'B'],
+   ['20095', 'B'],
+   ['80331', 'C'],

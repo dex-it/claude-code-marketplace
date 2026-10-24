@@ -1,0 +1,40 @@
+{
+  "id": "r1-c4",
+  "case": "R1",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 9,
+  "cost": 0.1621522,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Bash": 8
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-16-admin-refunds.md",
+    "git diff main...HEAD -- api deploy | grep -v '^index' ",
+    "cd <run>/api && cat src/auth.ts src/config.ts; grep -n \"healthz\" -r src; grep -n \"express.json\\|errorHandler\" src/app.ts; (npm run typec",
+    "cd <run>/api && grep -n \"\" src/routes/admin-refunds.ts | sed -n '14,102p' | grep -nE \"\" >/dev/null; grep -nE \"router.use|notifyCustomer|",
+    "cd <run> && grep -n '\"express\"' api/package.json; grep -n \"items\" api/src/domain/order.ts | head -3",
+    "grep -rn \"async-errors\\|asyncHandler\\|wrap(\" api/src api/package.json | head",
+    "cat > REVIEW.md <<'EOF'\napi/src/routes/admin-refunds.ts:88 - PATCH /refunds/:id без requireAdmin: любой, даже неаутентифицированный, меняет статус возврата (req.user пуст), в нарушение «только admin»;",
+    "for s in blocker major minor; do grep -c \" - $s\\$\" REVIEW.md; done"
+  ]
+}

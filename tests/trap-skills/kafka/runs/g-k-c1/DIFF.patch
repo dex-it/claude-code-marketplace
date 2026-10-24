@@ -1,0 +1,489 @@
+diff --git a/src/Fulfil/Contracts/OrderEvents.cs b/src/Fulfil/Contracts/OrderEvents.cs
+index bb61974..04c94a3 100644
+--- a/src/Fulfil/Contracts/OrderEvents.cs
++++ b/src/Fulfil/Contracts/OrderEvents.cs
+@@ -1,6 +1,12 @@
+ namespace Fulfil.Contracts;
+ 
+ // События заказов, которые публикует витрина и смежные команды.
+-public sealed record OrderPlaced(Guid OrderId, Guid CustomerId, IReadOnlyList<Domain.OrderLine> Lines, DateTimeOffset PlacedAt);
++// GiftWrap: старые продюсеры поле не шлют - при чтении получается false.
++public sealed record OrderPlaced(
++    Guid OrderId,
++    Guid CustomerId,
++    IReadOnlyList<Domain.OrderLine> Lines,
++    DateTimeOffset PlacedAt,
++    bool GiftWrap = false);
+ 
+ public sealed record OrderStatusChanged(Guid OrderId, Domain.OrderStatus Status, DateTimeOffset ChangedAt);
+diff --git a/src/Fulfil/Domain/Order.cs b/src/Fulfil/Domain/Order.cs
+index 00325b0..09e0225 100644
+--- a/src/Fulfil/Domain/Order.cs
++++ b/src/Fulfil/Domain/Order.cs
+@@ -9,7 +9,8 @@ public sealed record Order(
+     Guid CustomerId,
+     OrderStatus Status,
+     IReadOnlyList<OrderLine> Lines,
+-    DateTimeOffset PlacedAt)
++    DateTimeOffset PlacedAt,
++    bool GiftWrap = false)
+ {
+     public decimal Total => Lines.Sum(l => l.Quantity * l.UnitPrice);
+ }
+diff --git a/src/Fulfil/Messaging/OrderImportConsumer.cs b/src/Fulfil/Messaging/OrderImportConsumer.cs
+new file mode 100644
+index 0000000..5e3b610
+--- /dev/null
++++ b/src/Fulfil/Messaging/OrderImportConsumer.cs
+@@ -0,0 +1,112 @@
++using Confluent.Kafka;
++using Fulfil.Domain;
++using Fulfil.Options;
++using Fulfil.Persistence;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Messaging;
++
++// Ночной импорт из orders.import: пачки по ImportBatchSize сообщений, один InsertMany на пачку.
++// В памяти держится не больше одной пачки; смещения сохраняются после успешной вставки.
++public sealed class OrderImportConsumer(
++    IOptions<FulfilOptions> options,
++    MongoOrderStore store,
++    ILogger<OrderImportConsumer> logger) : BackgroundService
++{
++    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
++    private static readonly TimeSpan FlushAfter = TimeSpan.FromSeconds(1);
++
++    protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
++        Task.Factory.StartNew(() => RunAsync(stoppingToken), stoppingToken,
++            TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
++
++    private async Task RunAsync(CancellationToken ct)
++    {
++        var o = options.Value;
++        var batchSize = Math.Max(1, o.ImportBatchSize);
++        using var consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
++        {
++            BootstrapServers = o.KafkaBootstrapServers,
++            GroupId = o.OrdersImportConsumerGroup,
++            EnableAutoCommit = true,
++            EnableAutoOffsetStore = false,
++            AutoOffsetReset = AutoOffsetReset.Earliest,
++            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky,
++        }).Build();
++        consumer.Subscribe(o.OrdersImportTopic);
++
++        var orders = new List<Order>(batchSize);
++        var consumed = new List<ConsumeResult<string, string>>(batchSize);
++        try
++        {
++            while (!ct.IsCancellationRequested)
++            {
++                orders.Clear();
++                consumed.Clear();
++                var deadline = DateTime.UtcNow + FlushAfter;
++
++                while (consumed.Count < batchSize)
++                {
++                    var left = deadline - DateTime.UtcNow;
++                    if (left <= TimeSpan.Zero && consumed.Count > 0) break;
++                    ConsumeResult<string, string>? result;
++                    try
++                    {
++                        result = consumer.Consume(consumed.Count == 0 ? TimeSpan.FromSeconds(1) : left);
++                    }
++                    catch (ConsumeException e) when (!e.Error.IsFatal)
++                    {
++                        logger.LogWarning(e, "Ошибка чтения {Topic}", o.OrdersImportTopic);
++                        continue;
++                    }
++                    if (result?.Message is null)
++                    {
++                        if (ct.IsCancellationRequested) break;
++                        if (consumed.Count > 0) break;
++                        continue;
++                    }
++
++                    consumed.Add(result);
++                    var placed = OrderJson.TryReadOrderPlaced(result.Message.Value);
++                    if (placed is null)
++                    {
++                        logger.LogError("Сообщение {Partition}:{Offset} не разобрано, пропущено",
++                            result.Partition.Value, result.Offset.Value);
++                        continue;
++                    }
++                    orders.Add(new Order(placed.OrderId, placed.CustomerId, OrderStatus.Placed,
++                        placed.Lines, placed.PlacedAt, placed.GiftWrap));
++                }
++
++                if (consumed.Count == 0) continue;
++
++                await InsertWithRetryAsync(orders, ct);
++                foreach (var r in consumed) consumer.StoreOffset(r);
++            }
++        }
++        catch (OperationCanceledException)
++        {
++        }
++        finally
++        {
++            consumer.Close();
++        }
++    }
++
++    private async Task InsertWithRetryAsync(List<Order> orders, CancellationToken ct)
++    {
++        while (true)
++        {
++            try
++            {
++                await store.InsertOrdersAsync(orders, ct);
++                return;
++            }
++            catch (Exception e) when (e is not OperationCanceledException)
++            {
++                logger.LogError(e, "Не удалось записать пачку из {Count} заказов, повтор", orders.Count);
++                await Task.Delay(RetryDelay, ct);
++            }
++        }
++    }
++}
+diff --git a/src/Fulfil/Messaging/OrderJson.cs b/src/Fulfil/Messaging/OrderJson.cs
+new file mode 100644
+index 0000000..ede0e86
+--- /dev/null
++++ b/src/Fulfil/Messaging/OrderJson.cs
+@@ -0,0 +1,27 @@
++using System.Text.Json;
++using System.Text.Json.Serialization;
++using Fulfil.Contracts;
++
++namespace Fulfil.Messaging;
++
++public static class OrderJson
++{
++    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
++    {
++        Converters = { new JsonStringEnumConverter() },
++    };
++
++    // null - сообщение не разобрать или оно неполное: повтор не поможет, его пропускают.
++    public static OrderPlaced? TryReadOrderPlaced(string json)
++    {
++        try
++        {
++            var e = JsonSerializer.Deserialize<OrderPlaced>(json, Options);
++            return e is { Lines: not null } && e.OrderId != Guid.Empty && e.CustomerId != Guid.Empty ? e : null;
++        }
++        catch (JsonException)
++        {
++            return null;
++        }
++    }
++}
+diff --git a/src/Fulfil/Messaging/OrderPlacedConsumer.cs b/src/Fulfil/Messaging/OrderPlacedConsumer.cs
+new file mode 100644
+index 0000000..4bdf2ad
+--- /dev/null
++++ b/src/Fulfil/Messaging/OrderPlacedConsumer.cs
+@@ -0,0 +1,97 @@
++using Confluent.Kafka;
++using Fulfil.Contracts;
++using Fulfil.Domain;
++using Fulfil.Options;
++using Fulfil.Persistence;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Messaging;
++
++// Читает orders.placed, ведёт проекцию клиента и публикует OrderStatusChanged(Placed).
++// Реплики равноправны: партиции делит группа потребителей. Смещение сохраняется только после
++// учёта и публикации (at-least-once); повторы гасит маркер заказа в MongoOrderStore.
++public sealed class OrderPlacedConsumer(
++    IOptions<FulfilOptions> options,
++    MongoOrderStore store,
++    StatusChangedPublisher publisher,
++    ILogger<OrderPlacedConsumer> logger) : BackgroundService
++{
++    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
++
++    protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
++        Task.Factory.StartNew(() => RunAsync(stoppingToken), stoppingToken,
++            TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
++
++    private async Task RunAsync(CancellationToken ct)
++    {
++        var o = options.Value;
++        using var consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
++        {
++            BootstrapServers = o.KafkaBootstrapServers,
++            GroupId = o.OrdersConsumerGroup,
++            EnableAutoCommit = true,
++            EnableAutoOffsetStore = false,
++            AutoOffsetReset = AutoOffsetReset.Earliest,
++            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky,
++        }).Build();
++        consumer.Subscribe(o.OrdersPlacedTopic);
++
++        try
++        {
++            while (!ct.IsCancellationRequested)
++            {
++                ConsumeResult<string, string>? result;
++                try
++                {
++                    result = consumer.Consume(ct);
++                }
++                catch (ConsumeException e) when (!e.Error.IsFatal)
++                {
++                    logger.LogWarning(e, "Ошибка чтения {Topic}", o.OrdersPlacedTopic);
++                    continue;
++                }
++                if (result?.Message is null) continue;
++
++                await HandleWithRetryAsync(result, ct);
++                consumer.StoreOffset(result);
++            }
++        }
++        catch (OperationCanceledException)
++        {
++        }
++        finally
++        {
++            consumer.Close();
++        }
++    }
++
++    private async Task HandleWithRetryAsync(ConsumeResult<string, string> result, CancellationToken ct)
++    {
++        var placed = OrderJson.TryReadOrderPlaced(result.Message.Value);
++        if (placed is null)
++        {
++            logger.LogError("Сообщение {Partition}:{Offset} не разобрано, пропущено",
++                result.Partition.Value, result.Offset.Value);
++            return;
++        }
++
++        var total = placed.Lines.Sum(l => l.Quantity * l.UnitPrice);
++        while (true)
++        {
++            try
++            {
++                // Если прошлая попытка учла заказ, но не опубликовала событие, публикация
++                // повторится: учёт идемпотентен только по счётчикам, событие уйдёт повторно.
++                await store.TryProjectPlacedAsync(placed.OrderId, placed.CustomerId, total, ct);
++                await publisher.PublishAsync(
++                    new OrderStatusChanged(placed.OrderId, OrderStatus.Placed, DateTimeOffset.UtcNow), ct);
++                return;
++            }
++            catch (Exception e) when (e is not OperationCanceledException)
++            {
++                logger.LogError(e, "Не удалось обработать заказ {OrderId}, повтор", placed.OrderId);
++                await Task.Delay(RetryDelay, ct);
++            }
++        }
++    }
++}
+diff --git a/src/Fulfil/Messaging/StatusChangedPublisher.cs b/src/Fulfil/Messaging/StatusChangedPublisher.cs
+new file mode 100644
+index 0000000..ce23cb5
+--- /dev/null
++++ b/src/Fulfil/Messaging/StatusChangedPublisher.cs
+@@ -0,0 +1,44 @@
++using System.Text.Json;
++using Confluent.Kafka;
++using Fulfil.Contracts;
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Messaging;
++
++public sealed class StatusChangedPublisher : IDisposable
++{
++    private readonly IProducer<string, string> _producer;
++    private readonly string _topic;
++
++    public StatusChangedPublisher(IOptions<FulfilOptions> options)
++    {
++        var o = options.Value;
++        _topic = o.OrderStatusChangedTopic;
++        _producer = new ProducerBuilder<string, string>(new ProducerConfig
++        {
++            BootstrapServers = o.KafkaBootstrapServers,
++            Acks = Acks.All,
++            EnableIdempotence = true,
++        }).Build();
++    }
++
++    // Ключ - OrderId: все статусы одного заказа попадают в одну партицию и идут по порядку.
++    public async Task PublishAsync(OrderStatusChanged e, CancellationToken ct)
++    {
++        await _producer.ProduceAsync(
++            _topic,
++            new Message<string, string>
++            {
++                Key = e.OrderId.ToString(),
++                Value = JsonSerializer.Serialize(e, OrderJson.Options),
++            },
++            ct);
++    }
++
++    public void Dispose()
++    {
++        _producer.Flush(TimeSpan.FromSeconds(5));
++        _producer.Dispose();
++    }
++}
+diff --git a/src/Fulfil/Options/FulfilOptions.cs b/src/Fulfil/Options/FulfilOptions.cs
+index fb25fdf..415d86d 100644
+--- a/src/Fulfil/Options/FulfilOptions.cs
++++ b/src/Fulfil/Options/FulfilOptions.cs
+@@ -8,4 +8,11 @@ public sealed class FulfilOptions
+     public string MongoConnectionString { get; set; } = "mongodb://localhost:27017";
+     public string MongoDatabase { get; set; } = "fulfil";
+     public string ElasticUri { get; set; } = "http://localhost:9200";
++
++    public string OrdersPlacedTopic { get; set; } = "orders.placed";
++    public string OrderStatusChangedTopic { get; set; } = "orders.status-changed";
++    public string OrdersImportTopic { get; set; } = "orders.import";
++    public string OrdersConsumerGroup { get; set; } = "fulfil-orders";
++    public string OrdersImportConsumerGroup { get; set; } = "fulfil-orders-import";
++    public int ImportBatchSize { get; set; } = 100;
+ }
+diff --git a/src/Fulfil/Persistence/MongoOrderStore.cs b/src/Fulfil/Persistence/MongoOrderStore.cs
+new file mode 100644
+index 0000000..d6ec9df
+--- /dev/null
++++ b/src/Fulfil/Persistence/MongoOrderStore.cs
+@@ -0,0 +1,94 @@
++using Fulfil.Domain;
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++using MongoDB.Bson;
++using MongoDB.Bson.Serialization;
++using MongoDB.Bson.Serialization.Conventions;
++using MongoDB.Bson.Serialization.Serializers;
++using MongoDB.Driver;
++
++namespace Fulfil.Persistence;
++
++public sealed class CustomerProjection
++{
++    public Guid Id { get; set; }
++    public int OrdersCount { get; set; }
++    public decimal TotalSpent { get; set; }
++}
++
++public sealed class ProcessedOrder
++{
++    public Guid Id { get; set; }
++    public DateTime CreatedAt { get; set; }
++}
++
++public sealed class MongoOrderStore
++{
++    private static readonly TimeSpan MarkerTtl = TimeSpan.FromDays(30);
++
++    private readonly IMongoCollection<CustomerProjection> _customers;
++    private readonly IMongoCollection<ProcessedOrder> _processed;
++    private readonly IMongoCollection<Order> _orders;
++
++    static MongoOrderStore()
++    {
++        BsonSerializer.TryRegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
++        BsonSerializer.TryRegisterSerializer(new DecimalSerializer(BsonType.Decimal128));
++        BsonSerializer.TryRegisterSerializer(new DateTimeOffsetSerializer(BsonType.String));
++        ConventionRegistry.Register(
++            "fulfil",
++            new ConventionPack { new CamelCaseElementNameConvention(), new EnumRepresentationConvention(BsonType.String) },
++            t => t.Namespace != null && t.Namespace.StartsWith("Fulfil"));
++    }
++
++    public MongoOrderStore(IOptions<FulfilOptions> options)
++    {
++        var o = options.Value;
++        var db = new MongoClient(o.MongoConnectionString).GetDatabase(o.MongoDatabase);
++        _customers = db.GetCollection<CustomerProjection>("customers");
++        _processed = db.GetCollection<ProcessedOrder>("processedOrders");
++        _orders = db.GetCollection<Order>("orders");
++
++        _processed.Indexes.CreateOne(new CreateIndexModel<ProcessedOrder>(
++            Builders<ProcessedOrder>.IndexKeys.Ascending(p => p.CreatedAt),
++            new CreateIndexOptions { ExpireAfter = MarkerTtl }));
++    }
++
++    // Возвращает false, если заказ уже учтён (повторная доставка из Kafka).
++    // Доставка at-least-once, реплик несколько: сначала занимаем маркер заказа, и только
++    // владелец маркера увеличивает счётчики. Транзакций на одиночном узле нет, поэтому
++    // сбой между маркером и $inc даст недоучёт, а не двойной счёт.
++    public async Task<bool> TryProjectPlacedAsync(Guid orderId, Guid customerId, decimal total, CancellationToken ct)
++    {
++        try
++        {
++            await _processed.InsertOneAsync(
++                new ProcessedOrder { Id = orderId, CreatedAt = DateTime.UtcNow }, cancellationToken: ct);
++        }
++        catch (MongoWriteException e) when (e.WriteError.Category == ServerErrorCategory.DuplicateKey)
++        {
++            return false;
++        }
++
++        await _customers.UpdateOneAsync(
++            Builders<CustomerProjection>.Filter.Eq(c => c.Id, customerId),
++            Builders<CustomerProjection>.Update.Inc(c => c.OrdersCount, 1).Inc(c => c.TotalSpent, total),
++            new UpdateOptions { IsUpsert = true },
++            ct);
++        return true;
++    }
++
++    // Одна пачка - один InsertMany. Вставка неупорядоченная; дубликаты (повторная доставка
++    // пачки) игнорируются, прочие ошибки пробрасываются.
++    public async Task InsertOrdersAsync(IReadOnlyCollection<Order> batch, CancellationToken ct)
++    {
++        if (batch.Count == 0) return;
++        try
++        {
++            await _orders.InsertManyAsync(batch, new InsertManyOptions { IsOrdered = false }, ct);
++        }
++        catch (MongoBulkWriteException e) when (e.WriteErrors.All(w => w.Category == ServerErrorCategory.DuplicateKey))
++        {
++        }
++    }
++}
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..de40f16 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,7 +1,13 @@
++using Fulfil.Messaging;
+ using Fulfil.Options;
++using Fulfil.Persistence;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++builder.Services.AddSingleton<MongoOrderStore>();
++builder.Services.AddSingleton<StatusChangedPublisher>();
++builder.Services.AddHostedService<OrderPlacedConsumer>();
++builder.Services.AddHostedService<OrderImportConsumer>();
+ 
+ var app = builder.Build();
+ app.MapGet("/health", () => Results.Ok());
+diff --git a/src/Fulfil/appsettings.json b/src/Fulfil/appsettings.json
+index 56eb014..2cfcc28 100644
+--- a/src/Fulfil/appsettings.json
++++ b/src/Fulfil/appsettings.json
+@@ -5,7 +5,13 @@
+     "RedisConfiguration": "localhost:6379",
+     "MongoConnectionString": "mongodb://localhost:27017",
+     "MongoDatabase": "fulfil",
+-    "ElasticUri": "http://localhost:9200"
++    "ElasticUri": "http://localhost:9200",
++    "OrdersPlacedTopic": "orders.placed",
++    "OrderStatusChangedTopic": "orders.status-changed",
++    "OrdersImportTopic": "orders.import",
++    "OrdersConsumerGroup": "fulfil-orders",
++    "OrdersImportConsumerGroup": "fulfil-orders-import",
++    "ImportBatchSize": 100
+   },
+   "Logging": { "LogLevel": { "Default": "Information" } }
+ }

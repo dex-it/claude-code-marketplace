@@ -1,0 +1,77 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..df9746b 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,6 +11,7 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
++    public int Complexity { get; set; }              // сложность комплектации, 1..5
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+@@ -44,7 +45,36 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка остаётся "timestamp without time zone" (её видят отчёты DBA), но Npgsql 6+
++        // не пишет DateTime(Kind=Utc) в неё - конвертер снимает/восстанавливает Kind на границе с БД,
++        // а в коде CreatedAt всегда Kind=Utc (пишем через DateTime.UtcNow).
++        b.Entity<Order>()
++            .Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>()
++            .Property(o => o.Complexity)
++            .IsRequired();
++        b.Entity<Order>()
++            .ToTable(t => t.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Cascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Cascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..e6d0ead 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,8 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Массовый DELETE одним SQL-запросом, без загрузки Order/Items в память и без цикла SaveChanges.
++    public Task<int> ClearItems(Guid orderId) =>
++        _db.Set<OrderItem>().Where(i => i.OrderId == orderId).ExecuteDeleteAsync();
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..6024dad
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые файлы:
++- Model.cs — добавлено свойство `Order.Complexity` (int) с check-constraint 1..5; для `CreatedAt` добавлен `HasConversion`, тип колонки не менялся; в `OnModelCreating` явно настроены связи `Order -> Items` и `Order -> Payments` (обязательные, `OnDelete(Cascade)`).
++- OrderRepository.cs — добавлен метод `ClearItems(Guid orderId)`.
++
++Решения:
++- Npgsql 6+ строго проверяет `DateTime.Kind` по типу колонки: в `timestamp without time zone` нельзя писать `Kind=Utc`, а при чтении Npgsql всегда возвращает `Kind=Unspecified`. Раз колонку менять нельзя, добавлен `ValueConverter` в `HasConversion`: при записи `Kind` снимается до `Unspecified` (само значение не меняется — писали только `UtcNow`), при чтении `Kind` восстанавливается до `Utc`. Тип колонки (`timestamp without time zone`) не тронут — отчёты DBA не затронуты.
++- Для `Items`/`Payments` связь объявлена как обязательная (`IsRequired()` + `HasForeignKey` на non-nullable `OrderId`) с `OnDelete(DeleteBehavior.Cascade)` — так как `Order` удаляется мягко (`IsDeleted`/`HasQueryFilter`), а не физически, но явная настройка защищает от разрыва required-связи и фиксирует поведение FK, если когда-либо потребуется физическое удаление/миграция.
++- `ClearItems` сделан как один `ExecuteDeleteAsync()` по `OrderItem.OrderId` — без загрузки `Order`/`Items` в память и без цикла `SaveChanges`, одним SQL DELETE в одной транзакции.

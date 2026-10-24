@@ -1,0 +1,66 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3456aea
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,60 @@
++# Ревью MR !214: стационар
++
++## Critical
++
++### 1. `Services/InpatientReportService.cs` → `GetOccupancyAsync`: SQL-инъекция в `FromSqlRaw`
++`ward` и `sortBy` приходят из query-строки (`/inpatient/reports/occupancy?ward=...&sortBy=...`) и подставляются в SQL интерполяцией C#-строки прямо в `FromSqlRaw`. Пользователь с любой ролью может выполнить произвольный SQL, например через `ward=' OR 1=1; --` или выражение в `sortBy`. Это нарушает правило «значения идут параметрами».
++**Исправление:** `ward` передать параметром (`FromSql($"... WHERE b.\"Ward\" = {ward} ...")` или просто LINQ `Where(s => s.Box.Ward == ward)`). Имя столбца параметром передать нельзя, поэтому `sortBy` нужно сопоставить с белым списком и сортировать через LINQ: `switch` → `OrderBy(s => s.AdmittedOn)` и т. д. Есть и второй дефект: `ORDER BY` внутри `FromSqlRaw`, на который потом накладывается `Select`, EF оборачивает в подзапрос. PostgreSQL не обязан сохранять порядок строк из подзапроса, так что сортировка может потеряться. Сортировать нужно во внешнем LINQ.
++
++### 2. `Services/WardService.cs` → `ReplaceMedicationPlanAsync`: `Clear()` при `Restrict` бросает исключение, а по правилам назначения удалять нельзя
++`stay.MedicationOrders.Clear()` разрывает required-связь (`StayId` не nullable). Для связи задан `DeleteBehavior.Restrict`, а при `Restrict`/`ClientSetNull` EF не удаляет сирот, и `SaveChangesAsync` бросает `InvalidOperationException` («The association ... has been severed»). В итоге эндпоинт `PUT /stays/{id}/medications` всегда падает с 500, если у госпитализации уже есть назначения. Если поменять поведение на Cascade, станет хуже: назначения будут физически удаляться. README прямо это запрещает: назначения — часть медкарты, отменённое назначение получает `CancelledAt`.
++**Исправление:** не вызывать `Clear()`. У действующих назначений (`CancelledAt == null`) выставлять `CancelledAt = DateTime.UtcNow` (Kind=Utc для `timestamptz`) и добавлять новые. Заодно стоит запретить правку плана у выписанной госпитализации.
++
++### 3. `Program.cs`: `MigrateAsync()` при старте приложения
++Здесь три проблемы:
++- В production приложение работает под ролью `vet_app` без прав на DDL. При любой неприменённой миграции под `MigrateAsync` все реплики упадут на старте.
++- Rolling update на 3 репликах: несколько экземпляров одновременно мигрируют одну БД. В EF Core 8 нет блокировки миграций, поэтому возможны гонки и полупримененная схема.
++- Обходится принятый процесс: idempotent-скрипт → ревью DBA → `db-migrate` под `vet_migrator`. Миграция `AddInpatient` сгенерирована без ручных правок и в MR не показана, а при таком подходе её SQL вообще никто не проверит.
++
++**Исправление:** убрать автоприменение. Если оно нужно, то только под `app.Environment.IsDevelopment()`. «Забывать запускать db-migrate» не получится: `deploy` и так `needs: [db-migrate]`.
++
++## High
++
++### 4. `Data/ClinicDbContext.cs` (`HasQueryFilter` на `Box`) + `WardService.GetWardPatientsAsync`, `GetLongStaysAsync`, `DischargeAsync`, `InpatientReportService.GetOccupancyAsync`: пациенты выведенного бокса пропадают
++`Box` — required-сторона связи `Stay → Box`, и на нём стоит глобальный фильтр `!IsDecommissioned`. Навигация `s.Box` в `Where`/`Select`/`Include` превращается в INNER JOIN с отфильтрованным `Boxes`, поэтому госпитализации в выведенном боксе исчезают из результатов (EF при построении модели даже выдаёт предупреждение об этой ситуации). По README бокс выводят и тогда, когда в нём лежат пациенты, и они должны оставаться в списках до выписки. Что получается сейчас:
++- `GetWardPatientsAsync`, `GetLongStaysAsync` и отчёт занятости не показывают этих пациентов;
++- `DischargeAsync` (`Include(s => s.Box)` + `SingleAsync`) бросает `InvalidOperationException`, то есть такого пациента невозможно выписать и выставить счёт.
++
++**Исправление:** убрать глобальный фильтр и фильтровать `!IsDecommissioned` явно там, где подбирается бокс для поступления. Другой вариант — `IgnoreQueryFilters()` во всех запросах от `Stay`.
++
++### 5. `Services/WardService.cs` → `GetLongStaysAsync`: нетранслируемое условие
++`DaysInWard` — вычисляемое C#-свойство, оно не замаплено. `Where(s => s.DaysInWard > 14)` EF перевести в SQL не сможет и выбросит `InvalidOperationException` («could not be translated»), так что эндпоинт `/long-stays` всегда отдаёт 500.
++**Исправление:** вычислить границу заранее и оставить условие в `IQueryable`: `var border = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-14); ... Where(s => s.DischargedOn == null && s.AdmittedOn < border)`.
++
++### 6. `Services/WardService.cs` → `GetBoxCardAsync`: `SingleOrDefaultAsync` на неуникальном условии
++В боксе одновременно лежат до `Capacity` животных (помёт, животные одного владельца). Если невыписанных в боксе больше одного, `SingleOrDefaultAsync(s => s.BoxId == boxId && s.DischargedOn == null)` бросает исключение, и карточка бокса отдаёт 500. В домене это условие не уникально.
++**Исправление:** вернуть список текущих пациентов: `BoxCardDto` с `List<...>` и проекцией `Select(s => new { s.Pet.Name, s.AdmittedOn })`. Попутно: вместо загрузки целых сущностей `Box`/`Stay`+`Pet` достаточно проекции.
++
++### 7. `Services/WardService.cs` → `DischargeAsync`: неверный расчёт стоимости
++`days = dischargedOn.DayNumber - AdmittedOn.DayNumber` не учитывает один день. По README считаются календарные дни, **включая день поступления и день выписки**, значит нужно `+ 1`. Сейчас каждый счёт занижен на суточный тариф, а при выписке в день поступления выходит 0. Та же ошибка в `Stay.DaysInWard` (`Domain/Inpatient.cs`).
++
++### 8. `Api/InpatientEndpoints.cs` → `POST /stays/{id}/discharge`: неверная политика авторизации
++Стоит `.RequireAuthorization()`, то есть выписать может любой аутентифицированный пользователь. По README выписку оформляет только врач (политика `Vet`), администраторы ресепшена не выписывают.
++**Исправление:** `.RequireAuthorization("Vet")`.
++
++## Medium
++
++### 9. `Services/WardService.cs` → `GetLatestStayAsync`: неуникальная сортировка, фильтр после материализации
++- В один день бывает повторная госпитализация (это сказано в комментарии в `Stay`), поэтому `OrderByDescending(s => s.AdmittedOn)` + `FirstOrDefault` может выбрать не последнюю госпитализацию. С `AsSplitQuery` недетерминированный порядок ещё и опасен: запросы коллекций могут выбрать другую корневую строку, и назначения/наблюдения окажутся пустыми. Нужен `ThenByDescending(s => s.Id)`.
++- Отменённые назначения загружаются и отбрасываются в памяти. Лучше фильтровать в запросе: filtered include `Include(s => s.MedicationOrders.Where(m => m.CancelledAt == null))` или проекция. Split query на две коллекции одного уровня здесь законен.
++
++### 10. `Services/WardService.cs` → `ReplaceMedicationPlanAsync` / `DischargeAsync`: нет контроля параллельной правки
++У `Stay` нет concurrency token (например, `xmin` через `UseXminAsConcurrencyToken()`/`IsRowVersion()` в Npgsql 8). Два врача, одновременно заменяющие план, получат две активные копии назначений. Две параллельные выписки с разными датами перезапишут `DischargedOn`/`TotalCost` друг друга: проверка `DischargedOn is not null` идёт до `SaveChanges`.
++
++### 11. `Data/ClinicDbContext.cs` → `Stay`: каскадные FK на медкарту и счета
++`Stay → Box` и `Stay → Pet` по умолчанию `Cascade`, `Observation → Stay` тоже `Cascade`. Боксы удаляются мягко (`IsDecommissioned`), поэтому каскад в БД не нужен. При этом случайное физическое удаление бокса или питомца удалит историю госпитализаций со счетами и наблюдения (медкарту) либо неожиданно упадёт на `Restrict` назначений. Для зависимых нужно `OnDelete(DeleteBehavior.Restrict)`.
++
++## Low
++
++### 12. `Services/WardService.cs` → `ReplaceMedicationPlanAsync`, `DecommissionBoxAsync`, `DischargeAsync`: `SingleAsync` по несуществующему id
++При несуществующем id `SingleAsync` бросает `InvalidOperationException`, и клиент получает 500 вместо 404. В `DecommissionBoxAsync` из-за глобального фильтра то же самое происходит при повторном выводе уже выведенного бокса.

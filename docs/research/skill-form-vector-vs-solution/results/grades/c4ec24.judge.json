@@ -1,0 +1,81 @@
+{
+  "id": "c4ec24",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.061827400000000005,
+    "durationMs": 7276,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5664,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 804,
+      "output_tokens_details": {
+        "thinking_tokens": 152
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5664,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 804,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5664,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5664
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "`Optional[X]` без явного `...`/`Field(...)` в pydantic v1 **автоматически получает default `None`**",
+      "why": "Находка 3 опровергает утверждение комментария для pydantic 1.10 и указывает, что старый клиент без поля молча спишет весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "дефолт `Config.extra` в pydantic v1 — `Extra.ignore` (лишние поля молча игнорируются)",
+      "why": "Находка 4 опровергает утверждение и связывает опечатку в имени поля со списанием всего баланса."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Замены req.dict() на model_dump() выход не требует."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Баланс читается обычным `SELECT` без `FOR UPDATE` и без блокировки",
+      "why": "Находка 2 описывает гонку при чтении баланса и UPDATE без блокировки, ведущую к двойному списанию."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "Конвертация float→Decimal сохраняет погрешность двоичного представления",
+      "why": "Находка 7 называет неточность Decimal(POINT_VALUE) от float 0.1."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "отрицательный `confirm_amount` увеличивает баланс баллов",
+      "why": "Находка 1 прямо называет начисление баллов при отрицательной сумме."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Про member_id из тела запроса без аутентификации (IDOR) в выходе ничего нет."
+    }
+  },
+  "stderr": ""
+}

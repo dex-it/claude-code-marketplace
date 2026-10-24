@@ -1,0 +1,71 @@
+{
+  "id": "7b76b0",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0508394,
+    "durationMs": 8338,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4318,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 793,
+      "output_tokens_details": {
+        "thinking_tokens": 242
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4318,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 793,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4318,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4318
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "правильно применён `AsSplitQuery()`, что предотвращает декартово произведение",
+      "why": "Находка №4 направлена против Include(Customer), а AsSplitQuery для Items и Payments выход прямо одобряет."
+    },
+    "N0-h-utc": {
+      "verdict": "YES",
+      "quote": "Нужно явно задать тип колонки для `AuditLog.At` (согласовав с остальной схемой) и/или использовать `DateTime` с `Kind`, соответствующим типу колонки.",
+      "why": "Выход объявляет правильную запись DateTime.UtcNow дефектом (severity high) и требует сменить тип колонки или Kind."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "транслируется Npgsql в `= ANY(@ids)` одним параметром — безопасно и для нескольких тысяч id",
+      "why": "Contains в CartLookup выход признаёт корректным и находки против него нет."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "Off-by-one в пагинации: `Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`",
+      "why": "Выход называет пропуск первой страницы при нумерации страниц с 1."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "Фильтр `o.Status == \"Active\"` не совпадает по регистру со значением домена",
+      "why": "Выход указывает на несовпадение с \"active\" в модели и на то, что список будет пустым."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,254 @@
+diff --git a/src/shelfwatch/churn_model.py b/src/shelfwatch/churn_model.py
+new file mode 100644
+index 0000000..de70c3b
+--- /dev/null
++++ b/src/shelfwatch/churn_model.py
+@@ -0,0 +1,173 @@
++"""Модель оттока магазинов: случайный лес против XGBoost.
++
++Допущение: `churned` в строке - магазин ушёл в течение месяца после среза `snapshot`
++этой строки. Поэтому признаки строки описывают состояние до оттока, а прогноз на
++следующий месяц - это предсказание по последнему срезу каждого магазина.
++"""
++
++from dataclasses import dataclass
++from typing import Any
++
++import numpy as np
++import pandas as pd
++from sklearn.compose import ColumnTransformer
++from sklearn.ensemble import RandomForestClassifier
++from sklearn.impute import SimpleImputer
++from sklearn.metrics import average_precision_score
++from sklearn.preprocessing import OneHotEncoder
++from xgboost import XGBClassifier
++
++from shelfwatch.paths import DATA_DIR
++
++TARGET = "churned"
++GROUP = "store_id"
++SEED = 42
++# Метрика для отчёта: PR-AUC (average precision). При доле оттока 5% accuracy и ROC-AUC
++# завышают качество; PR-AUC у случайной модели равна доле оттока (около 0.05).
++METRIC_NAME = "pr_auc"
++
++
++@dataclass
++class ChurnModel:
++    name: str
++    preprocessor: ColumnTransformer
++    estimator: Any
++
++    def predict_proba(self, df: pd.DataFrame) -> np.ndarray:
++        return self.estimator.predict_proba(self.preprocessor.transform(df))[:, 1]
++
++
++@dataclass
++class ChurnReport:
++    model: ChurnModel
++    test_pr_auc: float  # одна цифра для отчёта: PR-AUC лучшей модели на отложенных магазинах
++    val_pr_auc: dict[str, float]  # PR-AUC обеих моделей на валидации, по ним выбрана лучшая
++    base_rate: float  # доля оттока в тесте: нижняя граница для PR-AUC
++
++
++def load_accounts() -> pd.DataFrame:
++    return pd.read_parquet(DATA_DIR / "accounts.parquet")
++
++
++def split_by_store(
++    df: pd.DataFrame, frac: float, seed: int = SEED
++) -> tuple[pd.DataFrame, pd.DataFrame]:
++    """Делит строки так, чтобы магазин целиком попал в одну из частей.
++
++    У магазина несколько срезов, и соседние месяцы почти одинаковы: случайное деление
++    по строкам утекло бы между обучением и проверкой и завысило качество.
++    """
++    stores = df[GROUP].unique()
++    rng = np.random.default_rng(seed)
++    second = set(rng.choice(stores, size=round(len(stores) * frac), replace=False))
++    mask = df[GROUP].isin(second)
++    return df[~mask], df[mask]
++
++
++def _make_preprocessor() -> ColumnTransformer:
++    return ColumnTransformer(
++        [
++            # Пустой n_tickets - магазин не обращался в поддержку, то есть 0 обращений;
++            # сам факт пропуска сохраняем отдельным признаком.
++            (
++                "tickets",
++                SimpleImputer(strategy="constant", fill_value=0, add_indicator=True),
++                ["n_tickets"],
++            ),
++            ("plan", OneHotEncoder(handle_unknown="ignore", sparse_output=False), ["plan"]),
++            ("numeric", "passthrough", ["tenure_months", "revenue"]),
++        ],
++        sparse_threshold=0,
++    )
++
++
++def _check_has_both_classes(df: pd.DataFrame, part: str) -> None:
++    if df[TARGET].nunique() < 2:
++        raise ValueError(f"В части '{part}' нет обоих классов оттока: мало данных")
++
++
++def _fit_random_forest(
++    prep: ColumnTransformer, fit: pd.DataFrame, seed: int
++) -> ChurnModel:
++    # Отток редкий (5%), поэтому веса классов обязательны.
++    rf = RandomForestClassifier(
++        n_estimators=300,
++        min_samples_leaf=5,
++        class_weight="balanced_subsample",
++        n_jobs=-1,
++        random_state=seed,
++    )
++    rf.fit(prep.transform(fit), fit[TARGET])
++    return ChurnModel("random_forest", prep, rf)
++
++
++def _fit_xgboost(
++    prep: ColumnTransformer, fit: pd.DataFrame, stop: pd.DataFrame, seed: int
++) -> ChurnModel:
++    n_pos = int(fit[TARGET].sum())
++    # Ранняя остановка идёт по отдельной выборке `stop`: ни валидация, на которой
++    # выбираем модель, ни тест в подборе числа деревьев не участвуют.
++    xgb = XGBClassifier(
++        n_estimators=1000,
++        learning_rate=0.05,
++        max_depth=4,
++        scale_pos_weight=(len(fit) - n_pos) / n_pos,
++        eval_metric="aucpr",
++        early_stopping_rounds=50,
++        n_jobs=-1,
++        random_state=seed,
++    )
++    xgb.fit(
++        prep.transform(fit),
++        fit[TARGET],
++        eval_set=[(prep.transform(stop), stop[TARGET])],
++        verbose=False,
++    )
++    return ChurnModel("xgboost", prep, xgb)
++
++
++def train_and_evaluate(df: pd.DataFrame, seed: int = SEED) -> ChurnReport:
++    """Обучает обе модели, выбирает лучшую по валидации, оценивает на тесте.
++
++    Магазины делятся на train / stop (ранняя остановка XGBoost) / val (выбор модели) /
++    test (итоговая цифра). Деление по магазинам, не по строкам.
++    """
++    train_val, test = split_by_store(df, 0.2, seed)
++    train_stop, val = split_by_store(train_val, 0.25, seed + 1)
++    fit, stop = split_by_store(train_stop, 0.2, seed + 2)
++    for part, frame in [("fit", fit), ("stop", stop), ("val", val), ("test", test)]:
++        _check_has_both_classes(frame, part)
++
++    prep = _make_preprocessor().fit(fit)
++    models = [_fit_random_forest(prep, fit, seed), _fit_xgboost(prep, fit, stop, seed)]
++    val_scores = {
++        m.name: float(average_precision_score(val[TARGET], m.predict_proba(val)))
++        for m in models
++    }
++    best = max(models, key=lambda m: val_scores[m.name])
++    test_score = float(average_precision_score(test[TARGET], best.predict_proba(test)))
++    return ChurnReport(
++        model=best,
++        test_pr_auc=test_score,
++        val_pr_auc=val_scores,
++        base_rate=float(test[TARGET].mean()),
++    )
++
++
++def predict_next_month(df: pd.DataFrame, model: ChurnModel | None = None) -> pd.Series:
++    """Вероятность оттока каждого магазина в месяце после его последнего среза.
++
++    Индекс результата - `store_id`. Если модель не передана, она обучается на `df`.
++    """
++    if model is None:
++        model = train_and_evaluate(df).model
++    last = df.sort_values("snapshot").groupby(GROUP).tail(1)
++    return pd.Series(model.predict_proba(last), index=last[GROUP].to_numpy(), name="churn_proba")
++
++
++if __name__ == "__main__":
++    report = train_and_evaluate(load_accounts())
++    print(f"Лучшая модель: {report.model.name}")
++    print(f"{METRIC_NAME} на отложенных магазинах: {report.test_pr_auc:.3f}")
++    print(f"(случайная модель дала бы около {report.base_rate:.3f})")
++    print(f"Валидация: {report.val_pr_auc}")
+diff --git a/tests/test_churn_model.py b/tests/test_churn_model.py
+new file mode 100644
+index 0000000..9fa7de4
+--- /dev/null
++++ b/tests/test_churn_model.py
+@@ -0,0 +1,69 @@
++import numpy as np
++import pandas as pd
++
++from shelfwatch.churn_model import (
++    GROUP,
++    TARGET,
++    _fit_random_forest,
++    _fit_xgboost,
++    _make_preprocessor,
++    predict_next_month,
++    split_by_store,
++    train_and_evaluate,
++)
++
++
++def make_accounts(n_stores: int = 600, n_months: int = 4, seed: int = 0) -> pd.DataFrame:
++    rng = np.random.default_rng(seed)
++    rows = []
++    for store in range(n_stores):
++        base = rng.normal()
++        for month in range(n_months):
++            tickets = rng.poisson(3 + 2 * max(base, 0))
++            rows.append(
++                {
++                    "account_id": store * 10 + month,
++                    "snapshot": pd.Timestamp("2026-01-01") + pd.DateOffset(months=month),
++                    "tenure_months": 12 + month + int(rng.integers(0, 30)),
++                    "plan": rng.choice(["basic", "plus", "pro"]),
++                    "store_id": store,
++                    "n_tickets": np.nan if rng.random() < 0.18 else float(tickets),
++                    "revenue": float(rng.gamma(5, 1000)),
++                    TARGET: int(rng.random() < 1 / (1 + np.exp(-(base * 2 - 4.5)))),
++                }
++            )
++    return pd.DataFrame(rows)
++
++
++def test_split_by_store_has_no_store_overlap() -> None:
++    df = make_accounts()
++    a, b = split_by_store(df, 0.3)
++    assert set(a[GROUP]).isdisjoint(b[GROUP])
++    assert len(a) + len(b) == len(df)
++
++
++def test_train_and_evaluate_report() -> None:
++    report = train_and_evaluate(make_accounts())
++    assert report.model.name in {"random_forest", "xgboost"}
++    assert set(report.val_pr_auc) == {"random_forest", "xgboost"}
++    assert 0.0 <= report.test_pr_auc <= 1.0
++
++
++def test_models_use_class_weights_and_early_stopping() -> None:
++    df = make_accounts()
++    fit, stop = split_by_store(df, 0.25)
++    prep = _make_preprocessor().fit(fit)
++    rf = _fit_random_forest(prep, fit, seed=0).estimator
++    xgb = _fit_xgboost(prep, fit, stop, seed=0).estimator
++    assert rf.class_weight == "balanced_subsample"
++    assert xgb.scale_pos_weight > 1
++    assert xgb.best_iteration < xgb.n_estimators - 1
++
++
++def test_predict_next_month_one_proba_per_store() -> None:
++    df = make_accounts()
++    model = train_and_evaluate(df).model
++    proba = predict_next_month(df, model)
++    assert len(proba) == df[GROUP].nunique()
++    assert proba.index.is_unique
++    assert proba.between(0, 1).all()

@@ -1,0 +1,16 @@
+src/shelfwatch/finetune.py:22 - токен HF зашит в коде константой: ключ окажется в git и в логах, а при подмене на настоящий утечёт - minor
+src/shelfwatch/finetune.py:27 - токенизация по одному тексту в цикле и без truncation=True (max_length молча игнорируется): медленно на больших выборках, длинные отзывы не обрежутся и упадут на 512 позиций - major
+src/shelfwatch/finetune.py:35 - замораживается весь base_model, включая эмбеддинги, поэтому новые токены [PRODUCT]/[SHOP] (строки после resize) остаются случайными и не обучаются, смысл их добавления теряется - major
+src/shelfwatch/finetune.py:42 - дообучение BERT без прогрева (нет warmup_steps), при этом 20 эпох (стр. 45) на замороженном энкодере: нестабильный старт и переобучение голавы - major
+src/shelfwatch/finetune.py:52 - сохраняется только модель, токенизатор с добавленными [PRODUCT]/[SHOP] не сохраняется: сервис не воспроизведёт словарь, id новых токенов разойдутся с обученными эмбеддингами - major
+src/shelfwatch/finetune.py:57 - classify_batch на каждый вызов заново грузит токенизатор и модель с диска и берёт токенизатор из BERT без спец-токенов: [PRODUCT]/[SHOP] разбиваются на подслова, предсказания искажаются, задержка уходит далеко за 50 мс - blocker
+src/shelfwatch/finetune.py:59 - padding="max_length" до 512 на CPU: каждый отзыв считается как 512 токенов, p95 50 мс недостижим; нужен динамический padding (padding=True) и max_length по данным - major
+src/shelfwatch/finetune.py:66 - tokenizer(words) без is_split_into_words=True обрабатывает список слов как пачку текстов, enc.word_ids() без индекса падает или даёт неверное выравнивание; к тому же дублирует align_labels (стр. 70) - blocker
+src/shelfwatch/finetune.py:72 - метка слова копируется на каждое подслово, B-PROD/B-SHOP получают и продолжения: модель учится видеть много начал сущности, спаны NER ломаются; нужно -100 или B->I для неначальных подслов - major
+src/shelfwatch/finetune.py:80 - learning_rate=1e-3 для полного дообучения BERT в NER: веса разрушаются, лосс расходится, модель не сойдётся (норма 2e-5..5e-5) - major
+src/shelfwatch/finetune.py:89 - QLoRA без bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype и prepare_model_for_kbit_training, LoRA только на q_proj с r=4: просядет качество и неустойчивое обучение - minor
+src/shelfwatch/finetune.py:99 - жадная генерация без repetition_penalty/no_repeat_ngram_size: сводка зациклится на повторах; max_length=1000 считается вместе с промптом, а decode (стр. 100) возвращает промпт вместе со сводкой - major
+src/shelfwatch/finetune.py:97 - генерация по одному отзыву в цикле, без батча: медленно на пачке отзывов - minor
+src/shelfwatch/finetune.py:106 - сохраняется только LoRA-адаптер, а в образе сервиса нет peft и базовая модель подтягивается по имени: сводчик в сервисе не загрузится; нужно merge_and_unload() и сохранение полных весов - blocker
+src/shelfwatch/finetune.py:111 - модель в fp32 на CPU при заданном бюджете p95 ≤ 50 мс без квантования: бюджет, скорее всего, не выдержан; нужно динамическое int8 для nn.Linear (веса и активации) через не-deprecated API (torch.ao.quantization.quantize_dynamic в torch 2.14 deprecated) и замер p95 - major
+tests/test_finetune.py:4 - тест проверяет только маскирование спец-токенов; нет проверок выравнивания подслов, encode_for_ner и латентности, поэтому ошибки на стр. 66 и 72 проходят незамеченными - minor

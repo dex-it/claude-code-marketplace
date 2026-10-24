@@ -1,0 +1,87 @@
+{
+  "id": "14390a",
+  "exitCode": 0,
+  "started": "2026-09-29T08:03:49.935Z",
+  "finished": "2026-09-29T08:05:24.734Z",
+  "wallMs": 94799,
+  "init": {
+    "model": "claude-sonnet-5",
+    "skills": [],
+    "plugins": [
+      {
+        "name": "agents-md",
+        "path": "builtin",
+        "source": "agents-md@builtin"
+      },
+      {
+        "name": "telemetry",
+        "path": "builtin",
+        "source": "telemetry@builtin"
+      }
+    ],
+    "tools": [
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "mcpServers": [],
+    "cwd": "/Users/anonymous/.cache/research/runs/14390a/work",
+    "claudeCodeVersion": "2.1.284"
+  },
+  "toolCalls": {
+    "Read": 3,
+    "Glob": 3,
+    "Edit": 4,
+    "Write": 1
+  },
+  "webCalls": 0,
+  "skillCalls": [],
+  "readPaths": [
+    "/Users/anonymous/.cache/research/runs/14390a/rules/SKILL.md",
+    "/Users/anonymous/.cache/research/runs/14390a/work/Model.cs",
+    "/Users/anonymous/.cache/research/runs/14390a/work/OrderRepository.cs"
+  ],
+  "usage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 14938,
+    "cache_read_input_tokens": 113538,
+    "output_tokens": 11149,
+    "output_tokens_details": {
+      "thinking_tokens": 7532
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 14938,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 510,
+        "cache_read_input_tokens": 24058,
+        "cache_creation_input_tokens": 740,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 740
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "costUsd": 0.19397759999999997,
+  "durationMs": 93717,
+  "numTurns": 12,
+  "isError": false,
+  "stderr": "",
+  "resultSubtype": "success"
+}

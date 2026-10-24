@@ -1,0 +1,13 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'pgrep -a stockd; tail -n 20 /work/logs/stockd.log; cat -n /work/src/deadlock.c'
+docker exec <ctr> sh -c 'P=$(pgrep -x stockd); grep -E "State|Threads" /proc/$P/status; for t in /proc/$P/task/*; do echo $t $(cat $t/comm) $(cat $t/wchan) $(grep State $t/status); done; gdb -p $P -batch -ex "thread apply all bt" 2>&1 | grep -v "^\[New\|warning" | tail -30; echo ---; gdb -p $P -batch -ex "thread 2" -ex "frame 3" -ex "print inventory_lock" -ex "print ledger_lock" -ex "thread 3" -ex "frame 3" -ex "print inventory_lock.__data.__owner" 2>&1 | tail -20'
+docker exec <ctr> sh -c 'P=$(pgrep -x stockd); id; cat /proc/sys/kernel/yama/ptrace_scope; grep -E "Cap(Eff|Bnd)|Seccomp|TracerPid" /proc/$P/status; for t in /proc/$P/task/*; do echo $t; cat $t/syscall; cat $t/stack 2>&1|head -3; done; which strace gdb eu-stack pstack'
+docker exec <ctr> sh -c 'P=$(pgrep -x stockd); timeout 3 strace -f -p $P 2>&1 | head; echo; ls -l /proc/$P/exe; head -c 300 /proc/$P/maps | head -3; cat /proc/$P/wchan; echo; cat /proc/$P/task/*/stat | cut -d" " -f1-3,14,15; which ltrace bpftrace perf eu-stack lldb; cat /proc/sys/kernel/perf_event_paranoid'
+docker exec <ctr> sh -c 'P=$(pgrep -x stockd); which su runuser setpriv; su app -s /bin/sh -c "gdb -p $P -batch -ex \"thread apply all bt\" 2>&1 | tail -25"'
+docker exec <ctr> sh -c 'P=$(pgrep -x stockd); su app -s /bin/sh -c "gdb -p $P -batch -ex \"print inventory_lock.__data.__owner\" -ex \"print ledger_lock.__data.__owner\" -ex \"print stock\" -ex \"print ledger\" 2>&1 | grep -E \"^\\\\$\""'
+[Write] <lab>/REPORT.md

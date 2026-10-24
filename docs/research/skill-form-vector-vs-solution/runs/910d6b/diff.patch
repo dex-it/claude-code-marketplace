@@ -1,0 +1,100 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..406c009
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,77 @@
++namespace Shop.Data;
++
++public record OrderItemDto(int Id, Guid ProductId, int Qty);
++public record PaymentDto(int Id, decimal Amount);
++public record OrderCardDto(
++    Guid Id, Guid CustomerId, string Status, string Category, decimal Total,
++    DateTime CreatedAt, DateTime? ShippedAt,
++    List<OrderItemDto> Items, List<PaymentDto> Payments);
++
++public record ProductDto(Guid Id, string Sku, string Warehouse, string Category, decimal Price, int Stock);
++
++public enum ProductLookupStatus { Found, NotFound, Ambiguous }
++
++// Ambiguous: SKU лежит на нескольких складах, а склад не передан - вызывающий уточняет склад из Warehouses.
++public record ProductLookupResult(ProductLookupStatus Status, ProductDto? Product, IReadOnlyList<string> Warehouses);
++
++// Только чтение: проекции в DTO (без трекинга и без lazy-loading прокси).
++// ShopDbContext - scoped, сервис регистрируется как scoped.
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Две коллекции одного уровня - split query, чтобы не было декартова произведения Items x Payments.
++    public Task<OrderCardDto?> GetOrderCardAsync(Guid orderId, CancellationToken ct = default) =>
++        ProjectCards(_db.Orders.Where(o => o.Id == orderId))
++            .AsSplitQuery()
++            .SingleOrDefaultAsync(ct);
++
++    // (б) Тысячи заказов с двумя коллекциями - split query: 3 запроса вместо одного с взрывом строк.
++    // Стриминг, чтобы не держать всю выгрузку в списке.
++    public IAsyncEnumerable<OrderCardDto> StreamCustomerOrdersAsync(Guid customerId) =>
++        ProjectCards(_db.Orders.Where(o => o.CustomerId == customerId).OrderBy(o => o.CreatedAt).ThenBy(o => o.Id))
++            .AsSplitQuery()
++            .AsAsyncEnumerable();
++
++    // (в) Уникален только (Sku, Warehouse). Без склада совпадений может быть несколько -
++    // запись не выбирается молча, неоднозначность возвращается явно.
++    public async Task<ProductLookupResult> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        var query = _db.Products.Where(p => p.Sku == sku);
++        if (warehouse != null)
++            query = query.Where(p => p.Warehouse == warehouse);
++
++        var matches = await query
++            .OrderBy(p => p.Warehouse)
++            .Select(p => new ProductDto(p.Id, p.Sku, p.Warehouse, p.Category, p.Price, p.Stock))
++            .ToListAsync(ct);
++
++        var warehouses = matches.Select(p => p.Warehouse).ToList();
++        return matches.Count switch
++        {
++            0 => new ProductLookupResult(ProductLookupStatus.NotFound, null, warehouses),
++            1 => new ProductLookupResult(ProductLookupStatus.Found, matches[0], warehouses),
++            _ => new ProductLookupResult(ProductLookupStatus.Ambiguous, null, warehouses),
++        };
++    }
++
++    // (г) Агрегат в БД. ShippedAt - timestamptz, читается с Kind=Utc.
++    // Если отгруженных заказов нет, значения нет - контракт non-nullable, поэтому явное исключение.
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var last = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => o.ShippedAt, ct);
++
++        return last ?? throw new InvalidOperationException($"Customer {customerId} has no shipped orders.");
++    }
++
++    // CreatedAt - timestamp without time zone: читается как Unspecified, помечается Utc.
++    private static IQueryable<OrderCardDto> ProjectCards(IQueryable<Order> orders) =>
++        orders.Select(o => new OrderCardDto(
++            o.Id, o.CustomerId, o.Status, o.Category, o.Total,
++            DateTime.SpecifyKind(o.CreatedAt, DateTimeKind.Utc), o.ShippedAt,
++            o.Items.OrderBy(i => i.Id).Select(i => new OrderItemDto(i.Id, i.ProductId, i.Qty)).ToList(),
++            o.Payments.OrderBy(p => p.Id).Select(p => new PaymentDto(p.Id, p.Amount)).ToList()));
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..9386779
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++**Файлы:**
++- создан `OrderQueries.cs`: сервис `OrderQueries` и его DTO (`OrderCardDto`, `OrderItemDto`, `PaymentDto`, `ProductDto`, `ProductLookupResult`)
++- создан `_answer.md`
++- `Model.cs` и `OrderRepository.cs` не менялись
++
++**Решения:**
++- **Чтение без трекинга.** Все запросы только читают и возвращают проекции в DTO, поэтому контекст их не отслеживает и lazy-loading прокси не срабатывают. В (а) и (б) у заказа две коллекции одного уровня (позиции и платежи), поэтому стоит `AsSplitQuery` — и на карточке одного заказа тоже. Так строки позиций и платежей не перемножаются между собой. Выгрузка (б) отдаётся потоком через `IAsyncEnumerable`. `CreatedAt` хранится как `timestamp without time zone`, поэтому при чтении помечается `Utc`.
++- **(в) `GetProductBySku(sku, string? warehouse)`.** Уникальна только пара SKU + склад. Поэтому метод не вызывает `Single`/`First` и не выбирает товар молча. Он возвращает `Found`, `NotFound` или `Ambiguous` вместе со списком складов, чтобы вызывающий код мог уточнить склад.
++- **(г) Дата последней отгрузки.** Считается через `MaxAsync` в БД с фильтром `ShippedAt != null`. Если отгруженных заказов нет, метод бросает `InvalidOperationException` с понятным текстом: по контракту нужен не-nullable `DateTime`, а подставлять выдуманное значение по умолчанию нельзя.
++
++Сборку и тесты не запускал, как требовалось в задании.

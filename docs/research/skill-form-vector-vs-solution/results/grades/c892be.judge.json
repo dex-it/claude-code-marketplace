@@ -1,0 +1,92 @@
+{
+  "id": "c892be",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.125619,
+    "durationMs": 11170,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12588,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1224,
+      "output_tokens_details": {
+        "thinking_tokens": 274
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12588,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1224,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12588,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12588
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-rename-drop": {
+      "verdict": "PASS",
+      "quote": "`Up` удаляет столбец `drivers.full_name` (`DropColumn`), а потом создаёт `display_name` с `defaultValue: \"\"`",
+      "why": "Ревью называет потерю ФИО на prod и требует RenameColumn в Up и Down."
+    },
+    "GR-permits-clear": {
+      "verdict": "PASS",
+      "quote": "При `NoAction` EF не удаляет сирот, а бросает `InvalidOperationException`",
+      "why": "Ревью находит падение Clear() при обязательной связи с NoAction и предлагает RemoveRange."
+    },
+    "GR-search-inject": {
+      "verdict": "PASS",
+      "quote": "`SqlText.LikeContains` экранирует только `\\`, `%` и `_`, а одинарную кавычку не трогает",
+      "why": "Ревью находит инъекцию, не считает LikeContains защитой и требует параметризацию или LINQ ILike."
+    },
+    "GR-offday-filter": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 бросит `InvalidOperationException: The LINQ expression ... could not be translated`",
+      "why": "Ревью находит нетранслируемый вызов и предлагает считать после материализации или передать даты в SQL."
+    },
+    "GR-plate-single": {
+      "verdict": "PASS",
+      "quote": "**Исправление:** фильтр `DecommissionedAt == null`",
+      "why": "Ревью связывает частичный уникальный индекс с падением SingleAsync и предлагает нужный фильтр."
+    },
+    "GR-import-kind": {
+      "verdict": "PASS",
+      "quote": "`TimeZoneInfo.ConvertTimeToUtc(parsed, TimeZoneInfo.FindSystemTimeZoneById(\"Europe/Moscow\"))`",
+      "why": "Ревью называет Kind=Unspecified при записи в timestamptz и предлагает перевод из московского времени в UTC, а не SpecifyKind."
+    },
+    "GR-avg-zero": {
+      "verdict": "FOUND",
+      "quote": "Если за период нет поездок, `totalKm / count` даёт `DivideByZeroException` → 500.",
+      "why": "Деление на ноль названо прямо."
+    },
+    "GR-permits-auth": {
+      "verdict": "FOUND",
+      "quote": "любой сотрудник, в том числе сам водитель, может выдать себе допуск, например к `Truck`",
+      "why": "Отсутствие политики на PUT permits названо как дефект безопасности."
+    },
+    "GR-h-utc-bounds": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Ревью замечает только московские и UTC сутки, но не называет Kind=Utc ошибкой и не требует Unspecified или Local."
+    }
+  },
+  "stderr": ""
+}

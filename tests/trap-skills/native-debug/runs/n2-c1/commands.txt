@@ -1,0 +1,45 @@
+docker exec <ctr> sh -c 'pgrep -a stockd; tail -n 20 /work/logs/stockd.log; ls /work /work/src; which gdb eu-stack pstack strace'
+docker exec <ctr> cat -n /work/src/deadlock.c
+docker exec <ctr> sh -c 'P=$(pgrep -x stockd|head -1); echo pid=$P; ps -L -o pid,tid,stat,wchan:20,pcpu,comm -p $P; for t in /proc/$P/task/*; do echo $t $(cat $t/comm) $(cat $t/syscall); done; gdb -p $P -batch -ex "info threads" -ex "thread apply all bt" -ex "print inventory_lock" -ex "print ledger_lock" 2>&1 | grep -v "^\[New\|warning"; tail -n 3 /work/logs/stockd.log'
+docker exec <ctr> sh -c 'id; cat /proc/sys/kernel/yama/ptrace_scope; grep -E "Cap(Eff|Bnd)|Seccomp|TracerPid" /proc/11/status; ps -o user,pid -p 11; strace -f -p 11 -e trace=futex -o /tmp/s.txt & sleep 3; kill %1; cat /tmp/s.txt 2>&1 | head'
+docker exec <ctr> sh -c 'for t in 11 12 13; do echo "== $t"; cat /proc/11/task/$t/wchan; echo; grep -E "^(State|voluntary|nonvoluntary)" /proc/11/task/$t/status; awk "{print \"utime\",\$14,\"stime\",\$15}" /proc/11/task/$t/stat; done; sleep 3; echo after; for t in 11 12 13; do grep -E "^(voluntary|nonvoluntary)" /proc/11/task/$t/status|tr "\n" " "; echo; done; ls -l /work/bin; grep -c . /work/logs/stockd.log; grep -n drift /work/logs/stockd.log|head -3; head -5 /work/logs/stockd.log'
+cat > <lab>/REPORT.md <<'EOF'
+# Симптом
+Процесс stockd (PID 11) жив, CPU 0%, но счётчики не меняются: в /work/logs/stockd.log все строки `stock=100 ledger=0` (с самого запуска, т.е. ни одной успешной итерации). Главный поток продолжает печатать строку каждые 2 с; два рабочих потока спят.
+
+# Причина
+Взаимная блокировка (deadlock) из-за разного порядка захвата мьютексов в /work/src/deadlock.c:
+- `reserve` (поток TID 12): строка 14 `inventory_lock`, затем строка 16 `ledger_lock`;
+- `audit` (поток TID 13): строка 28 `ledger_lock`, затем строка 30 `inventory_lock`.
+`usleep(1000)` между захватами (строки 15 и 29) гарантирует, что каждый поток успевает взять первый замок до попытки второго, и оба навсегда ждут друг друга.
+
+# Улики
+Прямой стек/владельцев мьютексов получить не удалось: ptrace в контейнере запрещён (CapEff=0, Seccomp=2), gdb и strace не подключаются. Вывод опирается на наблюдение живого процесса через /proc плюс исходник.
+
+`docker exec <ctr> sh -c 'ps -L -o pid,tid,stat,pcpu,comm -p 11'`
+```
+PID TID STAT %CPU COMMAND
+ 11  11 Ssl  0.0 stockd
+ 11  12 Ssl  0.0 stockd
+ 11  13 Ssl  0.0 stockd
+```
+Все три потока спят, CPU 0.
+
+`grep -E "^(State|voluntary|nonvoluntary)" /proc/11/task/<tid>/status` дважды с паузой 3 с:
+```
+TID 11 (main):  voluntary 12 -> 13   (живёт, просыпается из sleep(2))
+TID 12:         voluntary 2  -> 2    nonvoluntary 0   (не меняется)
+TID 13:         voluntary 2  -> 2    nonvoluntary 0   (не меняется)
+```
+Рабочие потоки сделали по 2 переключения (usleep + уход в ожидание на futex) и с тех пор не просыпались; utime/stime у обоих = 0.
+
+`docker exec <ctr> gdb -p 11 -batch ...` -> `ptrace: Operation not permitted.`
+`docker exec <ctr> strace -f -p 11` -> `PTRACE_SEIZE, 11: Operation not permitted`
+Подтверждение блокировки на уровне стеков (`thread apply all bt`, владельцы мьютексов) не получено.
+
+# Что предлагаю
+1. Исправление в коде (вне рамок этой задачи, код не менялся): единый порядок захвата во всех потоках, например всегда `inventory_lock` -> `ledger_lock` (поменять строки 28/30 в `audit`), либо один общий замок.
+2. Для оперативного восстановления: перезапустить stockd (состояние в памяти, на диск не пишется; счётчики стартуют с 100/0).
+3. Для подтверждения стеком: выдать контейнеру `--cap-add=SYS_PTRACE` (или снять seccomp-ограничение) и снять `gdb -p <pid> -batch -ex "thread apply all bt"`; ожидаемо `reserve` ждёт в `pthread_mutex_lock` на строке 16, `audit` - на строке 30.
+4. Профилактика: сборка с ThreadSanitizer / проверкой порядка блокировок в CI, `pthread_mutex_timedlock` или watchdog на прогресс счётчиков.
+EOF

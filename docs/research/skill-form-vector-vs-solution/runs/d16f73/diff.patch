@@ -1,0 +1,48 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..5bb0b06
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,29 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        var customers = await _db.Customers
++            .Where(c => customerIds.Contains(c.Id))
++            .Select(c => new { c.Email, c.Name })
++            .ToListAsync(ct);
++
++        var tasks = customers.Select(c =>
++            _emailSender.SendAsync(c.Email, "Newsletter", text, ct)
++        );
++
++        await Task.WhenAll(tasks);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..dbe31af
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++# Поручение: CustomerNotifier.NotifyCustomers
++
++## Изменённые/созданные файлы
++- **CustomerNotifier.cs** (создан)
++
++## Решение
++Создан класс `CustomerNotifier` с зависимостями на `ShopDbContext` и `IEmailSender`. Метод `NotifyCustomers` принимает список ID клиентов и текст письма, загружает email адреса из БД с использованием `Contains`, отправляет письма параллельно через `IEmailSender.SendAsync` для каждого клиента. Параллельные задачи объединены через `Task.WhenAll` для ожидания завершения всех отправок.

@@ -1,0 +1,30 @@
+{
+  "id": "G5",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "AutoSchool.Cloud - облачный сервис для сети автошкол (у каждой автошколы свои ученики, инструкторы и занятия вождения в общей базе); ASP.NET Core 8 minimal API, EF Core 8, Npgsql, PostgreSQL 16",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G5/Models.cs",
+      "to": "Models.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G5/SchoolDbContext.cs",
+      "to": "SchoolDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G5/QueryFilters.cs",
+      "to": "QueryFilters.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G5/StudentService.cs",
+      "to": "StudentService.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G5/Program.cs",
+      "to": "Program.cs"
+    }
+  ],
+  "task": "Задачи по сервису автошкол.\n(а) Вход в мобильное приложение ученика по одноразовому коду: ученик вводит e-mail (как придётся - с заглавными буквами, как подставила клавиатура телефона), мы находим его карточку в автошколе и отправляем 6-значный код на почту (IEmailSender уже есть), код действует 10 минут; второй шаг - проверка кода. Endpoints POST /api/app/login/request { email } и POST /api/app/login/confirm { email, code }.\n(б) Для продления лицензии автошколе нужен отчёт: число выпускников за год (по дате выпуска) по каждому инструктору, включая уже уволенных. Endpoint GET /api/reports/graduates?year=2025.\n(в) Инструктор в своём приложении видит список закреплённых за ним учеников, которые сейчас учатся, - в том же виде, что и выгрузка для инструкторов (паспорт и почта скрыты), плюс дата и время ближайшего занятия вождения. Endpoint GET /api/instructor/students, инструктор - из заголовка X-Instructor-Id.\n(г) Ученику в приложении - прогресс: сколько часов вождения уже пройдено (занятия с отметкой Done) из положенных 56. Endpoint GET /api/app/progress?studentId=..."
+}

@@ -1,0 +1,184 @@
+[
+ {
+  "run": "p24-haiku",
+  "arm": "solo",
+  "modules_ok": 24,
+  "modules": 24,
+  "funcs_ok": null,
+  "funcs": null,
+  "cost_usd": 0.03,
+  "wall_min": 1.6,
+  "spawned": 0,
+  "by_model": {
+   "claude-haiku-5-5": 0.03
+  }
+ },
+ {
+  "run": "p24-sonnet",
+  "arm": "solo",
+  "modules_ok": 24,
+  "modules": 24,
+  "funcs_ok": null,
+  "funcs": null,
+  "cost_usd": 0.14,
+  "wall_min": 0.7,
+  "spawned": 0,
+  "by_model": {
+   "claude-sonnet-5-5": 0.14
+  }
+ },
+ {
+  "run": "p24-opus",
+  "arm": "solo",
+  "modules_ok": 24,
+  "modules": 24,
+  "funcs_ok": null,
+  "funcs": null,
+  "cost_usd": 0.28,
+  "wall_min": 0.6,
+  "spawned": 0,
+  "by_model": {
+   "claude-opus-5-5": 0.28
+  }
+ },
+ {
+  "run": "q40-haiku",
+  "arm": "solo",
+  "modules_ok": 40,
+  "modules": 40,
+  "funcs_ok": 130,
+  "funcs": 130,
+  "cost_usd": 0.11,
+  "wall_min": 3.7,
+  "spawned": 0,
+  "by_model": {
+   "claude-haiku-5-5": 0.11
+  }
+ },
+ {
+  "run": "q40-sonnet",
+  "arm": "solo",
+  "modules_ok": 40,
+  "modules": 40,
+  "funcs_ok": 130,
+  "funcs": 130,
+  "cost_usd": 0.29,
+  "wall_min": 1.3,
+  "spawned": 0,
+  "by_model": {
+   "claude-sonnet-5-5": 0.29
+  }
+ },
+ {
+  "run": "q40-opus",
+  "arm": "solo",
+  "modules_ok": 40,
+  "modules": 40,
+  "funcs_ok": 130,
+  "funcs": 130,
+  "cost_usd": 0.48,
+  "wall_min": 1.1,
+  "spawned": 0,
+  "by_model": {
+   "claude-opus-5-5": 0.48
+  }
+ },
+ {
+  "run": "r120-haiku",
+  "arm": "solo",
+  "modules_ok": 120,
+  "modules": 120,
+  "funcs_ok": 402,
+  "funcs": 402,
+  "cost_usd": 0.77,
+  "wall_min": 7.9,
+  "spawned": 0,
+  "by_model": {
+   "claude-haiku-5-5": 0.77
+  }
+ },
+ {
+  "run": "r120-sonnet",
+  "arm": "solo",
+  "modules_ok": 120,
+  "modules": 120,
+  "funcs_ok": 402,
+  "funcs": 402,
+  "cost_usd": 0.43,
+  "wall_min": 2.7,
+  "spawned": 0,
+  "by_model": {
+   "claude-sonnet-5-5": 0.43
+  }
+ },
+ {
+  "run": "r120-opus",
+  "arm": "solo",
+  "modules_ok": 120,
+  "modules": 120,
+  "funcs_ok": 402,
+  "funcs": 402,
+  "cost_usd": 0.72,
+  "wall_min": 2.5,
+  "spawned": 0,
+  "by_model": {
+   "claude-opus-5-5": 0.72
+  }
+ },
+ {
+  "run": "r120-orch",
+  "arm": "orch haiku high",
+  "modules_ok": 111,
+  "modules": 120,
+  "funcs_ok": 376,
+  "funcs": 402,
+  "cost_usd": 2.57,
+  "wall_min": 11.3,
+  "spawned": 11,
+  "by_model": {
+   "claude-haiku-5-5": 0.2,
+   "claude-sonnet-5-5": 2.37
+  }
+ },
+ {
+  "run": "r120-orchB",
+  "arm": "orch sonnet high",
+  "modules_ok": 120,
+  "modules": 120,
+  "funcs_ok": 402,
+  "funcs": 402,
+  "cost_usd": 3.66,
+  "wall_min": 13.4,
+  "spawned": 13,
+  "by_model": {
+   "claude-sonnet-5-5": 3.66
+  }
+ },
+ {
+  "run": "r120-orchC",
+  "arm": "orch haiku high (repeat)",
+  "modules_ok": 120,
+  "modules": 120,
+  "funcs_ok": 402,
+  "funcs": 402,
+  "cost_usd": 3.05,
+  "wall_min": 15.6,
+  "spawned": 13,
+  "by_model": {
+   "claude-haiku-5-5": 0.28,
+   "claude-sonnet-5-5": 2.76
+  }
+ },
+ {
+  "run": "r120-plan (естественный, solo)",
+  "arm": "planner",
+  "cost_usd": 1.69,
+  "wall_min": 7.2
+ },
+ {
+  "run": "r120-orch plan (принудительно, orchestrate)",
+  "arm": "planner",
+  "cost_usd": 2.78,
+  "wall_min": 11.6
+ }
+]

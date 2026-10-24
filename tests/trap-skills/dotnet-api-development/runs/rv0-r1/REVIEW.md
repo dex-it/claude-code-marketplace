@@ -1,0 +1,5 @@
+src/Pricing.Infrastructure/Suppliers/SupplierApiClient.cs:29 - откат на базовую цену при сбое поставщика есть только в логе, метрик повторов, срабатываний breaker и fallback нет: в часы выгрузки цены тихо занижаются до базовой (ниже закупочной), а операторы этого не увидят - minor
+src/Pricing.Application/Quotes/QuoteService.cs:49 - после исчерпания срока warning пишется на каждую оставшуюся строку корзины, а клиент уже логирует свой сбой (SupplierApiClient.cs:29): дубли логов в часы выгрузки забьют журнал - minor
+src/Pricing.Application/Quotes/QuoteService.cs:19 - 2.5 с продублированы с TotalRequestTimeout в InfrastructureModule.cs:31 без общей константы: правка одного значения сломает бюджет в 3 с у витрины незаметно - minor
+src/Pricing.Infrastructure/InfrastructureModule.cs:16 - пояс читается из config напрямую, а не через Options (как Suppliers), неверное имя пояса или отсутствие tzdata в контейнере роняет старт приложения без понятного сообщения - minor
+tests/Pricing.Tests/QuoteServiceTests.cs:1 - SupplierApiClient (перехват 503/таймаут/breaker, непроглатывание 4xx) тестами не покрыт, регресс фильтра сбоев уйдёт незамеченным - minor

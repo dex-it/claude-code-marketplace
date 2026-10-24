@@ -1,0 +1,394 @@
+diff --git a/.teamcity/ServicePipeline.kt b/.teamcity/ServicePipeline.kt
+new file mode 100644
+index 0000000..9d91bcb
+--- /dev/null
++++ b/.teamcity/ServicePipeline.kt
+@@ -0,0 +1,264 @@
++import jetbrains.buildServer.configs.kotlin.*
++import jetbrains.buildServer.configs.kotlin.buildFeatures.PullRequests
++import jetbrains.buildServer.configs.kotlin.buildFeatures.pullRequests
++import jetbrains.buildServer.configs.kotlin.buildSteps.dotnetBuild
++import jetbrains.buildServer.configs.kotlin.buildSteps.dotnetRestore
++import jetbrains.buildServer.configs.kotlin.buildSteps.dotnetTest
++import jetbrains.buildServer.configs.kotlin.buildSteps.script
++import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnMetric
++import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
++import jetbrains.buildServer.configs.kotlin.failureConditions.failOnMetricChange
++import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
++import jetbrains.buildServer.configs.kotlin.triggers.vcs
++import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
++
++/**
++ * Параметры одного сервиса. Всё, что отличает сервис от Depot, задаётся здесь;
++ * сама схема цепочки живёт в [servicePipeline] и одинакова для всех десяти сервисов.
++ */
++data class ServiceSpec(
++    /** Короткое имя: часть id конфигураций и имя образа/релиза. */
++    val name: String,
++    val repoUrl: String,
++    val solution: String,
++    /** Адрес реестра без схемы, например registry.example.com/team. */
++    val registry: String,
++    /** Контекст Docker (каталог с Dockerfile). */
++    val dockerContext: String = ".",
++    /** Путь к helm-чарту сервиса относительно корня репозитория. */
++    val chartPath: String = "deploy/chart",
++    val defaultBranch: String = "refs/heads/main",
++    val unitFilter: String = "Category=Contracts",
++    val integrationFilter: String = "Category=Integration",
++)
++
++private const val LINUX_DOCKER_AGENT_OS = "Linux"
++
++/** Падение билда по признакам, при которых `dotnet test` может вернуть 0 (OOM, упавший test host). */
++private fun BuildType.testSafetyNets() {
++    failureConditions {
++        executionTimeoutMin = 30
++        nonZeroExitCode = true
++        testFailure = true
++        // Ни одного прогнанного теста - это провал, а не зелёный билд.
++        failOnMetricChange {
++            metric = BuildFailureOnMetric.MetricType.TEST_COUNT
++            threshold = 1
++            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
++            comparison = BuildFailureOnMetric.MetricComparison.LESS
++            compareTo = value()
++        }
++        failOnText {
++            conditionType = BuildFailureOnText.ConditionType.CONTAINS
++            pattern = "System.OutOfMemoryException"
++            failureMessage = "OutOfMemoryException в логе: тесты нельзя считать пройденными"
++            reverse = false
++        }
++        failOnText {
++            conditionType = BuildFailureOnText.ConditionType.CONTAINS
++            pattern = "Test host process crashed"
++            failureMessage = "Упал test host"
++            reverse = false
++        }
++        failOnText {
++            conditionType = BuildFailureOnText.ConditionType.CONTAINS
++            pattern = "No test is available"
++            failureMessage = "Фильтр не выбрал ни одного теста"
++            reverse = false
++        }
++    }
++}
++
++private fun BuildType.linuxDockerAgent() {
++    requirements {
++        contains("teamcity.agent.jvm.os.name", LINUX_DOCKER_AGENT_OS)
++        exists("docker.server.version")
++    }
++}
++
++/** Конфигурации, которые публикуют образ и деплоят, собирают только основную ветку. */
++private const val DEFAULT_BRANCH_GUARD = """if [ "%teamcity.build.branch.is_default%" != "true" ]; then
++  echo "Эта конфигурация работает только с основной веткой, а не с '%teamcity.build.branch%'" >&2
++  exit 1
++fi"""
++
++fun servicePipeline(s: ServiceSpec): Project = Project {
++    id(RelativeId(s.name))
++    name = s.name.replaceFirstChar { it.uppercase() }
++
++    val gitRoot = GitVcsRoot {
++        id(RelativeId("${s.name}_Vcs"))
++        name = "${s.name} repository"
++        url = s.repoUrl
++        branch = s.defaultBranch
++        // Ветки и PR (в том числе из форков) - чтобы собирать pull requests.
++        branchSpec = """
++            +:refs/heads/*
++            +:refs/pull/*/head
++        """.trimIndent()
++        authMethod = password {
++            userName = "%vcs.user%"
++            password = "%vcs.password%"
++        }
++    }
++    vcsRoot(gitRoot)
++
++    // Секреты задаются в UI (тип password) или через credentialsJSON; значений в репозитории нет.
++    // db.password нужен только integration-конфигурации, registry/deploy - только image и деплою.
++    params {
++        param("vcs.user", "")
++        password("vcs.password", "", display = ParameterDisplay.HIDDEN)
++        param("registry.url", s.registry)
++        param("registry.user", "")
++    }
++
++    val build = BuildType {
++        id(RelativeId("${s.name}_Build"))
++        name = "1. Build"
++        vcs { root(gitRoot) }
++        steps {
++            dotnetRestore { name = "restore"; projects = s.solution }
++            dotnetBuild {
++                name = "build"
++                projects = s.solution
++                configuration = "Release"
++                args = "--no-restore"
++            }
++        }
++        triggers {
++            vcs { branchFilter = "+:*" }
++        }
++        features {
++            pullRequests {
++                vcsRootExtId = "${gitRoot.id}"
++                provider = github {
++                    authType = vcsRoot()
++                    // PR из форков собираем тоже.
++                    filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
++                }
++            }
++        }
++        failureConditions { executionTimeoutMin = 20 }
++        linuxDockerAgent()
++    }
++
++    fun testConfig(suffix: String, title: String, filter: String, integration: Boolean) = BuildType {
++        id(RelativeId("${s.name}_$suffix"))
++        this.name = title
++        vcs { root(gitRoot) }
++        if (integration) {
++            params {
++                // Только здесь: пароль временной БД Testcontainers. Это конфигурация,
++                // которая собирает PR из форков, поэтому значение должно быть одноразовым.
++                password("db.password", "", display = ParameterDisplay.HIDDEN)
++                password("env.DB_PASSWORD", "%db.password%", display = ParameterDisplay.HIDDEN)
++            }
++        }
++        steps {
++            dotnetRestore { this.name = "restore"; projects = s.solution }
++            dotnetTest {
++                this.name = "test ($filter)"
++                projects = s.solution
++                configuration = "Release"
++                args = "--no-restore --filter \"$filter\""
++            }
++        }
++        triggers { vcs { branchFilter = "+:*" } }
++        dependencies {
++            snapshot(build) { onDependencyFailure = FailureAction.FAIL_TO_START }
++        }
++        testSafetyNets()
++        linuxDockerAgent()
++    }
++
++    val unit = testConfig("UnitTests", "2a. Unit tests", s.unitFilter, integration = false)
++    val integration = testConfig("IntegrationTests", "2b. Integration tests", s.integrationFilter, integration = true)
++
++    val image = BuildType {
++        id(RelativeId("${s.name}_Image"))
++        name = "3. Image and push"
++        vcs { root(gitRoot) }
++        params {
++            password("registry.password", "", display = ParameterDisplay.HIDDEN)
++            password("env.REGISTRY_PASSWORD", "%registry.password%", display = ParameterDisplay.HIDDEN)
++        }
++        artifactRules = "deploy-values.yaml"
++        steps {
++            script {
++                name = "docker build, push, deploy-values.yaml"
++                scriptContent = """
++                    set -euo pipefail
++                    @@GUARD@@
++                    REPO="%registry.url%/${s.name}"
++                    TAG="%build.counter%-$(git rev-parse --short=12 HEAD)"
++                    printf '%s' "${'$'}REGISTRY_PASSWORD" | docker login "%registry.url%" -u "%registry.user%" --password-stdin
++                    docker build -t "${'$'}REPO:${'$'}TAG" ${s.dockerContext}
++                    docker push "${'$'}REPO:${'$'}TAG"
++                    # Деплой берёт образ по дайджесту: тот самый, что собран и отправлен в этой цепочке.
++                    DIGEST="$(docker inspect --format '{{index .RepoDigests 0}}' "${'$'}REPO:${'$'}TAG" | sed 's/.*@//')"
++                    cat > deploy-values.yaml <<EOF
++                    image:
++                      repository: ${'$'}REPO
++                      tag: ${'$'}TAG
++                      digest: ${'$'}DIGEST
++                    EOF
++                    docker logout "%registry.url%"
++                """.trimIndent().replace("@@GUARD@@", DEFAULT_BRANCH_GUARD)
++            }
++        }
++        triggers { vcs { branchFilter = "+:${s.defaultBranch.removePrefix("refs/heads/")}" } }
++        dependencies {
++            snapshot(unit) { onDependencyFailure = FailureAction.FAIL_TO_START }
++            snapshot(integration) { onDependencyFailure = FailureAction.FAIL_TO_START }
++        }
++        failureConditions { executionTimeoutMin = 20 }
++        linuxDockerAgent()
++    }
++
++    fun deployConfig(suffix: String, title: String, env: String, previous: BuildType, auto: Boolean) = BuildType {
++        id(RelativeId("${s.name}_$suffix"))
++        this.name = title
++        vcs { root(gitRoot) }
++        params {
++            param("deploy.env", env)
++            param("deploy.server", "")
++            password("deploy.token", "", display = ParameterDisplay.HIDDEN)
++            password("env.DEPLOY_TOKEN", "%deploy.token%", display = ParameterDisplay.HIDDEN)
++        }
++        steps {
++            script {
++                this.name = "deploy to $env"
++                scriptContent = """
++                    set -euo pipefail
++                    @@GUARD@@
++                    test -s deploy-values.yaml
++                    # depot-worker (если есть у сервиса) должен оставаться в одном экземпляре - см. docs/runbook.md.
++                    helm upgrade --install ${s.name} ${s.chartPath} \
++                      --namespace ${s.name}-%deploy.env% \
++                      --kube-apiserver "%deploy.server%" --kube-token "${'$'}DEPLOY_TOKEN" \
++                      -f deploy-values.yaml --atomic --wait --timeout 5m
++                """.trimIndent().replace("@@GUARD@@", DEFAULT_BRANCH_GUARD)
++            }
++        }
++        if (auto) {
++            triggers { vcs { branchFilter = "+:${s.defaultBranch.removePrefix("refs/heads/")}" } }
++        }
++        dependencies {
++            snapshot(previous) { onDependencyFailure = FailureAction.FAIL_TO_START }
++            // Артефакт и образ из этой же цепочки, а не «последний успешный».
++            artifacts(image) {
++                buildRule = sameChainOrLastFinished()
++                artifactRules = "deploy-values.yaml"
++            }
++        }
++        failureConditions { executionTimeoutMin = 15 }
++        linuxDockerAgent()
++    }
++
++    val stage = deployConfig("DeployStage", "4. Deploy stage", "stage", image, auto = true)
++    // Prod: без триггеров, запускается вручную кнопкой Run.
++    val prod = deployConfig("DeployProd", "5. Deploy prod (manual)", "prod", stage, auto = false)
++
++    listOf(build, unit, integration, image, stage, prod).forEach { buildType(it) }
++    buildTypesOrder = listOf(build, unit, integration, image, stage, prod)
++}
+diff --git a/.teamcity/pom.xml b/.teamcity/pom.xml
+new file mode 100644
+index 0000000..7f7026b
+--- /dev/null
++++ b/.teamcity/pom.xml
+@@ -0,0 +1,96 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <name>Depot Config DSL Script</name>
++  <groupId>Depot</groupId>
++  <artifactId>Depot_dsl</artifactId>
++  <version>1.0-SNAPSHOT</version>
++
++  <parent>
++    <groupId>org.jetbrains.teamcity</groupId>
++    <artifactId>configs-dsl-kotlin-parent</artifactId>
++    <version>1.0-SNAPSHOT</version>
++  </parent>
++
++  <repositories>
++    <repository>
++      <id>jetbrains-all</id>
++      <url>https://download.jetbrains.com/teamcity-repository</url>
++      <snapshots><enabled>true</enabled></snapshots>
++    </repository>
++    <repository>
++      <id>teamcity-server</id>
++      <url>https://teamcity.example.com/app/dsl-plugins-repository</url>
++      <snapshots><enabled>true</enabled></snapshots>
++    </repository>
++  </repositories>
++
++  <pluginRepositories>
++    <pluginRepository>
++      <id>JetBrains</id>
++      <url>https://download.jetbrains.com/teamcity-repository</url>
++    </pluginRepository>
++  </pluginRepositories>
++
++  <build>
++    <sourceDirectory>${basedir}</sourceDirectory>
++    <plugins>
++      <plugin>
++        <artifactId>kotlin-maven-plugin</artifactId>
++        <groupId>org.jetbrains.kotlin</groupId>
++        <version>${kotlin.version}</version>
++        <configuration/>
++        <executions>
++          <execution>
++            <id>compile</id>
++            <phase>process-sources</phase>
++            <goals><goal>compile</goal></goals>
++          </execution>
++          <execution>
++            <id>test-compile</id>
++            <phase>process-test-sources</phase>
++            <goals><goal>test-compile</goal></goals>
++          </execution>
++        </executions>
++      </plugin>
++      <plugin>
++        <groupId>org.jetbrains.teamcity</groupId>
++        <artifactId>teamcity-configs-maven-plugin</artifactId>
++        <version>${teamcity.dsl.version}</version>
++        <configuration>
++          <format>kotlin</format>
++          <dstDir>target/generated-configs</dstDir>
++        </configuration>
++      </plugin>
++    </plugins>
++  </build>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.jetbrains.teamcity</groupId>
++      <artifactId>configs-dsl-kotlin-latest</artifactId>
++      <version>${teamcity.dsl.version}</version>
++      <scope>compile</scope>
++    </dependency>
++    <dependency>
++      <groupId>org.jetbrains.teamcity</groupId>
++      <artifactId>configs-dsl-kotlin-plugins-latest</artifactId>
++      <version>1.0-SNAPSHOT</version>
++      <type>pom</type>
++      <scope>compile</scope>
++    </dependency>
++    <dependency>
++      <groupId>org.jetbrains.kotlin</groupId>
++      <artifactId>kotlin-stdlib-jdk8</artifactId>
++      <version>${kotlin.version}</version>
++      <scope>compile</scope>
++    </dependency>
++    <dependency>
++      <groupId>org.jetbrains.kotlin</groupId>
++      <artifactId>kotlin-script-runtime</artifactId>
++      <version>${kotlin.version}</version>
++      <scope>compile</scope>
++    </dependency>
++  </dependencies>
++</project>
+diff --git a/.teamcity/settings.kts b/.teamcity/settings.kts
+new file mode 100644
+index 0000000..c3834a9
+--- /dev/null
++++ b/.teamcity/settings.kts
+@@ -0,0 +1,16 @@
++import jetbrains.buildServer.configs.kotlin.*
++
++version = "2024.12"
++
++// Depot - образец. Для остальных сервисов достаточно добавить свой ServiceSpec
++// (а ServicePipeline.kt вынести в общую библиотеку/репозиторий DSL).
++project(
++    servicePipeline(
++        ServiceSpec(
++            name = "depot",
++            repoUrl = "https://git.example.com/depot/depot.git",
++            solution = "Depot.sln",
++            registry = "registry.example.com/depot",
++        )
++    )
++)

@@ -1,0 +1,65 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..fbf908f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,59 @@
++# Результаты ревью Notify.Worker MR
++
++## Найденные дефекты
++
++### 1. OutboxWorker.cs, ProcessBatchAsync method (lines 51-77)
++**Проблема:** Письмо помечается как отправленное (SentAt = now) ДО фактической отправки  
++**Почему это дефект:** Нарушает гарантии Outbox паттерна. Если процесс упадет после SaveChangesAsync (line 55) и до успешной отправки писем (lines 58-76), письма будут потеряны навсегда. Письмо должно быть помечено как отправленное ТОЛЬКО после подтверждения успешной отправки.  
++**Severity:** CRITICAL
++
++### 2. OutboxWorker.cs, ExecuteAsync method (line 33)
++**Проблема:** `TimeSpan.FromSeconds(o.PollInterval)` интерпретирует PollInterval как секунды, но в config это 500 миллисекунд  
++**Почему это дефект:** Вместо опроса каждые 0.5 сек будет опрос каждые 500 сек (8.3 минуты). Это нарушает требование MR: "Опрос outbox раз в полсекунды". Результат: воркер будет почти никогда не опрашивать БД.  
++**Severity:** CRITICAL
++
++### 3. ThrottleService.cs (line 7) vs appsettings.json (line 21) / appsettings.Production.json (line 19)
++**Проблема:** ThrottleService читает конфигурационный ключ "Throttle:MessagesPerMinute", а в appsettings файлах используется ключ "Throttle:PerMinute"  
++**Почему это дефект:** Ключ никогда не будет найден, GetValue вернет 0 (дефолт для int). Это приведет к делению на ноль в следующем пункте.  
++**Severity:** HIGH
++
++### 4. ThrottleService.cs, WaitAsync method (line 8)
++**Проблема:** Нет валидации значения `perMinute`. Если значение = 0, будет деление на ноль: `60_000 / 0`  
++**Почему это дефект:** Крах с неперехватываемым исключением DivideByZeroException. Связано с дефектом #3, где perMinute станет 0 из-за неправильного ключа конфигурации.  
++**Severity:** HIGH
++
++### 5. Options/OutboxOptionsValidator.cs (ValidateOptionsResult method)
++**Проблема:** Отсутствует валидация PollInterval и MinBatchSize  
++**Почему это дефект:** 
++- PollInterval может быть <= 0, но это должно быть отклонено
++- MinBatchSize может быть > MaxBatchSize (как в appsettings.Production.json: MinBatchSize=200, MaxBatchSize=100), что нарушает логику adaptive batching и вызовет нежелаемое поведение  
++**Severity:** MEDIUM
++
++### 6. SmtpMailSender.cs, SendAsync method (line 15)
++**Проблема:** `MailboxAddress.Parse(to)` может выбросить исключение при некорректном email адресе  
++**Почему это дефект:** Нет валидации email адреса на уровне БД или при создании сообщения. Письмо с невалидным адресом будет каждый раз вызывать исключение при попытке отправки. Лучше валидировать на уровне вставки в БД.  
++**Severity:** MEDIUM
++
++### 7. OutboxWorker.cs, ProcessBatchAsync method (line 57)
++**Проблема:** SemaphoreSlim создается но не гарантированно disposed в случае исключения  
++**Почему это дефект:** Хотя маловероятно на практике (Task.WhenAll ждет всех задач), но если выход произойдет раньше, gate может не быть disposed. Лучше использовать using для гарантии.  
++**Severity:** LOW
++
++---
++
++## Резюме
++
++**Критические проблемы (CRITICAL):** 2
++- Нарушение Outbox паттерна при падении процесса
++- Неправильный интервал опроса (500 сек вместо 0.5 сек)
++
++**Высокий приоритет (HIGH):** 2
++- Несовпадение ключей конфигурации
++- Деление на ноль при throttling
++
++**Средний приоритет (MEDIUM):** 2
++- Недостаточная валидация параметров
++- Отсутствие валидации email адресов
++
++**Низкий приоритет (LOW):** 1
++- Потенциальная утечка SemaphoreSlim

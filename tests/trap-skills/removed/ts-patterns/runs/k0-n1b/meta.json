@@ -1,0 +1,43 @@
+{
+  "id": "k0-n1b",
+  "case": "K0",
+  "edition": "n1",
+  "skills": [
+    "ts-nodejs-api",
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 11,
+  "cost": 0.10803680000000002,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 3,
+    "Bash": 7
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100; grep -rniE \"price|₽|RUB\" --include=*.ts --include=*.tsx -l . --exclude-dir=node_modules",
+    "cat api/src/domain/product.ts web/src/lib/money.ts web/src/types.ts web/src/components/ProductsPage.tsx; grep -n \"oduct\" api/src/seed.ts api/src/app.ts api/src/store.ts | head -40; grep -rn \"formatPri",
+    "sed -n 1,20p api/src/seed.ts; grep -n \"describe\\|it(\\|import\\|products\" api/test/orders.test.ts | head -30; grep -rn \"Product\\b\" api/src --include=*.ts -l",
+    "sed -i -E \"/^  \\{ id: 'p-/ s/ \\},\\$/, currency: 'RUB' },/\" api/src/seed.ts && sed -i 's/  priceKopecks: number;/  priceKopecks: number;\\n  currency: string;/' api/src/domain/product.ts && python3 - <<",
+    "perl -pi -e \"s/ \\}, *\\$/, currency: 'RUB' },/ if /^  \\{ id: 'p-/\" api/src/seed.ts && perl -pi -e 's/^  priceKopecks: number;\\n/  priceKopecks: number;\\n  currency: string;\\n/' api/src/domain/product.t",
+    "sed -n 1,40p web/src/components/__tests__/OrdersPage.test.tsx",
+    "cat > web/src/components/__tests__/ProductsPage.test.tsx <<'E'\nimport { render, screen } from '@testing-library/react';\nimport { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';\nimport"
+  ]
+}

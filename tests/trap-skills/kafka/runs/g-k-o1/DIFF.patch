@@ -1,0 +1,552 @@
+diff --git a/src/Fulfil/Contracts/OrderEvents.cs b/src/Fulfil/Contracts/OrderEvents.cs
+index bb61974..f743af4 100644
+--- a/src/Fulfil/Contracts/OrderEvents.cs
++++ b/src/Fulfil/Contracts/OrderEvents.cs
+@@ -1,6 +1,12 @@
+ namespace Fulfil.Contracts;
+ 
+ // События заказов, которые публикует витрина и смежные команды.
+-public sealed record OrderPlaced(Guid OrderId, Guid CustomerId, IReadOnlyList<Domain.OrderLine> Lines, DateTimeOffset PlacedAt);
++// GiftWrap появился позже: старый формат без поля читается как false.
++public sealed record OrderPlaced(
++    Guid OrderId,
++    Guid CustomerId,
++    IReadOnlyList<Domain.OrderLine> Lines,
++    DateTimeOffset PlacedAt,
++    bool GiftWrap = false);
+ 
+ public sealed record OrderStatusChanged(Guid OrderId, Domain.OrderStatus Status, DateTimeOffset ChangedAt);
+diff --git a/src/Fulfil/Domain/Order.cs b/src/Fulfil/Domain/Order.cs
+index 00325b0..09e0225 100644
+--- a/src/Fulfil/Domain/Order.cs
++++ b/src/Fulfil/Domain/Order.cs
+@@ -9,7 +9,8 @@ public sealed record Order(
+     Guid CustomerId,
+     OrderStatus Status,
+     IReadOnlyList<OrderLine> Lines,
+-    DateTimeOffset PlacedAt)
++    DateTimeOffset PlacedAt,
++    bool GiftWrap = false)
+ {
+     public decimal Total => Lines.Sum(l => l.Quantity * l.UnitPrice);
+ }
+diff --git a/src/Fulfil/Kafka/KafkaJson.cs b/src/Fulfil/Kafka/KafkaJson.cs
+new file mode 100644
+index 0000000..8cacb04
+--- /dev/null
++++ b/src/Fulfil/Kafka/KafkaJson.cs
+@@ -0,0 +1,32 @@
++using System.Text.Json;
++using System.Text.Json.Serialization;
++
++namespace Fulfil.Kafka;
++
++public static class KafkaJson
++{
++    public static readonly JsonSerializerOptions Options = Create();
++
++    private static JsonSerializerOptions Create()
++    {
++        var o = new JsonSerializerOptions(JsonSerializerDefaults.Web);
++        o.Converters.Add(new JsonStringEnumConverter());
++        return o;
++    }
++
++    // Невалидное сообщение - постоянная ошибка: повтор её не лечит.
++    public static T Parse<T>(byte[]? value) where T : class
++    {
++        if (value is null || value.Length == 0)
++            throw new InvalidDataException("Пустое сообщение");
++        try
++        {
++            return JsonSerializer.Deserialize<T>(value, Options)
++                ?? throw new InvalidDataException("JSON null");
++        }
++        catch (JsonException ex)
++        {
++            throw new InvalidDataException("Некорректный JSON: " + ex.Message, ex);
++        }
++    }
++}
+diff --git a/src/Fulfil/Kafka/KafkaPublisher.cs b/src/Fulfil/Kafka/KafkaPublisher.cs
+new file mode 100644
+index 0000000..340d4f8
+--- /dev/null
++++ b/src/Fulfil/Kafka/KafkaPublisher.cs
+@@ -0,0 +1,59 @@
++using System.Text;
++using System.Text.Json;
++using Confluent.Kafka;
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Kafka;
++
++// Общий идемпотентный продьюсер: события и сообщения в DLT.
++public sealed class KafkaPublisher : IDisposable
++{
++    private readonly IProducer<byte[], byte[]> _producer;
++
++    public KafkaPublisher(IOptions<FulfilOptions> options)
++    {
++        _producer = new ProducerBuilder<byte[], byte[]>(new ProducerConfig
++        {
++            BootstrapServers = options.Value.KafkaBootstrapServers,
++            EnableIdempotence = true,
++            Acks = Acks.All,
++            MessageTimeoutMs = 30_000
++        }).Build();
++    }
++
++    public async Task PublishAsync<T>(string topic, string key, T payload, CancellationToken ct)
++    {
++        await _producer.ProduceAsync(topic, new Message<byte[], byte[]>
++        {
++            Key = Encoding.UTF8.GetBytes(key),
++            Value = JsonSerializer.SerializeToUtf8Bytes(payload, KafkaJson.Options)
++        }, ct);
++    }
++
++    // Ядовитое сообщение уходит в `<топик>.DLT` как есть, причина и источник - в заголовках.
++    // Вернулся - значит брокер принял, и смещение можно двигать.
++    public async Task DeadLetterAsync(ConsumeResult<byte[], byte[]> source, Exception reason, CancellationToken ct)
++    {
++        var headers = new Headers
++        {
++            { "dlt-reason", Encoding.UTF8.GetBytes(reason.Message) },
++            { "dlt-exception", Encoding.UTF8.GetBytes(reason.GetType().FullName ?? "unknown") },
++            { "dlt-source-topic", Encoding.UTF8.GetBytes(source.Topic) },
++            { "dlt-source-partition", Encoding.UTF8.GetBytes(source.Partition.Value.ToString()) },
++            { "dlt-source-offset", Encoding.UTF8.GetBytes(source.Offset.Value.ToString()) }
++        };
++        await _producer.ProduceAsync(source.Topic + ".DLT", new Message<byte[], byte[]>
++        {
++            Key = source.Message.Key,
++            Value = source.Message.Value,
++            Headers = headers
++        }, ct);
++    }
++
++    public void Dispose()
++    {
++        _producer.Flush(TimeSpan.FromSeconds(10));
++        _producer.Dispose();
++    }
++}
+diff --git a/src/Fulfil/Kafka/OrderImportConsumer.cs b/src/Fulfil/Kafka/OrderImportConsumer.cs
+new file mode 100644
+index 0000000..6535c75
+--- /dev/null
++++ b/src/Fulfil/Kafka/OrderImportConsumer.cs
+@@ -0,0 +1,149 @@
++using Confluent.Kafka;
++using Fulfil.Contracts;
++using Fulfil.Options;
++using Fulfil.Storage;
++using Microsoft.Extensions.Options;
++using MongoDB.Bson;
++
++namespace Fulfil.Kafka;
++
++// Ночной импорт orders.import: пачки по ImportBatchSize, один InsertMany на пачку.
++public sealed class OrderImportConsumer : BackgroundService
++{
++    private readonly FulfilOptions _options;
++    private readonly OrderStore _orders;
++    private readonly KafkaPublisher _publisher;
++    private readonly ILogger<OrderImportConsumer> _log;
++
++    public OrderImportConsumer(IOptions<FulfilOptions> options, OrderStore orders,
++        KafkaPublisher publisher, ILogger<OrderImportConsumer> log)
++    {
++        _options = options.Value;
++        _orders = orders;
++        _publisher = publisher;
++        _log = log;
++    }
++
++    protected override Task ExecuteAsync(CancellationToken ct) =>
++        Task.Factory.StartNew(() => RunAsync(ct), ct, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
++
++    private async Task RunAsync(CancellationToken ct)
++    {
++        using var consumer = new ConsumerBuilder<byte[], byte[]>(new ConsumerConfig
++        {
++            BootstrapServers = _options.KafkaBootstrapServers,
++            GroupId = _options.OrdersImportGroupId,
++            EnableAutoCommit = false,
++            AutoOffsetReset = AutoOffsetReset.Earliest,
++            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
++        }).Build();
++        consumer.Subscribe(_options.OrdersImportTopic);
++
++        try
++        {
++            var batch = new List<ConsumeResult<byte[], byte[]>>(_options.ImportBatchSize);
++            while (!ct.IsCancellationRequested)
++            {
++                batch.Clear();
++                var deadline = DateTime.UtcNow.AddSeconds(2);
++                while (batch.Count < _options.ImportBatchSize && DateTime.UtcNow < deadline)
++                {
++                    try
++                    {
++                        var r = consumer.Consume(TimeSpan.FromMilliseconds(500));
++                        if (r?.Message is not null) batch.Add(r);
++                    }
++                    catch (ConsumeException ex) when (!ex.Error.IsFatal)
++                    {
++                        _log.LogWarning(ex, "Ошибка чтения {Topic}", _options.OrdersImportTopic);
++                    }
++                }
++                if (batch.Count == 0) continue;
++
++                await HandleBatchAsync(batch, ct);
++                CommitSafe(consumer, batch);
++            }
++        }
++        catch (OperationCanceledException) { }
++        finally
++        {
++            consumer.Close();
++        }
++    }
++
++    private async Task HandleBatchAsync(List<ConsumeResult<byte[], byte[]>> batch, CancellationToken ct)
++    {
++        var valid = new List<(ConsumeResult<byte[], byte[]> Source, BsonDocument Doc)>(batch.Count);
++        foreach (var r in batch)
++        {
++            try
++            {
++                var order = KafkaJson.Parse<OrderPlaced>(r.Message.Value);
++                if (order.OrderId == Guid.Empty || order.CustomerId == Guid.Empty || order.Lines is null || order.Lines.Count == 0)
++                    throw new InvalidDataException("OrderPlaced без идентификаторов или строк заказа");
++                valid.Add((r, OrderStore.ToDocument(order)));
++            }
++            catch (InvalidDataException ex)
++            {
++                await SendToDltAsync(r, ex, ct);
++            }
++        }
++        if (valid.Count == 0) return;
++
++        Exception? last = null;
++        for (var attempt = 1; attempt <= _options.MaxProcessingAttempts; attempt++)
++        {
++            try
++            {
++                await _orders.InsertManyAsync(valid.Select(v => v.Doc).ToList(), ct);
++                return;
++            }
++            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
++            catch (Exception ex)
++            {
++                last = ex;
++                _log.LogWarning(ex, "Пачка импорта, попытка {Attempt}/{Max}", attempt, _options.MaxProcessingAttempts);
++                await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), ct);
++            }
++        }
++
++        // Пачка не вставляется: ищем виновника поодиночке, остальные сохраняем, ядовитые - в DLT.
++        _log.LogError(last, "Пачка импорта не прошла, разбор по одному");
++        foreach (var (source, doc) in valid)
++        {
++            try { await _orders.InsertManyAsync(new[] { doc }, ct); }
++            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
++            catch (Exception ex) { await SendToDltAsync(source, ex, ct); }
++        }
++    }
++
++    private async Task SendToDltAsync(ConsumeResult<byte[], byte[]> result, Exception reason, CancellationToken ct)
++    {
++        _log.LogError(reason, "Сообщение {Topic}[{Partition}]@{Offset} уходит в DLT", result.Topic,
++            result.Partition.Value, result.Offset.Value);
++        while (true)
++        {
++            try { await _publisher.DeadLetterAsync(result, reason, ct); return; }
++            catch (Exception ex) when (ex is not OperationCanceledException)
++            {
++                _log.LogError(ex, "DLT недоступен, повтор");
++                await Task.Delay(TimeSpan.FromSeconds(2), ct);
++            }
++        }
++    }
++
++    // Фиксируем смещение по каждой партиции пачки после полной обработки пачки.
++    private void CommitSafe(IConsumer<byte[], byte[]> consumer, List<ConsumeResult<byte[], byte[]>> batch)
++    {
++        var offsets = batch
++            .GroupBy(r => r.TopicPartition)
++            .Select(g => new TopicPartitionOffset(g.Key, g.Max(r => r.Offset.Value) + 1))
++            .ToList();
++        try { consumer.Commit(offsets); }
++        catch (KafkaException ex)
++        {
++            // Партицию забрали при ребалансе: новый владелец перечитает, вставка идемпотентна.
++            _log.LogWarning(ex, "Не удалось зафиксировать смещения пачки импорта");
++        }
++    }
++}
+diff --git a/src/Fulfil/Kafka/OrderPlacedConsumer.cs b/src/Fulfil/Kafka/OrderPlacedConsumer.cs
+new file mode 100644
+index 0000000..49f9b37
+--- /dev/null
++++ b/src/Fulfil/Kafka/OrderPlacedConsumer.cs
+@@ -0,0 +1,128 @@
++using Confluent.Kafka;
++using Fulfil.Contracts;
++using Fulfil.Domain;
++using Fulfil.Options;
++using Fulfil.Storage;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Kafka;
++
++// orders.placed -> проекция клиента -> OrderStatusChanged(Placed).
++// Доставка at-least-once: смещение фиксируется синхронно после каждого сообщения, поэтому
++// ребаланс не заставляет перечитывать обработанное; повторы переживает идемпотентная проекция.
++public sealed class OrderPlacedConsumer : BackgroundService
++{
++    private readonly FulfilOptions _options;
++    private readonly CustomerProjection _projection;
++    private readonly KafkaPublisher _publisher;
++    private readonly ILogger<OrderPlacedConsumer> _log;
++
++    public OrderPlacedConsumer(IOptions<FulfilOptions> options, CustomerProjection projection,
++        KafkaPublisher publisher, ILogger<OrderPlacedConsumer> log)
++    {
++        _options = options.Value;
++        _projection = projection;
++        _publisher = publisher;
++        _log = log;
++    }
++
++    protected override Task ExecuteAsync(CancellationToken ct) =>
++        Task.Factory.StartNew(() => RunAsync(ct), ct, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
++
++    private async Task RunAsync(CancellationToken ct)
++    {
++        using var consumer = new ConsumerBuilder<byte[], byte[]>(new ConsumerConfig
++        {
++            BootstrapServers = _options.KafkaBootstrapServers,
++            GroupId = _options.OrdersGroupId,
++            EnableAutoCommit = false,
++            AutoOffsetReset = AutoOffsetReset.Earliest,
++            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
++        }).Build();
++        consumer.Subscribe(_options.OrdersPlacedTopic);
++
++        try
++        {
++            while (!ct.IsCancellationRequested)
++            {
++                ConsumeResult<byte[], byte[]>? result;
++                try { result = consumer.Consume(ct); }
++                catch (ConsumeException ex) when (!ex.Error.IsFatal)
++                {
++                    _log.LogWarning(ex, "Ошибка чтения {Topic}", _options.OrdersPlacedTopic);
++                    continue;
++                }
++                if (result?.Message is null) continue;
++
++                await HandleAsync(result, ct);
++                CommitSafe(consumer, result);
++            }
++        }
++        catch (OperationCanceledException) { }
++        finally
++        {
++            consumer.Close();
++        }
++    }
++
++    private async Task HandleAsync(ConsumeResult<byte[], byte[]> result, CancellationToken ct)
++    {
++        Exception? last = null;
++        for (var attempt = 1; attempt <= _options.MaxProcessingAttempts; attempt++)
++        {
++            try
++            {
++                await ProcessAsync(result, ct);
++                return;
++            }
++            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
++            catch (InvalidDataException ex) { last = ex; break; } // повтор не поможет
++            catch (Exception ex)
++            {
++                last = ex;
++                _log.LogWarning(ex, "Попытка {Attempt}/{Max}: {Topic}[{Partition}]@{Offset}", attempt,
++                    _options.MaxProcessingAttempts, result.Topic, result.Partition.Value, result.Offset.Value);
++                await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), ct);
++            }
++        }
++
++        // Смещение сдвинется только после того, как брокер принял сообщение в DLT.
++        _log.LogError(last, "Сообщение {Topic}[{Partition}]@{Offset} уходит в DLT", result.Topic,
++            result.Partition.Value, result.Offset.Value);
++        await SendToDltAsync(result, last!, ct);
++    }
++
++    private async Task ProcessAsync(ConsumeResult<byte[], byte[]> result, CancellationToken ct)
++    {
++        var order = KafkaJson.Parse<OrderPlaced>(result.Message.Value);
++        if (order.OrderId == Guid.Empty || order.CustomerId == Guid.Empty || order.Lines is null || order.Lines.Count == 0)
++            throw new InvalidDataException("OrderPlaced без идентификаторов или строк заказа");
++
++        await _projection.ApplyAsync(order, ct);
++        await _publisher.PublishAsync(_options.OrderStatusChangedTopic, order.OrderId.ToString(),
++            new OrderStatusChanged(order.OrderId, OrderStatus.Placed, DateTimeOffset.UtcNow), ct);
++    }
++
++    private async Task SendToDltAsync(ConsumeResult<byte[], byte[]> result, Exception reason, CancellationToken ct)
++    {
++        while (true)
++        {
++            try { await _publisher.DeadLetterAsync(result, reason, ct); return; }
++            catch (Exception ex) when (ex is not OperationCanceledException)
++            {
++                _log.LogError(ex, "DLT недоступен, повтор");
++                await Task.Delay(TimeSpan.FromSeconds(2), ct);
++            }
++        }
++    }
++
++    private void CommitSafe(IConsumer<byte[], byte[]> consumer, ConsumeResult<byte[], byte[]> result)
++    {
++        try { consumer.Commit(result); }
++        catch (KafkaException ex)
++        {
++            // Например, партицию забрали при ребалансе: новый владелец перечитает, проекция идемпотентна.
++            _log.LogWarning(ex, "Не удалось зафиксировать смещение {Partition}@{Offset}", result.Partition.Value, result.Offset.Value);
++        }
++    }
++}
+diff --git a/src/Fulfil/Options/FulfilOptions.cs b/src/Fulfil/Options/FulfilOptions.cs
+index fb25fdf..9abce73 100644
+--- a/src/Fulfil/Options/FulfilOptions.cs
++++ b/src/Fulfil/Options/FulfilOptions.cs
+@@ -8,4 +8,14 @@ public sealed class FulfilOptions
+     public string MongoConnectionString { get; set; } = "mongodb://localhost:27017";
+     public string MongoDatabase { get; set; } = "fulfil";
+     public string ElasticUri { get; set; } = "http://localhost:9200";
++
++    public string OrdersPlacedTopic { get; set; } = "orders.placed";
++    public string OrderStatusChangedTopic { get; set; } = "orders.status-changed";
++    public string OrdersImportTopic { get; set; } = "orders.import";
++    public string OrdersGroupId { get; set; } = "fulfil-orders";
++    // Группу для импорта платформа создаёт отдельно: подписки на разные топики не смешиваем в одной группе.
++    public string OrdersImportGroupId { get; set; } = "fulfil-orders-import";
++    public int ImportBatchSize { get; set; } = 100;
++    // Число попыток обработки сообщения до отправки в `<топик>.DLT`.
++    public int MaxProcessingAttempts { get; set; } = 5;
+ }
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..96565f6 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,8 +1,22 @@
++using Fulfil.Kafka;
+ using Fulfil.Options;
++using Fulfil.Storage;
++using Microsoft.Extensions.Options;
++using MongoDB.Driver;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
+ 
++builder.Services.AddSingleton<IMongoClient>(sp =>
++    new MongoClient(sp.GetRequiredService<IOptions<FulfilOptions>>().Value.MongoConnectionString));
++builder.Services.AddSingleton(sp =>
++    sp.GetRequiredService<IMongoClient>().GetDatabase(sp.GetRequiredService<IOptions<FulfilOptions>>().Value.MongoDatabase));
++builder.Services.AddSingleton<CustomerProjection>();
++builder.Services.AddSingleton<OrderStore>();
++builder.Services.AddSingleton<KafkaPublisher>();
++builder.Services.AddHostedService<OrderPlacedConsumer>();
++builder.Services.AddHostedService<OrderImportConsumer>();
++
+ var app = builder.Build();
+ app.MapGet("/health", () => Results.Ok());
+ app.Run();
+diff --git a/src/Fulfil/Storage/MongoStores.cs b/src/Fulfil/Storage/MongoStores.cs
+new file mode 100644
+index 0000000..c466bfc
+--- /dev/null
++++ b/src/Fulfil/Storage/MongoStores.cs
+@@ -0,0 +1,76 @@
++using Fulfil.Contracts;
++using Fulfil.Domain;
++using MongoDB.Bson;
++using MongoDB.Driver;
++
++namespace Fulfil.Storage;
++
++public sealed class CustomerProjection
++{
++    private const int AppliedOrdersKept = 1000;
++    private readonly IMongoCollection<BsonDocument> _customers;
++
++    public CustomerProjection(IMongoDatabase db) => _customers = db.GetCollection<BsonDocument>("customers");
++
++    // Идемпотентно: id учтённых заказов лежат в самом документе клиента, поэтому условие и
++    // приращение выполняются одной атомарной операцией (транзакций на одиночном узле нет).
++    // Повторная доставка заказа даёт конфликт _id при upsert - значит, он уже учтён.
++    public async Task ApplyAsync(OrderPlaced order, CancellationToken ct)
++    {
++        var id = order.CustomerId.ToString();
++        var orderId = order.OrderId.ToString();
++        var total = order.Lines.Sum(l => l.Quantity * l.UnitPrice);
++
++        var filter = Builders<BsonDocument>.Filter.Eq("_id", id)
++            & Builders<BsonDocument>.Filter.Ne("appliedOrders", orderId);
++        var update = Builders<BsonDocument>.Update
++            .Inc("ordersCount", 1)
++            .Inc("totalSpent", (Decimal128)total)
++            .PushEach("appliedOrders", new[] { orderId }, slice: -AppliedOrdersKept);
++        try
++        {
++            await _customers.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, ct);
++        }
++        catch (MongoCommandException ex) when (ex.Code == 11000) { }
++        catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
++    }
++}
++
++public sealed class OrderStore
++{
++    private readonly IMongoCollection<BsonDocument> _orders;
++
++    public OrderStore(IMongoDatabase db) => _orders = db.GetCollection<BsonDocument>("orders");
++
++    public static BsonDocument ToDocument(OrderPlaced e)
++    {
++        var order = new Order(e.OrderId, e.CustomerId, OrderStatus.Placed, e.Lines, e.PlacedAt, e.GiftWrap);
++        return new BsonDocument
++        {
++            { "_id", order.Id.ToString() },
++            { "customerId", order.CustomerId.ToString() },
++            { "status", order.Status.ToString() },
++            { "lines", new BsonArray(order.Lines.Select(l => new BsonDocument
++                {
++                    { "sku", l.Sku }, { "quantity", l.Quantity }, { "unitPrice", (Decimal128)l.UnitPrice }
++                })) },
++            { "total", (Decimal128)order.Total },
++            { "placedAt", order.PlacedAt.UtcDateTime },
++            { "giftWrap", order.GiftWrap }
++        };
++    }
++
++    // Одна пачка - один InsertMany. _id = id заказа и unordered: повторная доставка пачки
++    // даёт только конфликты ключа, они не ошибка.
++    public async Task InsertManyAsync(IReadOnlyList<BsonDocument> docs, CancellationToken ct)
++    {
++        if (docs.Count == 0) return;
++        try
++        {
++            await _orders.InsertManyAsync(docs, new InsertManyOptions { IsOrdered = false }, ct);
++        }
++        catch (MongoBulkWriteException ex) when (
++            ex.WriteErrors.Count > 0 && ex.WriteErrors.All(e => e.Category == ServerErrorCategory.DuplicateKey)
++            && ex.WriteConcernError is null) { }
++    }
++}

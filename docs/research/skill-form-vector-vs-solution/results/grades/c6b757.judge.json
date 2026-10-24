@@ -1,0 +1,67 @@
+{
+  "id": "c6b757",
+  "case": "G2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.078311,
+    "durationMs": 8065,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7772,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 785,
+      "output_tokens_details": {
+        "thinking_tokens": 270
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7772,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 785,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7772,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7772
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G2-freeze-fresh": {
+      "verdict": "FAIL",
+      "quote": "else if (member.FrozenUntil.HasValue && member.FrozenUntil.Value >= pass.PassedAt)",
+      "why": "Признак заморозки читается из Member, загруженного существующим отслеживающим запросом в долгоживущем контексте воркера; AsNoTracking, скалярной проекции, нового scope и ChangeTracker.Clear/Reload нет, поэтому заморозка после первого прохода и её снятие не видны до перезапуска."
+    },
+    "G2-random-session": {
+      "verdict": "FAIL",
+      "quote": ".Include(s => s.Enrollments).ThenInclude(e => e.Member) ... .OrderBy(s => Guid.NewGuid()) .FirstOrDefaultAsync();",
+      "why": "Один запрос со случайным порядком, FirstOrDefault и Include коллекции без AsSingleQuery: при глобальном SplitQuery запрос записей заново вычисляет случайный порядок и может вернуть записавшихся другого занятия."
+    },
+    "G2-h-course-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetCourseAsync не упоминается и не изменяется."
+    },
+    "G2-m-passes-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Запрос проходов и записей в TurnstileWorker не переведён в AsNoTracking, глобальное поведение трекинга не менялось."
+    }
+  },
+  "stderr": ""
+}

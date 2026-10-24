@@ -22,6 +22,10 @@ on:
       - 'tools/validate-*.js'
       - '**.sh'
 
+# Чеки только читают репозиторий: токен workflow без записи.
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate agents and skills against frameworks
@@ -70,6 +74,87 @@ jobs:
 
       - name: Validate commands
         run: node tools/validate-command.js all
+
+      - name: Validate bundles
+        run: node tools/validate-bundle.js all
+
+      # Имя поля, переведённое на слух из прозы агента в схему трека, не показывает
+      # ни один прогон: объект приходит заполненным, просто не тот.
+      - name: Validate node contract field names
+        run: node tools/validate-node-contract.js all
+
+      # Мета-гейт: правило без строки в VALIDATOR_RULES.md или без фикстуры
+      # проходит test-rules.js молча - он гоняет только то, что заявлено.
+      - name: Validate rules documented
+        run: node tools/validate-rules-documented.js all
+
+      # Прогон правил на фикстурах: на живом каталоге выключенное правило
+      # неотличимо от соблюдённого, ловится только деревом с заведомым дефектом.
+      - name: Test validator rules
+        run: node tools/test-rules.js all
+
+      # Имя `к вытеснению` в тексте каталога: ось «Терминология» ревью ловит его
+      # на LLM-проходе, а ручной добив остатка за один PR пропускал своё дважды.
+      # Перечень читается из индекса, поэтому шаг стоит рядом с проверкой его синхронности.
+      # Тот же валидатор судит дома словаря: адрес в колонке «Дом» и присутствие термина в носителе.
+      - name: Validate terminology
+        run: node tools/validate-terminology.js all
+
+      # Стартовый индекс имён генерируется из словаря: правка словаря без
+      # перегенерации даёт индекс, который расходится с домом молча.
+      - name: Check terminology index in sync
+        run: node tools/sync-terminology.js --check
+
+      # Скрипт трека не импортирует, общий код - копия, а словарь статусов находки держат ещё ledger и finish.
+      - name: Check dex-auto track fragments and finding statuses in sync
+        run: node tools/sync-tracks.js --check
+
+      # Проба видимости агента платная и в CI не ходит, но перечень её кейсов
+      # строится из дерева - и строился слепо к подкаталогу `agents/`. Предмет
+      # этого шага - сам перечень: он собирается бесплатно (`--list-cases` в
+      # песочнице через MARKETPLACE_ROOT), а кейс, которого не построилось,
+      # ошибкой не выглядит нигде. Шаг живёт в этом job'е, а не в shell-syntax:
+      # скрипт зовёт node и `gray-matter`, то есть требует `npm ci`.
+      # Код выхода и CLI-ветки validate-node-contract.js (пустой набор, режим одного файла, словарь
+      # с CRLF и без файла) test-rules.js не видит - он судит только строки находок.
+      # Обход дерева: symlink и спецфайл под plugins/ - отказ всех валидаторов, а не ELOOP, зависание или чужой файл.
+      # sync-plugins.ps1 гоняется теми же сценариями, что .sh, но только при `pwsh` в PATH: на ubuntu-latest он есть,
+      # REQUIRE_PWSH=1 делает его отсутствие провалом, а не тихим пропуском.
+      - name: Test tool CLI contracts (agent visibility, node contract, tree walk, sync-plugins)
+        run: npm run test:tools
+        env:
+          REQUIRE_PWSH: '1'
+
+      # Ledger и сторожа dex-auto: адрес, буквальный контракт статуса, коды выхода
+      # хуков на временном CLAUDE_CONFIG_DIR (ловец адреса по ADR-0001).
+      - name: Test dex-auto ledger and hooks
+        run: npm run test:hooks
+
+      # Треки dex-auto: оркестрация (петли, потолки, ветки blocked, состав возврата)
+      # на подменённых узлах. Имена полей схем tracks/*.js судит validate-node-contract.js,
+      # оркестрацию - только этот прогон; журнал находок - зонд P18.
+      - name: Test dex-auto track orchestration
+        run: npm run test:tracks
+
+      # Моды - TypeScript внутри процесса Claude Code: типы держит контракт
+      # `mods/types/claude-code.d.ts` (пишет движок), и разъезд ловится
+      # только компилятором - валидаторы каталога в .ts не заходят.
+      - name: Typecheck mods
+        run: npm run typecheck:mods
+
+      # Чистая половина мода (разбор remote и ссылок, сборка ответа GitLab,
+      # дельта опроса) проверяется прогоном: в живой сессии её ошибка выглядит
+      # как пустая строка над вводом, а не как падение.
+      - name: Test mods
+        run: npm run test:mods
+
+      # README - второй носитель состава каталога, генератора у него нет.
+      # Замер 01.09.2026 этим же инструментом на базе PR (b846fd6f): 85 плагинов
+      # из 245 не были названы ни полным, ни коротким именем, и
+      # `sync-marketplace --check` этого не видит - он судит только пару
+      # plugin.json x marketplace.json.
+      - name: Validate README against the catalog
+        run: node tools/validate-readme.js all
 
   shell-syntax:
     name: Shell scripts syntax check (bash -n)

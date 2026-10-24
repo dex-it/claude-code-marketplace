@@ -1,0 +1,36 @@
+stages: [build, package, migrate, deploy]
+
+variables:
+  PROJECT: src/VetClinic.Records
+
+build:
+  stage: build
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  script:
+    - dotnet build $PROJECT -c Release
+    - dotnet test tests/VetClinic.Records.Tests -c Release
+
+migrations-sql:
+  stage: package
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  script:
+    - dotnet tool restore
+    - dotnet ef migrations script --idempotent --project $PROJECT --output artifacts/migrate.sql
+  artifacts:
+    paths: [artifacts/migrate.sql]
+
+# Окно обслуживания: приложение остановлено, DBA просмотрел artifacts/migrate.sql и запускает вручную.
+db-migrate:
+  stage: migrate
+  image: postgres:16
+  when: manual
+  environment: production
+  script:
+    - psql "$MIGRATOR_CONNECTION_STRING" -v ON_ERROR_STOP=1 --single-transaction -f artifacts/migrate.sql
+
+deploy:
+  stage: deploy
+  needs: [db-migrate]
+  environment: production
+  script:
+    - helm upgrade --install vet-records ./deploy/chart --set image.tag=$CI_COMMIT_SHA --set replicaCount=3

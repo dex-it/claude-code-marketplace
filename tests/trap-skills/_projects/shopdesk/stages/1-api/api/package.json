@@ -1,0 +1,24 @@
+{
+  "name": "@shopdesk/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "4.22.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "4.17.25",
+    "@types/node": "22.20.4",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.3.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.7"
+  }
+}

@@ -1,0 +1,95 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..f57ee4e
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,73 @@
++namespace Shop.Data;
++
++public enum ProductLookupStatus { Found, NotFound, Ambiguous }
++
++// Ambiguous: sku есть на нескольких складах, а склад не передан - вызывающий уточняет склад из Warehouses.
++public sealed record ProductLookupResult(ProductLookupStatus Status, Product? Product, IReadOnlyList<string> Warehouses)
++{
++    public static ProductLookupResult Found(Product p) => new(ProductLookupStatus.Found, p, new[] { p.Warehouse });
++    public static ProductLookupResult NotFound() => new(ProductLookupStatus.NotFound, null, Array.Empty<string>());
++    public static ProductLookupResult Ambiguous(IReadOnlyList<string> warehouses) => new(ProductLookupStatus.Ambiguous, null, warehouses);
++}
++
++// Только чтение: все выборки без трекинга. Регистрировать Scoped, как и ShopDbContext.
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // Две коллекции одного уровня - split query, чтобы не получить декартово произведение Items x Payments.
++    public Task<Order?> GetOrderCardAsync(Guid orderId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .SingleOrDefaultAsync(o => o.Id == orderId, ct);
++
++    // Тысячи заказов x позиции x платежи: split query (3 запроса вместо одного взрывного JOIN), без трекинга.
++    public Task<List<Order>> GetCustomerOrdersAsync(Guid customerId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync(ct);
++
++    // (Sku, Warehouse) уникален, Sku сам по себе - нет. Без склада несколько совпадений не выбираются молча.
++    public async Task<ProductLookupResult> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        if (warehouse is not null)
++        {
++            var product = await _db.Products
++                .AsNoTracking()
++                .SingleOrDefaultAsync(p => p.Sku == sku && p.Warehouse == warehouse, ct);
++            return product is null ? ProductLookupResult.NotFound() : ProductLookupResult.Found(product);
++        }
++
++        var matches = await _db.Products
++            .AsNoTracking()
++            .Where(p => p.Sku == sku)
++            .ToListAsync(ct);
++
++        return matches.Count switch
++        {
++            0 => ProductLookupResult.NotFound(),
++            1 => ProductLookupResult.Found(matches[0]),
++            _ => ProductLookupResult.Ambiguous(matches.Select(p => p.Warehouse).OrderBy(w => w).ToList()),
++        };
++    }
++
++    // ShippedAt без явного типа -> timestamptz, читается с Kind=Utc.
++    // Агрегат считается в БД; Max по nullable на пустой выборке даёт null, а не исключение.
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var last = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => o.ShippedAt, ct);
++
++        return last ?? throw new InvalidOperationException($"Customer {customerId} has no shipped orders.");
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..06fe519
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++Файлы:
++- создан `OrderQueries.cs` — сервис `OrderQueries` и тип результата `ProductLookupResult`/`ProductLookupStatus`;
++- создан `_answer.md`;
++- `Model.cs` и `OrderRepository.cs` не менялись.
++
++Решения:
++- (а) и (б) читают без трекинга (`AsNoTracking`), `Include` для Items и Payments, `AsSplitQuery`. Так две коллекции одного уровня не дают декартова произведения, в том числе у клиента с тысячами заказов. Выгрузка упорядочена по `CreatedAt, Id`. Удалённые заказы отсекает существующий `HasQueryFilter`.
++- (в) `GetProductBySku(string sku, string? warehouse)`. Если склад передан, ищем `SingleOrDefault` по уникальной паре (Sku, Warehouse). Если склад null, одну запись молча не выбираем: метод возвращает `Found`, `NotFound` или `Ambiguous` со списком складов.
++- (г) `MaxAsync` считается в БД по заказам с `ShippedAt != null`. Для клиента без отгруженных заказов бросается явное `InvalidOperationException`, потому что тип возврата `DateTime` не nullable. `ShippedAt` хранится в `timestamptz` и читается с `Kind=Utc`.
++- Сервис нужно зарегистрировать в DI как Scoped, как `ShopDbContext`. Сборку и тесты не запускал.

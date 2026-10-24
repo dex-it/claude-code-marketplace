@@ -1,0 +1,110 @@
+diff --git a/api/test/checkout.test.ts b/api/test/checkout.test.ts
+new file mode 100644
+index 0000000..bbc58ee
+--- /dev/null
++++ b/api/test/checkout.test.ts
+@@ -0,0 +1,104 @@
++import { beforeEach, describe, expect, it, vi } from 'vitest';
++import { DeliveryUnavailableError } from '../src/clients/delivery.js';
++import type { OrderItem } from '../src/domain/order.js';
++
++vi.mock('../src/clients/delivery.js', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('../src/clients/delivery.js')>();
++  return { ...actual, delivery: { quote: vi.fn() } };
++});
++vi.mock('../src/logger.js', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
++
++const { delivery } = await import('../src/clients/delivery.js');
++const { logger } = await import('../src/logger.js');
++const { MAX_ATTEMPTS_PER_CUSTOMER, quoteOrder, registerAttempt } = await import('../src/services/checkout.js');
++
++const quoteMock = vi.mocked(delivery.quote);
++
++const items: OrderItem[] = [
++  { productId: 'p1', title: 'A', quantity: 2, priceKopecks: 40_000 },
++  { productId: 'p2', title: 'B', quantity: 1, priceKopecks: 70_000 },
++];
++// сумма позиций: 150 000
++
++describe('quoteOrder', () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    quoteMock.mockResolvedValue({ priceKopecks: 25_000, days: 3 });
++  });
++
++  it('без промокода: сумма позиций плюс доставка', async () => {
++    const quote = await quoteOrder(items, { city: 'Казань' });
++    expect(quote).toEqual({
++      subtotalKopecks: 150_000,
++      discountKopecks: 0,
++      deliveryKopecks: 25_000,
++      totalKopecks: 175_000,
++      promoApplied: false,
++      deliveryEstimated: false,
++    });
++    expect(logger.warn).not.toHaveBeenCalled();
++  });
++
++  it('передаёт в службу доставки город и вес по количеству единиц', async () => {
++    await quoteOrder(items, { city: 'Казань' });
++    expect(quoteMock).toHaveBeenCalledExactlyOnceWith('Казань', 1500);
++  });
++
++  it('с промокодом скидка вычитается из суммы позиций', async () => {
++    const quote = await quoteOrder(items, { city: 'Казань', promoCode: 'WELCOME10' });
++    expect(quote.promoApplied).toBe(true);
++    expect(quote.discountKopecks).toBe(15_000);
++    expect(quote.totalKopecks).toBe(150_000 - 15_000 + 25_000);
++    expect(logger.warn).not.toHaveBeenCalled();
++  });
++
++  it('неизвестный промокод: скидки нет, в журнале предупреждение', async () => {
++    const quote = await quoteOrder(items, { city: 'Казань', promoCode: 'NOPE' });
++    expect(quote.promoApplied).toBe(false);
++    expect(quote.discountKopecks).toBe(0);
++    expect(quote.totalKopecks).toBe(175_000);
++    expect(logger.warn).toHaveBeenCalledTimes(1);
++    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('NOPE'));
++  });
++
++  it('промокод при недостаточной сумме: скидки нет, в журнале предупреждение', async () => {
++    const quote = await quoteOrder(items, { city: 'Казань', promoCode: 'FLAT500' });
++    expect(quote.promoApplied).toBe(false);
++    expect(quote.discountKopecks).toBe(0);
++    expect(quote.totalKopecks).toBe(175_000);
++    expect(logger.warn).toHaveBeenCalledTimes(1);
++    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('FLAT500'));
++  });
++
++  it('служба доставки недоступна: фиксированный тариф и пометка об оценке', async () => {
++    quoteMock.mockRejectedValue(new DeliveryUnavailableError('down'));
++    const quote = await quoteOrder(items, { city: 'Казань' });
++    expect(quote.deliveryKopecks).toBe(29_900);
++    expect(quote.deliveryEstimated).toBe(true);
++    expect(quote.totalKopecks).toBe(150_000 + 29_900);
++    expect(logger.warn).toHaveBeenCalledTimes(1);
++  });
++
++  it('другая ошибка службы доставки уходит наружу без подмены', async () => {
++    const err = new Error('delivery responded with 500');
++    quoteMock.mockRejectedValue(err);
++    await expect(quoteOrder(items, { city: 'Казань' })).rejects.toBe(err);
++  });
++});
++
++describe('registerAttempt', () => {
++  it('разрешает три попытки, четвёртую отклоняет', () => {
++    const id = 'customer-limit';
++    expect(MAX_ATTEMPTS_PER_CUSTOMER).toBe(3);
++    expect(registerAttempt(id)).toEqual({ allowed: true, remaining: 2 });
++    expect(registerAttempt(id)).toEqual({ allowed: true, remaining: 1 });
++    expect(registerAttempt(id)).toEqual({ allowed: true, remaining: 0 });
++    expect(registerAttempt(id)).toEqual({ allowed: false, remaining: 0 });
++    expect(registerAttempt(id)).toEqual({ allowed: false, remaining: 0 });
++  });
++
++  it('покупатели не влияют друг на друга', () => {
++    for (let i = 0; i < 5; i++) registerAttempt('customer-busy');
++    expect(registerAttempt('customer-other')).toEqual({ allowed: true, remaining: 2 });
++  });
++});

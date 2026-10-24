@@ -1,0 +1,64 @@
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..ce6e7dc
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,58 @@
++import { expect, test, type Page } from '@playwright/test';
++
++const alice = { email: 'alice@shopdesk.example', password: 'alice-demo' };
++
++async function loginAs(page: Page, user: { email: string; password: string }) {
++  await page.goto('/');
++  await page.getByLabel('Email').fill(user.email);
++  await page.getByLabel('Пароль').fill(user.password);
++  await page.getByRole('button', { name: 'Войти' }).click();
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++}
++
++test('alice входит и видит свои заказы', async ({ page }) => {
++  await loginAs(page, alice);
++
++  await expect(page.getByText('Заказ #1001')).toBeVisible();
++  await expect(page.getByText('Заказ #1002')).toBeVisible();
++  const paid = page.getByRole('listitem').filter({ hasText: 'Заказ #1003' });
++  await expect(paid).toContainText('Оплачен');
++  // заказ другого покупателя не показывается
++  await expect(page.getByText('Заказ #1004')).toHaveCount(0);
++});
++
++test('отмена нового заказа', async ({ page, request }) => {
++  // свежий заказ через API, чтобы тест не зависел от состояния демо-данных между запусками
++  const loginRes = await request.post('/api/login', { data: alice });
++  expect(loginRes.ok()).toBeTruthy();
++  const { token } = await loginRes.json();
++  const createRes = await request.post('/api/orders', {
++    headers: { Authorization: `Bearer ${token}` },
++    data: { items: [{ productId: 'p-spoon', quantity: 1 }] },
++  });
++  expect(createRes.status()).toBe(201);
++  const { number } = await createRes.json();
++
++  await loginAs(page, alice);
++
++  const order = page.getByRole('listitem').filter({ hasText: `Заказ #${number}` });
++  await expect(order).toContainText('Новый');
++  await order.getByRole('button', { name: 'Отменить' }).click();
++
++  await expect(order).toContainText('Отменён');
++  await expect(order.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++});
++
++test('ошибка сервера при загрузке заказов', async ({ page }) => {
++  await page.route('**/api/orders', (route) =>
++    route.fulfill({
++      status: 500,
++      contentType: 'application/json',
++      body: JSON.stringify({ error: { code: 'internal', message: 'boom' } }),
++    }),
++  );
++
++  await loginAs(page, alice);
++
++  await expect(page.getByRole('alert')).toHaveText('Не удалось загрузить заказы');
++});

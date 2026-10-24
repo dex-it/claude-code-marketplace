@@ -1,0 +1,3 @@
+verdict: failed
+
+Находок: blocker — 1, major — 1, minor — 5.

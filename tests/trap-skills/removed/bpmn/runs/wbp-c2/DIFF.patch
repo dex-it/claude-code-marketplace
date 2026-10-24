@@ -1,0 +1,250 @@
+diff --git a/docs/process/booking.bpmn b/docs/process/booking.bpmn
+new file mode 100644
+index 0000000..8d36866
+--- /dev/null
++++ b/docs/process/booking.bpmn
+@@ -0,0 +1,171 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
++             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++             id="Definitions_Booking"
++             targetNamespace="http://classmate.example/bpmn/booking">
++
++  <message id="Msg_BookRequest" name="Запрос на бронь слота"/>
++  <message id="Msg_PaymentRequest" name="Запрос оплаты"/>
++  <message id="Msg_PaymentConfirmed" name="Подтверждение оплаты"/>
++  <message id="Msg_PaymentError" name="Ошибка оплаты"/>
++  <message id="Msg_ConfirmationMail" name="Письмо о подтверждении брони"/>
++  <message id="Msg_Memo" name="Памятка новичка"/>
++  <message id="Msg_Timeout" name="Время на оплату вышло"/>
++  <message id="Msg_PayFailed" name="Оплата не прошла, попробуйте ещё раз"/>
++
++  <collaboration id="Collaboration_Booking">
++    <participant id="P_Student" name="Ученик"/>
++    <participant id="P_Platform" name="Платформа Classmate" processRef="Process_Booking"/>
++    <participant id="P_PayFlow" name="Платёжный провайдер PayFlow"/>
++
++    <messageFlow id="MF_Book" sourceRef="P_Student" targetRef="Start_Book" messageRef="Msg_BookRequest"/>
++    <messageFlow id="MF_PayReq" sourceRef="Task_RequestPayment" targetRef="P_PayFlow" messageRef="Msg_PaymentRequest"/>
++    <messageFlow id="MF_PayOk" sourceRef="P_PayFlow" targetRef="Evt_PaymentConfirmed" messageRef="Msg_PaymentConfirmed"/>
++    <messageFlow id="MF_PayErr" sourceRef="P_PayFlow" targetRef="Evt_PaymentError" messageRef="Msg_PaymentError"/>
++    <messageFlow id="MF_Mail" sourceRef="Task_MailStudent" targetRef="P_Student" messageRef="Msg_ConfirmationMail"/>
++    <messageFlow id="MF_Memo" sourceRef="Task_SendMemo" targetRef="P_Student" messageRef="Msg_Memo"/>
++    <messageFlow id="MF_Timeout" sourceRef="Task_NotifyTimeout" targetRef="P_Student" messageRef="Msg_Timeout"/>
++    <messageFlow id="MF_PayFailed" sourceRef="Task_NotifyPayFailed" targetRef="P_Student" messageRef="Msg_PayFailed"/>
++  </collaboration>
++
++  <process id="Process_Booking" name="Бронирование урока" isExecutable="false">
++    <laneSet id="LaneSet_Booking">
++      <lane id="Lane_Platform" name="Платформа">
++        <flowNodeRef>Start_Book</flowNodeRef>
++        <flowNodeRef>Task_PlaceHold</flowNodeRef>
++        <flowNodeRef>Split_Hold</flowNodeRef>
++        <flowNodeRef>Task_RequestPayment</flowNodeRef>
++        <flowNodeRef>Task_NotifyTutorHold</flowNodeRef>
++        <flowNodeRef>Join_Hold</flowNodeRef>
++        <flowNodeRef>Gw_Wait</flowNodeRef>
++        <flowNodeRef>Evt_PaymentConfirmed</flowNodeRef>
++        <flowNodeRef>Evt_PaymentError</flowNodeRef>
++        <flowNodeRef>Evt_HoldTimer</flowNodeRef>
++        <flowNodeRef>Gw_Price</flowNodeRef>
++        <flowNodeRef>Gw_PriceMerge</flowNodeRef>
++        <flowNodeRef>Task_Confirm</flowNodeRef>
++        <flowNodeRef>Split_Confirmed</flowNodeRef>
++        <flowNodeRef>Task_MailStudent</flowNodeRef>
++        <flowNodeRef>Task_MailTutor</flowNodeRef>
++        <flowNodeRef>Gw_Extras</flowNodeRef>
++        <flowNodeRef>Task_SendMemo</flowNodeRef>
++        <flowNodeRef>Task_RedeemPromo</flowNodeRef>
++        <flowNodeRef>Gw_ExtrasJoin</flowNodeRef>
++        <flowNodeRef>Join_Confirmed</flowNodeRef>
++        <flowNodeRef>End_Confirmed</flowNodeRef>
++        <flowNodeRef>Task_ReleaseHoldTimeout</flowNodeRef>
++        <flowNodeRef>Task_NotifyTimeout</flowNodeRef>
++        <flowNodeRef>End_Timeout</flowNodeRef>
++        <flowNodeRef>Task_ReleaseHoldError</flowNodeRef>
++        <flowNodeRef>Task_NotifyPayFailed</flowNodeRef>
++        <flowNodeRef>End_PayFailed</flowNodeRef>
++      </lane>
++      <lane id="Lane_Tutor" name="Репетитор">
++        <flowNodeRef>Task_ManualConfirm</flowNodeRef>
++      </lane>
++    </laneSet>
++
++    <startEvent id="Start_Book" name="Ученик выбрал слот и нажал «Забронировать»">
++      <outgoing>F1</outgoing>
++      <messageEventDefinition messageRef="Msg_BookRequest"/>
++    </startEvent>
++    <sequenceFlow id="F1" sourceRef="Start_Book" targetRef="Task_PlaceHold"/>
++
++    <task id="Task_PlaceHold" name="Поставить холд на слот (15 минут)"/>
++    <sequenceFlow id="F2" sourceRef="Task_PlaceHold" targetRef="Split_Hold"/>
++
++    <parallelGateway id="Split_Hold" name="Одновременно"/>
++    <sequenceFlow id="F3" sourceRef="Split_Hold" targetRef="Task_RequestPayment"/>
++    <sequenceFlow id="F4" sourceRef="Split_Hold" targetRef="Task_NotifyTutorHold"/>
++
++    <sendTask id="Task_RequestPayment" name="Запросить оплату у PayFlow" messageRef="Msg_PaymentRequest"/>
++    <sendTask id="Task_NotifyTutorHold" name="Уведомить репетитора: «слот на удержании»"/>
++    <sequenceFlow id="F5" sourceRef="Task_RequestPayment" targetRef="Join_Hold"/>
++    <sequenceFlow id="F6" sourceRef="Task_NotifyTutorHold" targetRef="Join_Hold"/>
++
++    <parallelGateway id="Join_Hold" name="Запрос и уведомление выполнены"/>
++    <sequenceFlow id="F7" sourceRef="Join_Hold" targetRef="Gw_Wait"/>
++
++    <eventBasedGateway id="Gw_Wait" name="Что наступит раньше?"/>
++    <sequenceFlow id="F8" sourceRef="Gw_Wait" targetRef="Evt_PaymentConfirmed"/>
++    <sequenceFlow id="F9" sourceRef="Gw_Wait" targetRef="Evt_PaymentError"/>
++    <sequenceFlow id="F10" sourceRef="Gw_Wait" targetRef="Evt_HoldTimer"/>
++
++    <intermediateCatchEvent id="Evt_PaymentConfirmed" name="Оплата подтверждена PayFlow">
++      <messageEventDefinition messageRef="Msg_PaymentConfirmed"/>
++    </intermediateCatchEvent>
++    <intermediateCatchEvent id="Evt_PaymentError" name="PayFlow ответил ошибкой">
++      <messageEventDefinition messageRef="Msg_PaymentError"/>
++    </intermediateCatchEvent>
++    <intermediateCatchEvent id="Evt_HoldTimer" name="Прошли 15 минут холда">
++      <timerEventDefinition>
++        <timeDuration>PT15M</timeDuration>
++      </timerEventDefinition>
++    </intermediateCatchEvent>
++
++    <sequenceFlow id="F11" sourceRef="Evt_PaymentConfirmed" targetRef="Gw_Price"/>
++    <sequenceFlow id="F12" sourceRef="Evt_PaymentError" targetRef="Task_ReleaseHoldError"/>
++    <sequenceFlow id="F13" sourceRef="Evt_HoldTimer" targetRef="Task_ReleaseHoldTimeout"/>
++
++    <!-- Ветка подтверждения -->
++    <exclusiveGateway id="Gw_Price" name="Цена урока больше 3 000 ₽?" default="F15"/>
++    <sequenceFlow id="F14" name="да" sourceRef="Gw_Price" targetRef="Task_ManualConfirm">
++      <conditionExpression xsi:type="tFormalExpression">lessonPrice &gt; 3000</conditionExpression>
++    </sequenceFlow>
++    <sequenceFlow id="F15" name="нет (3 000 ₽ и меньше)" sourceRef="Gw_Price" targetRef="Gw_PriceMerge"/>
++
++    <userTask id="Task_ManualConfirm" name="Подтвердить бронь вручную в кабинете"/>
++    <sequenceFlow id="F16" sourceRef="Task_ManualConfirm" targetRef="Gw_PriceMerge"/>
++
++    <exclusiveGateway id="Gw_PriceMerge"/>
++    <sequenceFlow id="F17" sourceRef="Gw_PriceMerge" targetRef="Task_Confirm"/>
++
++    <task id="Task_Confirm" name="Подтвердить бронь"/>
++    <sequenceFlow id="F18" sourceRef="Task_Confirm" targetRef="Split_Confirmed"/>
++
++    <parallelGateway id="Split_Confirmed"/>
++    <sequenceFlow id="F19" sourceRef="Split_Confirmed" targetRef="Task_MailStudent"/>
++    <sequenceFlow id="F20" sourceRef="Split_Confirmed" targetRef="Task_MailTutor"/>
++    <sequenceFlow id="F21" sourceRef="Split_Confirmed" targetRef="Gw_Extras"/>
++
++    <sendTask id="Task_MailStudent" name="Отправить ученику письмо о подтверждении" messageRef="Msg_ConfirmationMail"/>
++    <sendTask id="Task_MailTutor" name="Отправить репетитору письмо о подтверждении"/>
++    <sequenceFlow id="F22" sourceRef="Task_MailStudent" targetRef="Join_Confirmed"/>
++    <sequenceFlow id="F23" sourceRef="Task_MailTutor" targetRef="Join_Confirmed"/>
++
++    <inclusiveGateway id="Gw_Extras" name="Что ещё нужно сделать?" default="F26"/>
++    <sequenceFlow id="F24" name="первый урок ученика" sourceRef="Gw_Extras" targetRef="Task_SendMemo">
++      <conditionExpression xsi:type="tFormalExpression">isFirstLesson</conditionExpression>
++    </sequenceFlow>
++    <sequenceFlow id="F25" name="в брони есть промокод" sourceRef="Gw_Extras" targetRef="Task_RedeemPromo">
++      <conditionExpression xsi:type="tFormalExpression">hasPromoCode</conditionExpression>
++    </sequenceFlow>
++    <sequenceFlow id="F26" name="ничего из этого" sourceRef="Gw_Extras" targetRef="Gw_ExtrasJoin"/>
++
++    <sendTask id="Task_SendMemo" name="Отправить ученику памятку новичка" messageRef="Msg_Memo"/>
++    <task id="Task_RedeemPromo" name="Погасить промокод"/>
++    <sequenceFlow id="F27" sourceRef="Task_SendMemo" targetRef="Gw_ExtrasJoin"/>
++    <sequenceFlow id="F28" sourceRef="Task_RedeemPromo" targetRef="Gw_ExtrasJoin"/>
++
++    <inclusiveGateway id="Gw_ExtrasJoin"/>
++    <sequenceFlow id="F29" sourceRef="Gw_ExtrasJoin" targetRef="Join_Confirmed"/>
++
++    <parallelGateway id="Join_Confirmed"/>
++    <sequenceFlow id="F30" sourceRef="Join_Confirmed" targetRef="End_Confirmed"/>
++    <endEvent id="End_Confirmed" name="Бронь подтверждена"/>
++
++    <!-- Тайм-аут -->
++    <task id="Task_ReleaseHoldTimeout" name="Снять холд, слот снова свободен"/>
++    <sequenceFlow id="F31" sourceRef="Task_ReleaseHoldTimeout" targetRef="Task_NotifyTimeout"/>
++    <sendTask id="Task_NotifyTimeout" name="Сообщить ученику: «время на оплату вышло»" messageRef="Msg_Timeout"/>
++    <sequenceFlow id="F32" sourceRef="Task_NotifyTimeout" targetRef="End_Timeout"/>
++    <endEvent id="End_Timeout" name="Холд снят (тайм-аут)"/>
++
++    <!-- Ошибка оплаты -->
++    <task id="Task_ReleaseHoldError" name="Снять холд сразу"/>
++    <sequenceFlow id="F33" sourceRef="Task_ReleaseHoldError" targetRef="Task_NotifyPayFailed"/>
++    <sendTask id="Task_NotifyPayFailed" name="Сообщить ученику: «оплата не прошла, попробуйте ещё раз»" messageRef="Msg_PayFailed"/>
++    <sequenceFlow id="F34" sourceRef="Task_NotifyPayFailed" targetRef="End_PayFailed"/>
++    <endEvent id="End_PayFailed" name="Оплата не прошла"/>
++  </process>
++</definitions>
+diff --git a/docs/process/booking.md b/docs/process/booking.md
+new file mode 100644
+index 0000000..3fa07a0
+--- /dev/null
++++ b/docs/process/booking.md
+@@ -0,0 +1,67 @@
++# Бронирование урока (TO-BE)
++
++Модель: [booking.bpmn](booking.bpmn). Источник: [booking-notes.md](booking-notes.md) (обсуждение 2026-10-11), задача CM-40.
++
++## Участники
++
++| Участник | Роль в процессе |
++|---|---|
++| Ученик | Запускает процесс, получает сообщения о результате (см. «Что видит ученик») |
++| Платформа Classmate | Ведёт процесс: холд, запрос оплаты, подтверждение, письма, промокод |
++| Репетитор | Получает уведомления и письмо; при цене урока выше 3 000 ₽ подтверждает бронь вручную в кабинете |
++| Платёжный провайдер PayFlow | Принимает запрос оплаты, отвечает подтверждением или ошибкой |
++
++## Ход процесса
++
++1. Ученик выбирает слот и нажимает «Забронировать» - процесс стартует.
++2. Платформа ставит на слот холд на 15 минут.
++3. Одновременно (параллельно):
++   - платформа запрашивает оплату у PayFlow;
++   - платформа уведомляет репетитора: «слот на удержании».
++
++   Одно не ждёт другого, но дальше процесс идёт, только когда выполнены оба действия.
++4. Платформа ждёт, что наступит раньше (одно из трёх):
++   - **PayFlow подтвердил оплату** - переход к шагу 5;
++   - **PayFlow ответил ошибкой** - холд снимается сразу, ученику: «оплата не прошла, попробуйте ещё раз». Конец: «Оплата не прошла»;
++   - **прошло 15 минут холда** - холд снимается, слот снова свободен, ученику: «время на оплату вышло». Конец: «Холд снят (тайм-аут)».
++5. Проверка цены урока:
++   - больше 3 000 ₽ - репетитор подтверждает бронь вручную в кабинете;
++   - 3 000 ₽ и меньше - бронь подтверждается сразу.
++6. Бронь подтверждена. Параллельно:
++   - ученику и репетитору уходят письма о подтверждении;
++   - выполняются дополнительные действия (шаг 7).
++7. Дополнительные действия - каждое по своему условию, возможны оба или ни одного:
++   - первый урок ученика - ученику отправляется памятка новичка;
++   - в брони есть промокод - промокод гасится.
++8. Когда всё из шагов 6-7 сделано, конец: «Бронь подтверждена».
++
++## Условия на ветках
++
++| Развилка | Ветка | Условие |
++|---|---|---|
++| Ожидание (по событию) | оплата подтверждена | пришло подтверждение от PayFlow раньше остальных событий |
++| | ошибка оплаты | PayFlow ответил ошибкой на запрос оплаты |
++| | тайм-аут | прошло 15 минут холда |
++| Цена урока | ручное подтверждение | цена > 3 000 ₽ (ровно 3 000 ₽ - без ручного) |
++| | автоподтверждение | цена ≤ 3 000 ₽ |
++| Дополнительные действия (можно несколько) | памятка новичка | первый урок ученика |
++| | гашение промокода | в брони есть промокод |
++| | пропуск | ни одно условие не выполнено |
++
++## Что видит ученик
++
++| Исход | Сообщение ученику |
++|---|---|
++| Бронь подтверждена | письмо о подтверждении; если первый урок - ещё памятка новичка |
++| Тайм-аут холда | «время на оплату вышло», слот снова свободен для всех |
++| Ошибка оплаты | «оплата не прошла, попробуйте ещё раз» |
++
++Пока идёт ожидание (шаг 4) или ручное подтверждение (шаг 5), бронь не подтверждена и слот удерживается.
++
++## Допущения и вопросы
++
++- Таймер 15 минут в модели стоит на ожидании после запроса оплаты и уведомления репетитора; по смыслу заметок отсчёт идёт от постановки холда. Разница - секунды, при реализации считать от момента холда.
++- В заметках не описано, что будет, если репетитор не подтвердит бронь вручную (долго молчит или отклоняет), и что происходит с холдом и уже полученной оплатой. В модели такой ветки нет - нужно решение продукта.
++- Не описано, что видит ученик, пока репетитор не подтвердил бронь (письма «ждём подтверждения» в заметках нет).
++- Не описано, что будет, если подтверждение оплаты придёт после тайм-аута (возврат/игнор). В модели не отражено.
++- Порог 3 000 ₽ взят из заметок; в `docs/product/pricing.md` его нет. Не уточнено, считается ли цена до или после скидки по пакету/промокоду.

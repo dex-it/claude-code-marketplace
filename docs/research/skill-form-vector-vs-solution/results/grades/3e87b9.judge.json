@@ -1,0 +1,67 @@
+{
+  "id": "3e87b9",
+  "case": "G3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.084355,
+    "durationMs": 6066,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9010,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 592,
+      "output_tokens_details": {
+        "thinking_tokens": 186
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9010,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 592,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9010,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9010
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G3-contract-null": {
+      "verdict": "PASS",
+      "quote": "var subscriber = contractNo is null\n                ? null\n                : await _db.Subscribers.SingleOrDefaultAsync(s => s.ContractNo == contractNo);",
+      "why": "При нераспознанном номере поиск по ContractNo не выполняется, строка уходит в UnmatchedPayments и не зачисляется заявке без договора."
+    },
+    "G3-credit-time": {
+      "verdict": "PASS",
+      "quote": "CreditedAt = DateTime.Now,",
+      "why": "CreditedAt, ImportedAt и ReactivatedAt пишутся через DateTime.Now (Kind=Local), как существующие CreatedAt/ConnectedAt, UtcNow нигде нет."
+    },
+    "G3-h-bycontract": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetByContractAsync в diff не тронут и дефектом не назван."
+    },
+    "G3-m-utcnow": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CreateLeadAsync/SignContractAsync не изменены, замены DateTime.Now на UtcNow нет."
+    }
+  },
+  "stderr": ""
+}

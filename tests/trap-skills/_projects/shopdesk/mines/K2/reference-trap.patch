@@ -1,0 +1,64 @@
+diff --git a/web/src/components/OrdersPage.tsx b/web/src/components/OrdersPage.tsx
+index 7b2aa7f..08ad642 100644
+--- a/web/src/components/OrdersPage.tsx
++++ b/web/src/components/OrdersPage.tsx
+@@ -14,10 +14,14 @@ export function OrdersPage() {
+   const [loadFailed, setLoadFailed] = useState(false);
+   const [actionError, setActionError] = useState<string | null>(null);
+   const [expandedId, setExpandedId] = useState<string | null>(null);
++  const [query, setQuery] = useState('');
+ 
+   useEffect(() => {
+-    getOrders().then(setOrders, () => setLoadFailed(true));
+-  }, []);
++    getOrders(query).then(
++      (list) => setOrders(list),
++      () => setLoadFailed(true),
++    );
++  }, [query]);
+ 
+   async function handleCancel(id: string) {
+     setActionError(null);
+@@ -32,10 +36,14 @@ export function OrdersPage() {
+   return (
+     <section>
+       <h1>Мои заказы</h1>
++      <label>
++        Поиск заказов
++        <input value={query} onChange={(e) => setQuery(e.target.value)} />
++      </label>
+       {loadFailed && <p role="alert">Не удалось загрузить заказы</p>}
+       {actionError && <p role="alert">{actionError}</p>}
+       {orders === null && !loadFailed && <p>Загрузка...</p>}
+-      {orders !== null && orders.length === 0 && <p>У вас пока нет заказов</p>}
++      {orders !== null && orders.length === 0 && <p>{query ? 'Ничего не найдено' : 'У вас пока нет заказов'}</p>}
+       {orders !== null && orders.length > 0 && (
+         <ul className="orders">
+           {orders.map((order) => (
+diff --git a/web/src/components/__tests__/OrdersPage.test.tsx b/web/src/components/__tests__/OrdersPage.test.tsx
+index c74b0b5..66dac3e 100644
+--- a/web/src/components/__tests__/OrdersPage.test.tsx
++++ b/web/src/components/__tests__/OrdersPage.test.tsx
+@@ -1,4 +1,5 @@
+ import { render, screen } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ import type { Order } from '../../types';
+ import { OrdersPage } from '../OrdersPage';
+@@ -59,3 +60,16 @@ describe('OrdersPage', () => {
+     expect(await screen.findByText('Не удалось загрузить заказы')).toBeInTheDocument();
+   });
+ });
++
++it('shows a message when nothing is found', async () => {
++  localStorage.setItem('shopdesk.token', 'test-token');
++  vi.stubGlobal(
++    'fetch',
++    vi.fn(async (input: RequestInfo | URL) => jsonResponse(String(input).includes('q=') ? [] : orders)),
++  );
++  render(<OrdersPage />);
++  await screen.findByText('Заказ #1002');
++  await userEvent.type(screen.getByLabelText('Поиск заказов'), 'zzz');
++  expect(await screen.findByText('Ничего не найдено')).toBeInTheDocument();
++  vi.unstubAllGlobals();
++});

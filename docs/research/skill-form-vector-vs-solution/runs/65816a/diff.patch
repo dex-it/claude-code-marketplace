@@ -1,0 +1,100 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..a74e885
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,94 @@
++# Ревью MR !238
++
++## Критичные находки
++
++### 1. `TripService.OffDayTripsAsync` — фильтр по нетранслируемому вычисляемому полю после проекции
++Запрос:
++```
++_db.Trips.AsNoTracking().Where(...).ToRows().Where(r => r.OffDay).OrderByDescending(r => r.Km).ToListAsync()
++```
++`ToRows()` проецирует в `TripRow`, где `OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` - вызов обычного .NET метода, который EF Core не может транслировать в SQL. Пока это последняя (top-level) проекция запроса, EF допускает client-evaluation на выходе. Но здесь после `Select` навешен ещё `Where(r => r.OffDay)` — то есть фильтрация по полю, вычисленному нетранслируемым кодом, теперь не "top-level", а должна попасть в SQL `WHERE`. EF Core не сможет это транслировать и бросит `InvalidOperationException` ("could not be translated") прямо в runtime.
++Итог: эндпоинт `/api/trips/off-days` (FLEET-109, то есть сам смысл MR) не работает вообще ни при одном вызове.
++**Severity: critical**
++
++### 2. `TripService.GetOpenWaybillsAsync` — `;` внутри `FromSqlRaw`, ломающий композицию при фильтре по машине
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.*
++    FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++Когда указан `vehicleId`, EF оборачивает raw SQL в подзапрос (`SELECT * FROM (<raw sql>) AS t0 WHERE t0.vehicle_id = @id`). Точка с запятой внутри скобок — синтаксическая ошибка Postgres, запрос упадёт с ошибкой БД. Без `vehicleId` раскомпозиции не происходит, поэтому путь "без фильтра" (который единственный и был протестирован по заметке в MR.md: "список незакрытых листов по всему парку") работает, а именно требуемый по FLEET-112 "фильтр по машине" — ломается.
++Дополнительно: даже без `;`, `ORDER BY` внутри подзапроса без `LIMIT`/`OFFSET` не гарантирует сохранение порядка во внешнем запросе — при фильтрации порядок строк не гарантирован.
++**Severity: critical**
++
++### 3. `VehicleService.ReplaceEquipmentAsync` — отсутствует `Include(v => v.Equipment)`, замена не происходит
++```csharp
++var vehicle = await FindVehicleAsync(vehicleId) ?? throw new KeyNotFoundException();
++vehicle.Equipment.Clear();
++foreach (var item in items.DistinctBy(i => i.Code))
++    vehicle.Equipment.Add(new VehicleEquipment { Code = item.Code, Qty = item.Qty });
++await _db.SaveChangesAsync();
++```
++`FindVehicleAsync` — это `_db.Vehicles.FirstOrDefaultAsync(...)` без `Include(v => v.Equipment)`. Навигация `Equipment` остаётся пустым, непрогруженным списком (значение по умолчанию `= new()`), поэтому `Clear()` ничего не чистит в БД — старое оснащение остаётся. Новые записи просто вставляются рядом. При повторной отправке той же комплектации (или совпадении кода) это упирается в уникальный индекс `(vehicle_id, code)` и бросает исключение нарушения constraint; если коды отличаются — в БД накапливается дублирующее/устаревшее оснащение, то есть "заменяем на присланную" из описания задачи не выполняется.
++**Severity: critical**
++
++### 4. Миграция `VehicleEquipmentAndModelLength` — сужение `vehicles.model` до 40 без обработки существующих данных
++```csharp
++migrationBuilder.AlterColumn<string>(
++    name: "model", table: "vehicles",
++    type: "character varying(40)", maxLength: 40, nullable: false,
++    oldType: "character varying(200)", oldMaxLength: 200);
++```
++Согласно описанию задачи, причина сокращения — то, что длинные названия моделей у принтера "обрезались на середине", то есть в проде почти наверняка есть записи `model` длиннее 40 символов. `ALTER COLUMN ... TYPE varchar(40)` в Postgres при наличии хотя бы одной такой строки завершится ошибкой ("value too long for type character varying(40)"), и миграция (bundle) упадёт на проде прямо во время выката. Нет предварительного шага усечения/нормализации данных (`UPDATE vehicles SET model = substring(model, 1, 40) WHERE length(model) > 40`) перед `AlterColumn`.
++В MR заявлено "миграция применена на dev-базе" — где таких длинных записей, вероятно, нет, поэтому проблема не обнаружена.
++**Severity: critical**
++
++## Высокая серьёзность
++
++### 5. `TripService.StartTripAsync` — допуск водителя проверяется как "строго после", а не "по дату включительно"
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException(...);
++```
++Описание FLEET-107: "допуск действует по указанную в нём дату включительно". Условие должно быть `p.ValidUntil >= today`. Сейчас в последний разрешённый день (`ValidUntil == today`) диспетчеру ошибочно откажут в выпуске машины — водитель с действующим допуском не сможет выехать.
++**Severity: high**
++
++### 6. `VehicleService.GetLastInspectionAsync` — "последний" осмотр определяется по `CreatedAt`, а не по `InspectedAt`
++```csharp
++.OrderByDescending(i => i.CreatedAt)
++.FirstOrDefaultAsync();
++```
++По комментарию в `Models.cs`: `InspectedAt` — время осмотра по планшету, `CreatedAt` — время приёма сервером; планшет механика копит осмотры офлайн и шлёт пачкой, когда появляется сеть. Это означает, что порядок приёма (`CreatedAt`) не совпадает с порядком фактических осмотров (`InspectedAt`): более старый по факту осмотр с одного планшета может быть принят сервером позже более нового осмотра с другого. Сортировка по `CreatedAt` может вернуть не тот осмотр, который реально последний по времени проведения — а от этого прямо зависит допуск машины к выезду (FLEET-107, проверка "не старше 12 часов, без блокирующих замечаний"). Нужна сортировка по `InspectedAt`.
++**Severity: high**
++
++### 7. `Program.cs` — эндпоинт `PUT /api/vehicles/{id}/equipment` без политики авторизации по роли
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++У всех остальных мутирующих эндпоинтов есть `.RequireAuthorization("...")` с конкретной ролью (`FleetManager`, `Hr`, `Mechanic`, `Dispatcher`). Здесь — только групповой `.RequireAuthorization()`, то есть пропускается любой аутентифицированный пользователь независимо от роли (например, водитель) может полностью переписать комплектацию машины (аптечка, огнетушитель и т.д.). Судя по описанию ("механик присылает"), ожидается ограничение как минимум ролью `Mechanic`/`FleetManager`.
++**Severity: high**
++
++## Низкая/средняя серьёзность (на заметку)
++
++### 8. `VehicleService.ReplaceEquipmentAsync` — молчаливое разрешение дублей кода
++`items.DistinctBy(i => i.Code)` при дублирующихся кодах в присланном списке молча оставляет первое совпадение и отбрасывает остальные, не сообщая вызывающей стороне о конфликте (например, если по ошибке планшет/форма механика прислала два разных `Qty` для одного кода). Стоит хотя бы логировать/возвращать ошибку валидации.
++**Severity: low**
++
++### 9. `ReplaceEquipmentAsync` без защиты от параллельной правки
++Два одновременных вызова для одной машины (например, повторная отправка с планшета) могут привести к гонке: оба читают текущее состояние, оба делают `Clear()`+`Add()`, финальный результат — "последний записавший выигрывает" без какого-либо сигнала о конфликте. Для разового замещающего списка это может быть приемлемо, но стоит явно решить, нужен ли contention-контроль (например, через версию/таймстемп).
++**Severity: low**
++
++### 10. `VehicleEquipment.Qty` без ограничения домена
++Ни в `OnModelCreating`, ни в сервисе не проверяется `Qty >= 0` (или `> 0`). Отрицательное/нулевое количество от механика пройдёт без ошибок.
++**Severity: low**

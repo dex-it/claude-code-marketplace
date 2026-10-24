@@ -1,0 +1,92 @@
+{
+  "id": "7a17c6",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.118447,
+    "durationMs": 15929,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10389,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1745,
+      "output_tokens_details": {
+        "thinking_tokens": 622
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10389,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1745,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10389,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10389
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "EF Core не может скомпоновать нетранслируемое выражение из середины конвейера и бросит `InvalidOperationException: ... could not be translated`",
+      "why": "Найдено, что фильтр Where(r => r.OffDay) по клиентскому WorkCalendar.IsWorkingDay идёт после ToRows() и FLEET-109 падает всегда; предложено отделить клиентскую часть через AsEnumerable/ToList."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой перед закрывающей скобкой подзапроса — синтаксическая ошибка Postgres",
+      "why": "Описан механизм: при vehicleId EF оборачивает SQL в подзапрос, без фильтра запрос работает; предложено убрать ';' и вынести ORDER BY наружу."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`vehicle.Equipment.Clear()` чистит именно этот пустой список, а не строки в БД",
+      "why": "Найдено, что без Include старые строки остаются и совпадающие коды падают на уникальном индексе с DbUpdateException; предложено подгружать Equipment."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "`ALTER TABLE ... ALTER COLUMN TYPE character varying(40)` упадёт с ошибкой Postgres",
+      "why": "Отмечено, что сужение упадёт на длинных значениях и bundle не применится; предложено до смены типа проверить и обрезать данные. Связь с принтером из MR.md не упомянута, но механизм и правка верны."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Сортировать нужно по `InspectedAt`, а не `CreatedAt`",
+      "why": "Названа другая проблема: выбор поля сортировки. Неуникальность CreatedAt внутри пачки синхронизации при SplitQuery не отмечена, ThenBy(Id) или AsSingleQuery не предложены."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "проверка допуска `p.ValidUntil > today` вместо `>=`",
+      "why": "Дефект строгого сравнения в последний день допуска назван прямо."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "`PUT /vehicles/{id}/equipment` не имеет `RequireAuthorization(\"Mechanic\")`",
+      "why": "Указано, что комплектацию может менять любой аутентифицированный пользователь, в том числе водитель."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "Рядом в том же MR есть правильный образец — `DriverService.ReplacePermitsAsync`",
+      "why": "Permits.Clear() назван корректным образцом, а не дефектом."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "запрос не помечен `AsNoTracking()`",
+      "why": "К FindByPlateAsync есть только замечание про трекинг; ни инъекция, ни ошибка композиции не заявлены."
+    }
+  },
+  "stderr": ""
+}

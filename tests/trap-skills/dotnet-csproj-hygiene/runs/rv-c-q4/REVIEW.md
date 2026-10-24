@@ -1,0 +1,18 @@
+src/Pricing.Exports/Pricing.Exports.csproj:12 - `CopyLocalLockFileAssemblies=true` в библиотеке: зависимости (CsvHelper, Resilience и т.д.) копируются в вывод, в пакет/у потребителей маркетплейсов тащится лишнее и возможны конфликты версий сборок - major
+src/Pricing.Exports/Pricing.Exports.csproj:20-22 - пакетная библиотека ссылается на Pricing.Infrastructure (и Application/Domain), которые не пакуются и в коде экспортёра не нужны (используется только Application.Abstractions): у команды маркетплейсов пакет не восстановится/затянет внутренности сервиса - major
+src/Pricing.Exports/Pricing.Exports.csproj:3-6 - TargetFramework, Nullable, ImplicitUsings скопированы из корневого Directory.Build.props: при смене в корне проект разойдётся с решением - minor
+src/Pricing.Exports/Pricing.Exports.csproj:4 - `LangVersion=preview` только у этого проекта: библиотека собирается с preview-синтаксисом, остальное решение нет - minor
+src/Pricing.Exports/Pricing.Exports.csproj:11 - OutputPath переопределён в `..\..\artifacts\exports\`: выход вне стандартного bin/obj, ломает общие пути сборки/паковки и чистку - minor
+src/Pricing.Exports/Pricing.Exports.csproj:16 - `Microsoft.Extensions.Http.Resilience` не используется в проекте: лишняя зависимость пакета у всех потребителей - minor
+src/Pricing.Exports/Pricing.Exports.csproj:17 - `Roslynator.Analyzers` без `PrivateAssets=all`: анализатор транзитивно навязывается потребителям пакета - minor
+src/Pricing.Exports/PriceListExporter.cs:16 - `CultureInfo.CurrentCulture` при разделителе `;`: десятичный разделитель цены (`89,9` vs `89.9`) зависит от локали машины, фид маркетплейсов получит разный формат и ломающийся разбор - major
+src/Pricing.Exports/PriceListExporter.cs:15 - `ListAsync(0, int.MaxValue)` грузит весь каталог в память, архивные отфильтровываются уже после загрузки: на реальном хранилище память/время растут с каталогом - minor
+src/Pricing.Exports/PriceListExporter.cs:12 - нет тестов на экспортёр (формат, разделитель, пропуск архивных): регрессии формата фида уйдут незамеченными - minor
+tools/Pricing.ExportCli/Program.cs:14-17 - утилита «ручной выгрузки на стенде» выгружает захардкоженный демо-товар из пустого InMemoryStore, а не реальный прайс: на стенде всегда файл из одной фиктивной строки - blocker
+tools/Pricing.ExportCli/Pricing.ExportCli.csproj:6 - `ManagePackageVersionsCentrally=false` отключает CPM для проекта: версии идут мимо Directory.Packages.props - major
+tools/Pricing.ExportCli/Pricing.ExportCli.csproj:9 - `CsvHelper Version="33.*"` плавающая версия, дублирует центральную 33.0.3 (и транзитивно идёт через Exports): невоспроизводимые сборки, возможное расхождение версий - major
+tools/Pricing.ExportCli/Pricing.ExportCli.csproj:3-4 - tools/Directory.Build.props не импортирует корневой, поэтому Nullable/ImplicitUsings не применяются, TargetFramework задан вручную: утилита без nullable-контроля, настройки решения расходятся - minor
+tools/Directory.Build.props:3 - `TreatWarningsAsErrors` только для tools и без наследования корневых свойств: правила сборки решения неоднородны - minor
+Directory.Packages.props:4 - версия CsvHelper вынесена в свойство `CsvHelperVersion` вместо литерала в PackageVersion, как у остальных пакетов: непоследовательно, скрывает версию от инструментов обновления - minor
+src/Pricing.Contracts/QuoteContracts.cs:9 - удалён публичный `GrandTotal` (breaking change): потребители 1.x, не успевшие перейти, перестанут компилироваться - major
+src/Pricing.Contracts/Pricing.Contracts.csproj:5 - версия 1.3.0→1.4.0 (minor) при удалении публичного члена: по SemVer нужен 2.0.0, иначе обновление «в пределах 1.x» ломает сборки потребителей - major

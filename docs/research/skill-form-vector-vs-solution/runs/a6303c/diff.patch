@@ -1,0 +1,57 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b1880c6
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,51 @@
++# Ревью MR: Outbox-воркер рассылки уведомлений
++
++## Critical
++
++1. **Program.cs — `Configure<SmtpOptions>`**
++   Секция биндится как `builder.Configuration.GetSection("Mail")`, а во всех appsettings.*.json секция называется `"Smtp"`. В результате `SmtpOptions` никогда не заполнится реальными значениями (Host/FromAddress/Port останутся дефолтными/null), и отправка писем будет падать в рантайме (`ArgumentNullException`/`NullReferenceException` в `SmtpClient.ConnectAsync`/`MailboxAddress.Parse`) вместо явной ошибки при старте.
++
++2. **ThrottleService.WaitAsync**
++   Читает `config.GetValue<int>("Throttle:MessagesPerMinute")`, но ключ в конфиге — `Throttle:PerMinute`. `GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` бросит `DivideByZeroException` на каждой отправке. Так как вызов обёрнут в `try/catch` в `OutboxWorker.ProcessBatchAsync`, письма будут "тихо" проваливаться при каждой попытке — реальная рассылка не будет работать вовсе.
++
++3. **OutboxWorker.ProcessBatchAsync — `m.SentAt = now` до фактической отправки**
++   `SentAt` выставляется и коммитится (`SaveChangesAsync`) сразу при захвате батча, до вызова `sender.SendAsync`. При ошибке отправки инкрементируется только `Attempts`, `SentAt` обратно в `null` не возвращается. Т.к. выборка батча фильтрует `m.SentAt == null`, сообщение с ошибкой отправки навсегда помечено как "отправлено" и больше никогда не попадёт на повторную попытку — весь механизм ретраев (`MaxRetries`, `LockedUntil`) фактически не работает, происходит тихая потеря уведомлений. `SentAt` нужно проставлять только после успешного `SendAsync`, а `LockedUntil` использовать как единственный "флаг захвата" на время обработки.
++
++4. **OutboxWorker.ExecuteAsync — единица измерения `PollInterval`**
++   `Task.Delay(TimeSpan.FromSeconds(o.PollInterval))`, а в appsettings.json `PollInterval: 500`. Согласно описанию MR («опрос раз в полсекунды»), 500 — это миллисекунды, но код трактует значение как секунды: реальный интервал опроса ~8.3 минуты вместо 0.5 секунды. Имя свойства `PollInterval` не содержит единицы измерения, из-за чего конфиг и код разошлись в интерпретации. Нужно либо переименовать в `PollIntervalMs` и использовать `FromMilliseconds`, либо хранить `TimeSpan` в конфиге (как сделано для `LockTimeout`).
++
++5. **OutboxWorker — `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`**
++   MR явно требует: «Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта». `IOptions<T>.Value` — снэпшот, вычисленный один раз и не реагирующий на `IOptionsMonitorOnChange`/reload конфигурации. Правка `appsettings.json` в проде не изменит поведение работающего воркера. Нужно использовать `IOptionsMonitor<OutboxOptions>` и брать `.CurrentValue` на каждой итерации цикла.
++
++6. **appsettings.Production.json — секреты в репозитории**
++   Пароль БД (`Password=Kx7!pQ2vR9wz`) и API-ключ SMTP-релея (`"Password": "rl_live_9f3a1c77e2b04d6d"`) закоммичены в открытом виде. В `appsettings.Staging.json` для БД корректно используется плейсхолдер `${NOTIFY_DB_PASSWORD}` — в Production такого паттерна нет вовсе, секреты утекли в git.
++
++## High
++
++7. **OutboxOptionsValidator — отсутствует валидатор не зарегистрирован**
++   Класс `OutboxOptionsValidator` нигде не подключён в `Program.cs` (нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()`), и нет `.ValidateOnStart()`. Валидатор — мёртвый код: некорректный конфиг (см. п.8) не будет отловлен ни при старте, ни вообще никогда.
++
++8. **appsettings.Production.json — нарушен инвариант `MinBatchSize <= MaxBatchSize`**
++   `MinBatchSize: 200`, `MaxBatchSize: 100`. Кросс-полевой инвариант нарушен и в проде. Валидатор его не проверяет (см. п.9), поэтому конфиг ушёл в прод в таком виде незамеченным. Из-за строки `if (o.MinBatchSize < o.MaxBatchSize)` в `OutboxWorker.ExecuteAsync` адаптивное изменение размера пачки в проде просто молча отключается — сайд-эффект, а не осознанное поведение.
++
++9. **OutboxOptionsValidator.Validate — не хватает проверок**
++   Валидатор не проверяет `MinBatchSize` вовсе (ни `> 0`, ни `<= MaxBatchSize`) — отсутствует кросс-полевой инвариант, что и допустило дефект п.8 до прода.
++
++10. **SmtpOptions — нет валидации, non-nullable свойства без гарантий**
++    `Host`/`FromAddress` объявлены как non-nullable `string` без `required` и без инициализатора; для `SmtpOptions` нет `IValidateOptions`/`ValidateOnStart`. В сочетании с багом секции "Mail" vs "Smtp" (п.1) это означает, что пустая/битая конфигурация SMTP обнаружится только в момент реальной попытки отправки письма, а не при старте сервиса.
++
++## Medium
++
++11. **appsettings.Staging.json vs appsettings.Production.json — Staging агрессивнее Production**
++    `MaxInFlight`: Staging = 20, Production = 5. Стенд с обычно более скромными ресурсами настроен на вчетверо большее число параллельных отправок, чем прод — похоже на перепутанные значения между окружениями; риск перегрузить staging-инфраструктуру/SMTP-relay сильнее, чем это делает прод.
++
++12. **ThrottleService — конфиг читается напрямую через `IConfiguration` по строковому ключу**
++    В обход паттерна `Options` (нет класса опций, нет валидации, нет compile-time проверки имени ключа) — именно это и позволило незамеченной опечатке `MessagesPerMinute`/`PerMinute` (п.2) остаться в коде.
++
++## Low
++
++13. **tests/OutboxOptionsValidatorTests.cs — нет теста на инвариант Min/Max**
++    Тесты проверяют только `MaxBatchSize <= 0` и happy path, но не покрывают случай `MinBatchSize > MaxBatchSize` — тест не смог бы поймать дефект п.8/9 даже после исправления валидатора, если бы кейс не был добавлен.
++
++14. **ThrottleService.WaitAsync — деление без защиты от крайних значений**
++    Даже после исправления имени ключа: `60_000 / perMinute` при `perMinute > 60000` даст `0` (троттлинг фактически выключается), а `perMinute <= 0` по-прежнему приведёт к `DivideByZeroException`. Стоит явно валидировать/ограничивать значение.

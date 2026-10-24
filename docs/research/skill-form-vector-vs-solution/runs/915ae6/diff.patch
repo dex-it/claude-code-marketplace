@@ -1,0 +1,78 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..fd77a87 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,6 +11,7 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
++    public int Complexity { get; set; }               // сложность комплектации, 1..5
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+@@ -41,10 +42,32 @@ public class ShopDbContext : DbContext
+     public DbSet<Order> Orders => Set<Order>();
+     public DbSet<Product> Products => Set<Product>();
+     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
++    // Колонка timestamp without time zone: в БД хранится "naive" значение, в коде — всегда Utc.
++    // DateTime.UtcNow пишется как Unspecified (то же число, без сдвига), при чтении помечается Utc.
++    private static readonly ValueConverter<DateTime, DateTime> UtcAsUnspecifiedConverter = new(
++        v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified),
++        v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(UtcAsUnspecifiedConverter);
++
++        b.Entity<Order>().Property(o => o.Complexity).IsRequired();
++        b.Entity<Order>().ToTable(tb => tb.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Order удаляется мягко (IsDeleted) — в БД FK зависимых без каскада,
++        // чтобы жёсткое удаление строки Order не утаскивало Items/Payments в обход soft-delete.
++        b.Entity<Order>().HasMany(o => o.Items).WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
++
++        b.Entity<Order>().HasMany(o => o.Payments).WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..d0267c5 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,13 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Items связаны с Order через required FK с DeleteBehavior.Restrict,
++    // поэтому позиции удаляются явно кодом, а не через Items.Clear() (иначе SaveChanges бросит InvalidOperationException).
++    public async Task ClearItems(Guid orderId)
++    {
++        var items = await _db.Set<OrderItem>().Where(i => i.OrderId == orderId).ToListAsync();
++        _db.RemoveRange(items);
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..fc88f7d
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые файлы:
++- Model.cs — добавлено свойство `Order.Complexity` (int) с `IsRequired()` и check-constraint `CK_Order_Complexity_Range` (1..5); для `CreatedAt` добавлен `ValueConverter` Utc↔Unspecified поверх существующего `HasColumnType("timestamp without time zone")` (колонка не менялась); в `OnModelCreating` настроены `Order -> Items` и `Order -> Payments` как required-связи с `DeleteBehavior.Restrict` (soft-delete через `IsDeleted`/`HasQueryFilter`, поэтому жёсткий каскад на уровне БД не нужен — иначе физическое удаление строки Order могло бы утащить зависимые записи в обход soft-delete).
++- OrderRepository.cs — добавлен метод `ClearItems(Guid orderId)`.
++
++Решения:
++1. `CreatedAt` остаётся `timestamp without time zone`, но маппинг конвертирует Utc→Unspecified при записи и Unspecified→Utc при чтении, так что в коде значение всегда `DateTime.Kind=Utc`, а физические числа в колонке не меняются (совместимо с существующими отчётами DBA).
++2. Связи Items/Payments — required FK (`Guid OrderId`) с `Restrict`, поэтому `ClearItems` удаляет позиции явно через `RemoveRange`, а не через `order.Items.Clear()` — иначе разрыв required-связи при `Restrict` бросил бы `InvalidOperationException` в `SaveChanges`.
++3. Диапазон 1..5 для `Complexity` проверяется на уровне БД check-constraint'ом, а не только в C#, чтобы не полагаться на дисциплину вызывающего кода.

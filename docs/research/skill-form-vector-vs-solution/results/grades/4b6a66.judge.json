@@ -1,0 +1,86 @@
+{
+  "id": "4b6a66",
+  "case": "MRA",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.053503400000000007,
+    "durationMs": 7423,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4411,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 889,
+      "output_tokens_details": {
+        "thinking_tokens": 144
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4411,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 889,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4411,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4411
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "MRA-A4": {
+      "verdict": "PASS",
+      "quote": "`CustomerExport.HasOrders` — `CountAsync(...) > 0` вместо `AnyAsync(...)`.",
+      "why": "Находка прямо называет проверку наличия через CountAsync() > 0 вместо AnyAsync."
+    },
+    "MRA-A1": {
+      "verdict": "FOUND",
+      "quote": "`GetAllAsync()` тянет все продукты целиком (включая `Image byte[]`) и фильтрует `IsActive` уже в памяти",
+      "why": "Названа загрузка всей таблицы Products с фильтром IsActive в памяти."
+    },
+    "MRA-A2": {
+      "verdict": "FOUND",
+      "quote": "`items.Where(i => i.ProductId == p.Id)` — поиск по списку в цикле, O(products × items)",
+      "why": "Назван поиск по items на каждый продукт с квадратичной сложностью."
+    },
+    "MRA-A3": {
+      "verdict": "FOUND",
+      "quote": "`Distinct()` по `Customer` после `AsNoTracking().Include()` не дедуплицирует: без identity resolution",
+      "why": "Названы отсутствие identity resolution и Distinct по ссылке, из-за чего клиенты дублируются."
+    },
+    "MRA-A5": {
+      "verdict": "FOUND",
+      "quote": "4 ветки, каждая со своей материализацией, вместо одного `IQueryable` с условными `.Where`",
+      "why": "Названа материализация в каждой ветке динамического запроса."
+    },
+    "MRA-A6": {
+      "verdict": "FOUND",
+      "quote": "`products.FirstOrDefault(...)` внутри `foreach` по CSV — линейный поиск на каждую строку файла",
+      "why": "Назван FirstOrDefault по List на каждую строку импорта."
+    },
+    "MRA-X1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Выручка по неоплаченным или отменённым заказам в выходе не упоминается."
+    },
+    "MRA-X2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие проверки отрицательного количества в StockImport не названо."
+    }
+  },
+  "stderr": ""
+}

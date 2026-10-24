@@ -1,0 +1,42 @@
+{
+  "id": "k3-fa",
+  "case": "K3",
+  "edition": "final",
+  "skills": [
+    "ts-vitest-jest"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 12,
+  "cost": 0.1069924,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 3,
+    "Bash": 5,
+    "Write": 1,
+    "Edit": 2
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files api | grep -v node_modules | head -50; cat api/package.json | head -30; ls api/src/services; cat vitest.config.* api/vitest.config.* 2>/dev/null",
+    "cd <run>/api && cat vitest.config.ts src/clients/inventory.ts src/logger.ts; head -30 test/orders.test.ts; grep -n \"OrderItem\" -A6 src/d",
+    "npm run typecheck 2>&1 | tail -15; npm test 2>&1 | tail -20",
+    "sed -i \"s/import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';/import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';/; s/let reserve: Return",
+    "npm run typecheck 2>&1 | tail -8; npm test 2>&1 | tail -8; git status --short"
+  ]
+}

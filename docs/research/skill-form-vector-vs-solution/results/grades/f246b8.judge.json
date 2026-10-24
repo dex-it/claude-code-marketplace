@@ -1,0 +1,92 @@
+{
+  "id": "f246b8",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.111223,
+    "durationMs": 13492,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10066,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1513,
+      "output_tokens_details": {
+        "thinking_tokens": 394
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10066,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1513,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10066,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10066
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "в `OffDayTripsAsync` после проекции идут ещё `Where` и `OrderByDescending`, а это запрещённый паттерн — EF Core не может транслировать `Where` по нетранслируемому полю и выбросит `InvalidOperationException`",
+      "why": "Находка называет клиентский IsWorkingDay в проекции и Where по OffDay, который EF не транслирует. Отмечено падение отчёта FLEET-109 и предложены фильтрация после AsEnumerable() или транслируемое условие."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри скобок — синтаксическая ошибка Postgres, запрос упадёт в рантайме.",
+      "why": "Находка описывает обёртку в подзапрос при заданном vehicleId и объясняет, почему локальная проверка без фильтра прошла. Предложено убрать ';' и ORDER BY или перенести фильтр в SQL."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Clear() на незагруженной коллекции оснащения в ReplaceEquipmentAsync и нарушение уникального индекса (vehicle_id, code) в выходе не упомянуты."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "Postgres при `ALTER COLUMN ... TYPE varchar(40)` проверяет текущие данные и падает с ошибкой",
+      "why": "Находка связывает обрезку на принтере с наличием длинных значений на prod. Предложено укоротить данные до AlterColumn или через USING substring."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Сортировать нужно по `InspectedAt`.",
+      "why": "Исполнитель указал на другой механизм: сортировку по CreatedAt вместо InspectedAt. Неуникальный порядок при глобальном SplitQuery, из-за которого замечания берутся от другого осмотра, не назван, а предложенная правка этот дефект не устраняет."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "`p.ValidUntil > today` вместо `>= today`; по требованию допуск действует «включительно» по указанную дату.",
+      "why": "Названо, что в последний день действия допуска водителя не выпускают на линию."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "`PUT /vehicles/{id}/equipment` не имеет `.RequireAuthorization(\"...\")` в отличие от всех соседних мутирующих эндпоинтов",
+      "why": "Отмечено, что любой аутентифицированный сотрудник может заменить комплектацию машины, и предложена политика Mechanic/FleetManager."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync и Permits.Clear() дефектом не объявлены."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

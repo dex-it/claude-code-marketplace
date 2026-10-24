@@ -1,0 +1,217 @@
+diff --git a/README.md b/README.md
+index 3ab86ae..b86bc0d 100644
+--- a/README.md
++++ b/README.md
+@@ -42,6 +42,9 @@ npm run carrier:sandbox   # песочница SwiftPost
+ 
+ Новый перевозчик (подключение - PAR-17). Документация API - `docs/integrations/swiftpost-api.md`.
+ 
++Настройки: `SWIFTPOST_URL` (по умолчанию `http://127.0.0.1:4010`) и `SWIFTPOST_TOKEN`. SwiftPost - основной
++перевозчик; при недоступности (сеть, 5xx) отправка создаётся в Курьер-Сервисе.
++
+ Песочница: `npm run carrier:sandbox` - `http://127.0.0.1:4010` (порт - `--port` или
+ `SWIFTPOST_SANDBOX_PORT`). Тестовый токен - `sbx_parcel_dev` (принимается любой вида `sbx_*`),
+ заголовок `Authorization: Bearer <токен>`. Режим недоступности (ответ 503): `SWIFTPOST_SANDBOX_MODE=unavailable`
+diff --git a/src/carrier/swiftpost.js b/src/carrier/swiftpost.js
+new file mode 100644
+index 0000000..a5203b5
+--- /dev/null
++++ b/src/carrier/swiftpost.js
+@@ -0,0 +1,43 @@
++import { CarrierError } from './errors.js';
++
++export function createSwiftPostClient({ baseUrl, token, fetchImpl = fetch }) {
++  return {
++    name: 'swiftpost',
++
++    async createShipment(order) {
++      const request = {
++        reference: String(order.id),
++        // В документации вес в килограммах, песочница принимает целые граммы - отправляем оба поля
++        weight_kg: order.weightKg,
++        weight_grams: Math.round(order.weightKg * 1000),
++        service: order.express ? 'express' : 'standard',
++        recipient: {
++          name: order.customer.name,
++          phone: order.customer.phone,
++          address: { postcode: order.address.postcode, line: order.address.line },
++        },
++      };
++      let res;
++      try {
++        res = await fetchImpl(`${baseUrl}/v2/shipments`, {
++          method: 'POST',
++          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
++          body: JSON.stringify(request),
++        });
++      } catch (error) {
++        throw new CarrierError(`SwiftPost недоступен: ${error.message}`, { carrier: 'swiftpost' });
++      }
++      if (!res.ok) {
++        const text = await res.text();
++        throw new CarrierError(`SwiftPost ответил ${res.status}: ${text}`, { carrier: 'swiftpost', status: res.status });
++      }
++      const body = await res.json();
++      // Документация: eta - YYYY-MM-DD; песочница: estimated_delivery - ISO 8601 с зоной. Берём дату.
++      const eta = String(body.eta ?? body.estimated_delivery ?? '').slice(0, 10);
++      if (!body.tracking_number || !/^\d{4}-\d{2}-\d{2}$/.test(eta)) {
++        throw new CarrierError('SwiftPost: в ответе нет трек-номера или даты доставки', { carrier: 'swiftpost', status: 502 });
++      }
++      return { trackingNumber: body.tracking_number, eta };
++    },
++  };
++}
+diff --git a/src/carrier/with-fallback.js b/src/carrier/with-fallback.js
+new file mode 100644
+index 0000000..93cb431
+--- /dev/null
++++ b/src/carrier/with-fallback.js
+@@ -0,0 +1,19 @@
++import { CarrierError } from './errors.js';
++
++// Основной перевозчик; если он недоступен (CarrierError с retryable) - резервный.
++export function withFallback(primary, fallback) {
++  return {
++    name: primary.name,
++
++    async createShipment(order) {
++      try {
++        const result = await primary.createShipment(order);
++        return { ...result, carrier: primary.name };
++      } catch (error) {
++        if (!(error instanceof CarrierError) || !error.retryable) throw error;
++        const result = await fallback.createShipment(order);
++        return { ...result, carrier: fallback.name };
++      }
++    },
++  };
++}
+diff --git a/src/config.js b/src/config.js
+index e151521..f5fae2d 100644
+--- a/src/config.js
++++ b/src/config.js
+@@ -1,5 +1,9 @@
+ export const config = {
+   port: Number(process.env.PORT ?? 3000),
++  swiftPost: {
++    url: process.env.SWIFTPOST_URL ?? 'http://127.0.0.1:4010',
++    token: process.env.SWIFTPOST_TOKEN ?? '',
++  },
+   courierService: {
+     url: process.env.COURIER_URL ?? 'http://127.0.0.1:4020',
+     token: process.env.COURIER_TOKEN ?? '',
+diff --git a/src/http/webhooks.js b/src/http/webhooks.js
+index bb5c12c..a148753 100644
+--- a/src/http/webhooks.js
++++ b/src/http/webhooks.js
+@@ -1,10 +1,15 @@
+ import { createCourierServiceClient } from '../carrier/courier-service.js';
++import { createSwiftPostClient } from '../carrier/swiftpost.js';
++import { withFallback } from '../carrier/with-fallback.js';
+ import { config } from '../config.js';
+ import { pay } from '../order.js';
+ import { createShipmentForOrder } from '../shipping.js';
+ 
+ export function defaultCarrier() {
+-  return createCourierServiceClient({ baseUrl: config.courierService.url, apiKey: config.courierService.token });
++  return withFallback(
++    createSwiftPostClient({ baseUrl: config.swiftPost.url, token: config.swiftPost.token }),
++    createCourierServiceClient({ baseUrl: config.courierService.url, apiKey: config.courierService.token }),
++  );
+ }
+ 
+ // Платёжный шлюз шлёт { event, data: { order_id, amount_kopecks } }
+diff --git a/src/shipping.js b/src/shipping.js
+index a2594a4..64815e0 100644
+--- a/src/shipping.js
++++ b/src/shipping.js
+@@ -1,7 +1,7 @@
+ export async function createShipmentForOrder(order, { carrier }) {
+-  const { trackingNumber, eta } = await carrier.createShipment(order);
++  const { trackingNumber, eta, carrier: used } = await carrier.createShipment(order);
+   order.trackingNumber = trackingNumber;
+   order.eta = eta;
+-  order.carrier = 'courier-service';
++  order.carrier = used ?? carrier.name;
+   return order;
+ }
+diff --git a/test/swiftpost.test.js b/test/swiftpost.test.js
+new file mode 100644
+index 0000000..019e43e
+--- /dev/null
++++ b/test/swiftpost.test.js
+@@ -0,0 +1,74 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { createSwiftPostClient } from '../src/carrier/swiftpost.js';
++import { createCourierServiceClient } from '../src/carrier/courier-service.js';
++import { withFallback } from '../src/carrier/with-fallback.js';
++import { handlePaymentWebhook } from '../src/http/webhooks.js';
++import { createOrder } from '../src/order.js';
++import { createStore } from '../src/store.js';
++import { startSwiftPostSandbox } from '../tools/swiftpost-sandbox.mjs';
++import { startCourierSandbox } from '../tools/courier-sandbox.mjs';
++
++const orderData = {
++  id: 1042,
++  customerId: 'c-1',
++  weightKg: 1.2,
++  customer: { name: 'Мария Белова', phone: '+79213456703' },
++  address: { postcode: '190121', line: 'Санкт-Петербург, наб. Крюкова канала, 4, кв. 9' },
++  items: [{ sku: 'A', qty: 1 }],
++};
++
++async function setup() {
++  const swift = await startSwiftPostSandbox({ port: 0 });
++  const courier = await startCourierSandbox({ port: 0 });
++  const carrier = withFallback(
++    createSwiftPostClient({ baseUrl: swift.url, token: 'sbx_parcel_dev' }),
++    createCourierServiceClient({ baseUrl: courier.url, apiKey: 'cs_dev' }),
++  );
++  return { swift, courier, carrier, close: () => Promise.all([swift.close(), courier.close()]) };
++}
++
++function paidWebhook(carrier, data = orderData) {
++  const store = createStore();
++  store.put(createOrder(data));
++  return handlePaymentWebhook(
++    { event: 'payment.succeeded', data: { order_id: data.id, amount_kopecks: 0 } },
++    { store, carrier },
++  );
++}
++
++test('оплата: отправка у SwiftPost, трек-номер и дата доставки', async () => {
++  const env = await setup();
++  try {
++    const { order } = await paidWebhook(env.carrier);
++    assert.equal(order.status, 'paid');
++    assert.equal(order.carrier, 'swiftpost');
++    assert.match(order.trackingNumber, /^SP\d{10}$/);
++    assert.match(order.eta, /^\d{4}-\d{2}-\d{2}$/);
++    assert.equal(env.swift.shipments.length, 1);
++  } finally {
++    await env.close();
++  }
++});
++
++test('SwiftPost недоступен - отправка у Курьер-Сервиса', async () => {
++  const env = await setup();
++  try {
++    env.swift.setMode('unavailable');
++    const { order } = await paidWebhook(env.carrier);
++    assert.equal(order.carrier, 'courier-service');
++    assert.match(order.trackingNumber, /^CS-\d+$/);
++    assert.match(order.eta, /^\d{4}-\d{2}-\d{2}$/);
++  } finally {
++    await env.close();
++  }
++});
++
++test('отказ SwiftPost по адресу (422) - без перехода на резерв', async () => {
++  const env = await setup();
++  try {
++    await assert.rejects(paidWebhook(env.carrier, { ...orderData, address: { ...orderData.address, postcode: '000000' } }), (e) => e.status === 422);
++  } finally {
++    await env.close();
++  }
++});

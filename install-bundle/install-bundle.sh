@@ -92,7 +92,7 @@ list_bundles() {
             if [ -f "$plugin_json" ] && [ -f "$bundle_json" ]; then
                 bundle_name=$(basename "$bundle_dir" | sed 's/^dex-bundle-//')
                 description=$(jq -r '.description // "No description"' "$plugin_json")
-                includes_count=$(jq -r '.includes | length' "$bundle_json")
+                includes_count=$(jq -r '((.includes // []) + (.dependencies // [])) | length' "$bundle_json")
 
                 print_info "  $bundle_name"
                 print_dim "    $description"
@@ -211,8 +211,8 @@ install_bundle() {
 
     # Get bundle info
     local description=$(jq -r '.description // "No description"' "$plugin_json" 2>/dev/null || echo "No description")
-    local includes=$(jq -r '.includes[]' "$bundle_json")
-    local total=$(jq -r '.includes | length' "$bundle_json")
+    local includes=$(jq -r '(.includes // []) + (.dependencies // []) | .[]' "$bundle_json")
+    local total=$(jq -r '((.includes // []) + (.dependencies // [])) | length' "$bundle_json")
 
     echo ""
     print_header "======================================"

@@ -1,0 +1,81 @@
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+new file mode 100644
+index 0000000..e09d3fd
+--- /dev/null
++++ b/.gitlab-ci.yml
+@@ -0,0 +1,32 @@
++default:
++  image: ghcr.io/astral-sh/uv:python3.12-bookworm
++  before_script:
++    - uv sync --group dev
++
++stages:
++  - quality
++
++ruff-check:
++  stage: quality
++  script:
++    - uv run ruff check src tests
++
++ruff-format:
++  stage: quality
++  script:
++    - uv run ruff format --check src tests
++
++mypy:
++  stage: quality
++  script:
++    - uv run mypy
++
++pytest:
++  stage: quality
++  script:
++    - uv run pytest
++
++dependency-audit:
++  stage: quality
++  script:
++    - uv run pip-audit
+diff --git a/pyproject.toml b/pyproject.toml
+index f5a748c..fde93e7 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -37,3 +37,38 @@ build-backend = "setuptools.build_meta"
+ 
+ [tool.setuptools.packages.find]
+ where = ["src"]
++
++[tool.ruff]
++target-version = "py312"
++src = ["src", "tests"]
++
++[tool.ruff.lint]
++# Набор без правил, конфликтующих с форматтером (E501, COM812, ISC001, W191 и т.п.),
++# поэтому ignore для них не нужен.
++select = ["E4", "E7", "E9", "F", "W6", "I", "B", "UP"]
++
++[tool.ruff.lint.isort]
++known-first-party = ["shelfwatch"]
++
++[tool.mypy]
++python_version = "3.12"
++files = ["src", "tests"]
++mypy_path = "src"
++warn_unused_ignores = true
++warn_redundant_casts = true
++disallow_untyped_defs = true
++check_untyped_defs = true
++no_implicit_optional = true
++
++# Без глобального ignore_missing_imports: пропуск только для библиотек без типов.
++[[tool.mypy.overrides]]
++module = ["tensorflow.*", "keras.*", "bitsandbytes.*", "imblearn.*", "xgboost.*"]
++ignore_missing_imports = true
++
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++addopts = "--cov=shelfwatch --cov-report=term-missing --cov-fail-under=80"
++filterwarnings = ["error"]
++
++[tool.coverage.run]
++source = ["shelfwatch"]

@@ -1,0 +1,209 @@
+diff --git a/Directory.Build.props b/Directory.Build.props
+index 16cc93e..a58840e 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -5,5 +5,6 @@
+     <ImplicitUsings>enable</ImplicitUsings>
+     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+     <Version>1.4.0</Version>
++    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+   </PropertyGroup>
+ </Project>
+diff --git a/Jenkinsfile b/Jenkinsfile
+new file mode 100644
+index 0000000..8165012
+--- /dev/null
++++ b/Jenkinsfile
+@@ -0,0 +1,192 @@
++// Multibranch-job на GitHub, PR из форков собираются тем же файлом.
++// Секреты берём только через withCredentials внутри стадий, которые выполняются на main.
++@Library('depot-pipeline-lib@v1.4.0') _
++
++pipeline {
++    // Агент задаётся у стадий: ожидание подтверждения prod не должно занимать executor.
++    agent none
++
++    options {
++        timestamps()
++        buildDiscarder(logRotator(numToKeepStr: '30'))
++    }
++
++    environment {
++        REGISTRY = 'registry.example.com'
++        IMAGE = 'registry.example.com/depot/api'
++        DOTNET_CLI_TELEMETRY_OPTOUT = '1'
++        DOTNET_NOLOGO = '1'
++    }
++
++    stages {
++        stage('CI') {
++            agent { label 'dotnet-linux' }
++            options { timeout(time: 45, unit: 'MINUTES') }
++            stages {
++                stage('Restore') {
++                    steps {
++                        // Установка строго по лок-файлам (packages.lock.json).
++                        sh 'dotnet restore Depot.sln --locked-mode'
++                    }
++                }
++                stage('Build') {
++                    steps {
++                        sh 'dotnet build Depot.sln -c Release --no-restore'
++                    }
++                }
++                stage('Static analysis') {
++                    steps {
++                        sh 'dotnet format Depot.sln --verify-no-changes --no-restore'
++                    }
++                }
++                stage('Dependency audit') {
++                    steps {
++                        // dotnet list package не меняет код возврата при находках - проверяем вывод.
++                        sh '''
++                            dotnet list Depot.sln package --vulnerable --include-transitive 2>&1 | tee audit.txt
++                            if grep -q "has the following vulnerable packages" audit.txt; then
++                                echo "Найдены уязвимые зависимости"
++                                exit 1
++                            fi
++                        '''
++                    }
++                }
++                stage('Tests') {
++                    failFast true
++                    parallel {
++                        stage('Unit') {
++                            steps {
++                                sh '''
++                                    dotnet test tests/Depot.Api.Tests -c Release --no-build \
++                                        --filter "Category=Contracts" \
++                                        --logger "trx;LogFileName=unit.trx" \
++                                        --results-directory TestResults/unit
++                                '''
++                            }
++                            post {
++                                always {
++                                    step([$class: 'MSTestPublisher', testResultsFile: 'TestResults/unit/*.trx',
++                                          failOnError: true, keepLongStdio: true])
++                                }
++                            }
++                        }
++                        stage('Integration') {
++                            steps {
++                                // Postgres поднимает Testcontainers через Docker агента.
++                                sh '''
++                                    dotnet test tests/Depot.Api.Tests -c Release --no-build \
++                                        --filter "Category=Integration" \
++                                        --logger "trx;LogFileName=integration.trx" \
++                                        --results-directory TestResults/integration
++                                '''
++                            }
++                            post {
++                                always {
++                                    step([$class: 'MSTestPublisher', testResultsFile: 'TestResults/integration/*.trx',
++                                          failOnError: true, keepLongStdio: true])
++                                }
++                            }
++                        }
++                    }
++                }
++                stage('Image') {
++                    steps {
++                        script {
++                            // Наибольший стабильный semver-тег (sort -V, не алфавитный); пререлизы (-rc) исключаем.
++                            def version = sh(returnStdout: true, script: '''
++                                git tag --list 'v*' | grep -E '^v[0-9]+\\.[0-9]+\\.[0-9]+$' | sort -V | tail -n 1 | sed 's/^v//'
++                            ''').trim()
++                            if (!version) {
++                                error 'В репозитории не найдено semver-тегов vX.Y.Z (проверьте, что job забирает теги)'
++                            }
++                            env.IMAGE_TAG = "${version}-${env.BUILD_NUMBER}"
++                        }
++                        sh 'docker build -t "$IMAGE:$IMAGE_TAG" .'
++                    }
++                }
++                stage('Push') {
++                    when { branch 'main' }
++                    steps {
++                        withCredentials([usernamePassword(credentialsId: 'registry-creds',
++                                                          usernameVariable: 'REGISTRY_USER',
++                                                          passwordVariable: 'REGISTRY_PASSWORD')]) {
++                            // Конфиг docker в workspace, чтобы логин не оставался на постоянном агенте.
++                            withEnv(["DOCKER_CONFIG=${env.WORKSPACE}/.docker"]) {
++                                sh '''
++                                    echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
++                                    docker push "$IMAGE:$IMAGE_TAG"
++                                    docker logout "$REGISTRY"
++                                '''
++                            }
++                        }
++                    }
++                }
++            }
++            post {
++                cleanup {
++                    // Агент постоянный: убираем образ и workspace.
++                    sh 'docker rmi "$IMAGE:$IMAGE_TAG" || true'
++                    cleanWs()
++                }
++            }
++        }
++
++        stage('Deploy stage') {
++            when {
++                branch 'main'
++                beforeAgent true
++            }
++            agent { label 'dotnet-linux' }
++            options { timeout(time: 15, unit: 'MINUTES') }
++            steps {
++                withCredentials([string(credentialsId: 'deploy-token', variable: 'DEPLOY_TOKEN')]) {
++                    sh './deploy.sh --token "$DEPLOY_TOKEN" --env stage'
++                }
++            }
++            post {
++                cleanup { cleanWs() }
++            }
++        }
++
++        stage('Approve prod') {
++            when {
++                branch 'main'
++                beforeAgent true
++            }
++            // Без agent: executor не занят, пока лид не ответит (может ответить на следующий день).
++            options { timeout(time: 3, unit: 'DAYS') }
++            input {
++                message 'Деплой на prod?'
++                ok 'Деплоить'
++            }
++            steps {
++                echo 'Деплой на prod подтверждён'
++            }
++        }
++
++        stage('Deploy prod') {
++            when {
++                branch 'main'
++                beforeAgent true
++            }
++            agent { label 'dotnet-linux' }
++            options { timeout(time: 15, unit: 'MINUTES') }
++            steps {
++                // Более старая сборка, дождавшаяся подтверждения позже новой, прерывается здесь.
++                milestone(1)
++                withCredentials([string(credentialsId: 'deploy-token', variable: 'DEPLOY_TOKEN')]) {
++                    sh './deploy.sh --token "$DEPLOY_TOKEN" --env prod'
++                }
++            }
++            post {
++                cleanup { cleanWs() }
++            }
++        }
++    }
++
++    post {
++        always {
++            notifySlack(currentBuild.currentResult)
++        }
++    }
++}

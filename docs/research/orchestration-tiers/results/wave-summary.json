@@ -1,0 +1,187 @@
+{
+ "date": "2026-10-13",
+ "client": "Claude Code 2.1.296",
+ "dex_auto": "8.6.0 (develop ca7356fc)",
+ "fixture": "tests/orchestration/wave (textkit, 4 additions, oracle 31 checks)",
+ "probe_race": {
+  "N": 8,
+  "rounds": 25,
+  "goal_setups": 200,
+  "drops": 200,
+  "failures": 0,
+  "open_goals_seen": 8,
+  "tree_from_base": {
+   "no_base": "HEAD of main tree",
+   "precreated_branch": "tree at predecessor head",
+   "main_tree_on_predecessor": "tree at predecessor head"
+  }
+ },
+ "single_session": {
+  "model": "claude-opus-5-5",
+  "cost_usd": 0.705,
+  "wall_s": 148,
+  "turns": 9,
+  "oracle": "31/31",
+  "npm_test": "30/30",
+  "diff_lines": 598
+ },
+ "wave": {
+  "plan": {
+   "model": "opus",
+   "cost_usd": 0.255,
+   "wall_s": 24.8,
+   "tasks": [
+    [
+     "F1",
+     []
+    ],
+    [
+     "F2",
+     []
+    ],
+    [
+     "F3",
+     []
+    ],
+    [
+     "F4",
+     [
+      "F1",
+      "F2"
+     ]
+    ]
+   ]
+  },
+  "runs": [
+   {
+    "task": "F1",
+    "kind": "first",
+    "cost_usd": 2.296,
+    "wall_s": 615.1,
+    "turns": 24
+   },
+   {
+    "task": "F2",
+    "kind": "first",
+    "cost_usd": 2.441,
+    "wall_s": 704.9,
+    "turns": 26
+   },
+   {
+    "task": "F3",
+    "kind": "first",
+    "cost_usd": 3.067,
+    "wall_s": 767.6,
+    "turns": 45
+   },
+   {
+    "task": "F2",
+    "kind": "resume",
+    "cost_usd": 3.167,
+    "wall_s": 1263.7,
+    "turns": 31,
+    "is_error": false
+   },
+   {
+    "task": "F4",
+    "kind": "first",
+    "cost_usd": 1.797,
+    "wall_s": 414.4,
+    "turns": 24,
+    "is_error": false
+   }
+  ],
+  "merges": [
+   {
+    "task": "F1",
+    "conflict": false
+   },
+   {
+    "task": "F3",
+    "conflict": true,
+    "files": [
+     "CHANGELOG.md",
+     "README.md",
+     "src/index.js"
+    ],
+    "resolver_cost_usd": 0.1,
+    "resolver_cost_note": "оценка по токенам транскрипта (sonnet-5-5: 1169 out, 100k cache read, 15k cache write); JSON запуска потерян при остановке скрипта",
+    "resolved": true
+   },
+   {
+    "task": "F2",
+    "conflict": true,
+    "files": [
+     "CHANGELOG.md",
+     "README.md",
+     "src/index.js"
+    ],
+    "resolver_cost_usd": 0.06699980000000001,
+    "resolver_wall_s": 11.7,
+    "resolved": true
+   },
+   {
+    "task": "F4",
+    "conflict": false
+   }
+  ],
+  "final_review": {
+   "cost_usd": 0.595,
+   "wall_s": 98.4
+  },
+  "costs": {
+   "plan": 0.255,
+   "goals_first": 9.601,
+   "goals_resume": 3.167,
+   "resolver": 0.167,
+   "final_review": 0.595,
+   "total": 13.786
+  },
+  "oracle": "31/31",
+  "npm_test": "93/93",
+  "diff_lines": 1532,
+  "operator_steps": 1,
+  "notes": [
+   "F2 blocked на неоднозначности ТЗ (нехватка), продолжена после ответа оператора",
+   "F3 partial, главный поток возобновил трек сам",
+   "прерванный запуск F4 без F2 (остановлен скриптом, стоимость не снята) в сумму не входит"
+  ]
+ },
+ "dispatch": [
+  {
+   "edition": null,
+   "arm": "none",
+   "cost_usd": 0.271,
+   "wall_s": 64,
+   "turns": 9
+  },
+  {
+   "edition": 1,
+   "arm": "skill",
+   "cost_usd": 0.77,
+   "wall_s": 114,
+   "turns": 14
+  },
+  {
+   "edition": 1,
+   "arm": "do",
+   "cost_usd": 0.903,
+   "wall_s": 185,
+   "turns": 25
+  },
+  {
+   "edition": 2,
+   "arm": "skill",
+   "cost_usd": 0.636,
+   "wall_s": 146,
+   "turns": 16
+  },
+  {
+   "edition": 2,
+   "arm": "do",
+   "cost_usd": 0.642,
+   "wall_s": 159,
+   "turns": 17
+  }
+ ]
+}

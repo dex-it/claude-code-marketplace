@@ -1,0 +1,61 @@
+{
+  "id": "7c576e",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0266514,
+    "durationMs": 4874,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2262,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 406,
+      "output_tokens_details": {
+        "thinking_tokens": 111
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2262,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 406,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2262,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2262
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = new HashSet<Guid>(customerIds);",
+      "why": "Id дедуплицируются через HashSet до нарезки на пачки, поэтому повторённый id получает одно письмо, в том числе между пачками."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "private const int BatchSize = 200; // ограничиваем размер IN(...) для внешнего списка id",
+      "why": "Запрос режется через ids.Chunk(BatchSize) в цикле с обоснованием размером IN."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var ids = new HashSet<Guid>(customerIds);",
+      "why": "customerIds перечисляется один раз при создании HashSet, дальше работа идёт только с ids."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,43 @@
+{
+  "id": "k0-nb",
+  "case": "K0",
+  "edition": "n",
+  "skills": [
+    "ts-nodejs-api",
+    "react",
+    "ts-fullstack-assistant"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 11,
+  "cost": 0.1164992,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 4,
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100 && grep -rniE \"price|₽|Product\\b\" --include=*.ts --include=*.tsx -l . --exclude-dir=node_modules",
+    "cat api/src/domain/product.ts web/src/lib/money.ts web/src/types.ts web/src/components/ProductsPage.tsx api/src/seed.ts; grep -rn \"formatPrice\\|money\\|products\" api/src web/src api/test | grep -v \"^ap",
+    "sed -n 40,62p api/src/app.ts; grep -n \"Product\\|products\\|₽\\|formatMoney\" -r api/test web/src/components/__tests__ e2e/tests | head -20",
+    "sed -n 1,40p api/test/orders.test.ts; sed -n 1,60p web/src/components/__tests__/OrdersPage.test.tsx",
+    "\nsed -i 's/  priceKopecks: number;\\n}//' api/src/domain/product.ts &&\npython3 - <<'E'\nimport re\nfor f in ['api/src/domain/product.ts','web/src/types.ts']:\n    s=open(f).read()\n    s=s.replace(\"  title",
+    "python3 - <<'E'\nimport re\nf='api/src/domain/product.ts'\ns=open(f).read().replace(\"  priceKopecks: number;\\n}\",\"  priceKopecks: number;\\n  currency: string;\\n}\");open(f,'w').write(s)\nf='web/src/types.t"
+  ]
+}

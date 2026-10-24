@@ -1,0 +1,272 @@
+diff --git a/.github/workflows/deploy-migrations.yml b/.github/workflows/deploy-migrations.yml
+new file mode 100644
+index 0000000..2dec352
+--- /dev/null
++++ b/.github/workflows/deploy-migrations.yml
+@@ -0,0 +1,43 @@
++name: Deploy DB migrations
++
++on:
++  push:
++    branches: [main]
++  workflow_dispatch: {}
++
++concurrency:
++  group: production-db-migrations
++  cancel-in-progress: false
++
++jobs:
++  migrate-production:
++    runs-on: ubuntu-latest
++    environment: production   # requires manual approval + scopes DB secret to this environment
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: "8.0.x"
++
++      - name: Install dotnet-ef
++        run: dotnet tool install --global dotnet-ef --version 8.*
++
++      - name: Build self-contained migration bundle
++        run: |
++          dotnet ef migrations bundle \
++            --project Shop.Data \
++            --configuration Release \
++            --self-contained \
++            --runtime linux-x64 \
++            --output efbundle
++        # bundle is produced from the migrations checked into this branch, so what
++        # runs against production is exactly what was reviewed in the PR
++
++      - name: Apply migrations to production database
++        env:
++          ConnectionStrings__Shop: ${{ secrets.PRODUCTION_DB_CONNECTION_STRING }}
++        run: ./efbundle --connection "$ConnectionStrings__Shop"
++        # additive migrations only (new tables + backfill) - safe to run before the
++        # app deploy job. A future migration that drops Order.Category must not be
++        # bundled together with an app version that still reads/writes that column.
+diff --git a/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs b/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs
+new file mode 100644
+index 0000000..4e4b1e6
+--- /dev/null
++++ b/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs
+@@ -0,0 +1,71 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Shop.Data.Migrations
++{
++    /// <summary>
++    /// Schema-only migration: adds Categories and the OrderCategories join table.
++    /// Order.Category is left untouched here on purpose - it is dropped in a later
++    /// migration once the backfill (next migration) and the app cutover are done.
++    /// </summary>
++    public partial class AddCategoriesAndOrderCategories : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.CreateTable(
++                name: "Categories",
++                columns: table => new
++                {
++                    Id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", Npgsql.EntityFrameworkCore.PostgreSQL.Metadata.NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    Name = table.Column<string>(type: "text", nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_Categories", x => x.Id);
++                });
++
++            migrationBuilder.CreateTable(
++                name: "OrderCategories",
++                columns: table => new
++                {
++                    OrderId = table.Column<Guid>(type: "uuid", nullable: false),
++                    CategoryId = table.Column<int>(type: "integer", nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_OrderCategories", x => new { x.OrderId, x.CategoryId });
++                    table.ForeignKey(
++                        name: "FK_OrderCategories_Orders_OrderId",
++                        column: x => x.OrderId,
++                        principalTable: "Orders",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                    table.ForeignKey(
++                        name: "FK_OrderCategories_Categories_CategoryId",
++                        column: x => x.CategoryId,
++                        principalTable: "Categories",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Restrict);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Categories_Name",
++                table: "Categories",
++                column: "Name",
++                unique: true);
++
++            migrationBuilder.CreateIndex(
++                name: "IX_OrderCategories_CategoryId",
++                table: "OrderCategories",
++                column: "CategoryId");
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropTable(name: "OrderCategories");
++            migrationBuilder.DropTable(name: "Categories");
++        }
++    }
++}
+diff --git a/Migrations/20260929120001_BackfillOrderCategoriesData.cs b/Migrations/20260929120001_BackfillOrderCategoriesData.cs
+new file mode 100644
+index 0000000..3e5c1f4
+--- /dev/null
++++ b/Migrations/20260929120001_BackfillOrderCategoriesData.cs
+@@ -0,0 +1,58 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Shop.Data.Migrations
++{
++    /// <summary>
++    /// Data-only migration: backfills Categories/OrderCategories from the legacy
++    /// Order.Category string column. Covers all rows, including soft-deleted ones
++    /// (IsDeleted only affects the app's query filter, the rows still exist),
++    /// so historical data isn't silently dropped. Order.Category itself is kept
++    /// until the app no longer reads/writes it.
++    /// </summary>
++    public partial class BackfillOrderCategoriesData : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.Sql(
++                """
++                INSERT INTO "Categories" ("Name")
++                SELECT DISTINCT o."Category"
++                FROM "Orders" o
++                WHERE o."Category" IS NOT NULL AND o."Category" <> ''
++                  AND NOT EXISTS (SELECT 1 FROM "Categories" c WHERE c."Name" = o."Category");
++                """);
++
++            migrationBuilder.Sql(
++                """
++                INSERT INTO "OrderCategories" ("OrderId", "CategoryId")
++                SELECT o."Id", c."Id"
++                FROM "Orders" o
++                JOIN "Categories" c ON c."Name" = o."Category"
++                WHERE o."Category" IS NOT NULL AND o."Category" <> ''
++                ON CONFLICT DO NOTHING;
++                """);
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            // Only remove links/categories that this backfill could have produced;
++            // categories created independently afterwards are left alone.
++            migrationBuilder.Sql(
++                """
++                DELETE FROM "OrderCategories" oc
++                USING "Orders" o
++                WHERE oc."OrderId" = o."Id" AND oc."CategoryId" IN (
++                    SELECT c."Id" FROM "Categories" c WHERE c."Name" = o."Category"
++                );
++                """);
++
++            migrationBuilder.Sql(
++                """
++                DELETE FROM "Categories" c
++                WHERE NOT EXISTS (SELECT 1 FROM "OrderCategories" oc WHERE oc."CategoryId" = c."Id");
++                """);
++        }
++    }
++}
+diff --git a/Model.cs b/Model.cs
+index cc90064..a204bcc 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -9,16 +9,32 @@ public class Order
+     public Guid CustomerId { get; set; }
+     public virtual Customer Customer { get; set; } = null!;
+     public string Status { get; set; } = "active";
+-    public string Category { get; set; } = "";
++    public string Category { get; set; } = ""; // legacy column, to be dropped once OrderCategories is fully rolled out
+     public decimal Total { get; set; }
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
++    public List<OrderCategory> OrderCategories { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
++public class Category
++{
++    public int Id { get; set; }
++    public string Name { get; set; } = "";
++    public List<OrderCategory> OrderCategories { get; set; } = new();
++}
++
++public class OrderCategory
++{
++    public Guid OrderId { get; set; }
++    public Order Order { get; set; } = null!;
++    public int CategoryId { get; set; }
++    public Category Category { get; set; } = null!;
++}
++
+ public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } }
+ public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } }
+ 
+@@ -41,10 +57,27 @@ public class ShopDbContext : DbContext
+     public DbSet<Order> Orders => Set<Order>();
+     public DbSet<Product> Products => Set<Product>();
+     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
++    public DbSet<Category> Categories => Set<Category>();
++    public DbSet<OrderCategory> OrderCategories => Set<OrderCategory>();
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+         b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Category>().HasIndex(c => c.Name).IsUnique();
++
++        b.Entity<OrderCategory>(e =>
++        {
++            e.ToTable("OrderCategories");
++            e.HasKey(x => new { x.OrderId, x.CategoryId });
++            e.HasIndex(x => x.CategoryId);
++            e.HasOne(x => x.Order).WithMany(o => o.OrderCategories)
++                .HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
++            e.HasOne(x => x.Category).WithMany(c => c.OrderCategories)
++                .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
++            // mirrors Order's soft-delete filter so direct/Include queries stay consistent
++            e.HasQueryFilter(x => !x.Order.IsDeleted);
++        });
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d9327bf
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++Созданные/изменённые файлы:
++- Model.cs — изменён: добавлены `Category`, `OrderCategory` (join-сущность), навигация `Order.OrderCategories`; в `OnModelCreating` — composite PK (OrderId, CategoryId), уникальный индекс на `Category.Name`, FK с `Cascade` на Order / `Restrict` на Category, и `HasQueryFilter` на `OrderCategory`, зеркалящий soft-delete фильтр `Order`. Колонка `Order.Category` пока оставлена (будет удалена отдельной миграцией позже).
++- Migrations/20260929120000_AddCategoriesAndOrderCategories.cs — новая: только схема (таблицы `Categories`, `OrderCategories`, индексы, FK).
++- Migrations/20260929120001_BackfillOrderCategoriesData.cs — новая: только данные (SQL-бэкфилл `Categories`/`OrderCategories` из старой строковой колонки, включая soft-deleted заказы, т.к. они физически есть в БД).
++- .github/workflows/deploy-migrations.yml — новый: джоба `migrate-production` в отдельном GitHub Environment `production` (secret + manual approval), собирает self-contained `dotnet ef migrations bundle` и применяет его к прод-БД через переменную окружения с connection string из секрета.
++
++Решения:
++- Схема и данные разнесены по двум миграциям (правило "данные и схема в одной миграции"); бэкфилл сделан raw SQL INSERT-SELECT, а не построчным SaveChanges.
++- Удаление `Order.Category` сознательно отложено до отдельной будущей миграции после переключения кода на новые таблицы (expand/contract), что отражено и в комментарии workflow.
++- Designer.cs/ModelSnapshot не сгенерированы руками — по ограничениям задачи сборка/`dotnet ef` не запускались, их нужно перегенерировать локально командой `dotnet ef migrations add` перед мержем.

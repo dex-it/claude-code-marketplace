@@ -1,0 +1,55 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..82ceb1c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,49 @@
++# Ревью MR !231 «Процедурный кабинет»
++
++## 1. `Services/ProcedureService.cs` → `CalculateDoseMlAsync`: вес в граммах умножается на дозу в мг/кг — **critical**
++`doseMg = weightGrams * drugMgPerKg`. Доза задаётся на килограмм, а `Pet.WeightGrams` хранится в граммах. Перевода в кг нет, поэтому объём получается **в 1000 раз больше**. Пример: кошка 4000 г, 2,5 мг/кг, 10 мг/мл. Метод вернёт 1000 мл вместо 1 мл. Это расчёт объёма препарата для инфузии, то есть прямой риск передозировки. Комментарий в коде («вес, кг × мг/кг») с самим кодом не совпадает.
++Исправление: `weightGrams / 1000m * drugMgPerKg`. Нужен тест на расчёт с известным ответом.
++
++## 2. `Domain/Pet.cs` (`WeightGrams`) + миграция `AddProcedures` / `CalculateDoseMlAsync`: у существующих питомцев вес станет 0 — **high**
++`WeightGrams` объявлен как non-nullable `int`. Сгенерированная миграция добавит колонку `NOT NULL DEFAULT 0` в уже заполненную таблицу `Pets`. Значит, у всех исторических питомцев вес «0 г», хотя на самом деле он неизвестен. `CalculateDoseMlAsync` такой вес не проверяет и молча вернёт дозу 0 мл. Это противоречит смыслу поля («вес с последнего взвешивания»): питомца ещё не взвешивали, а значение уже есть.
++Исправление: `int? WeightGrams`. В расчёте дозы при `null`/`<= 0` бросать явную ошибку («питомец не взвешен»).
++
++## 3. `Services/ProcedureSheetService.cs` → `GetDaySheetAsync`: смещение страницы считается с 0, а по контракту страницы с 1 — **high**
++По контракту API (`MR.md`) страницы нумеруются с 1. Код делает `Skip(page * PageSize)`, поэтому `page=1` пропускает первые 30 процедур дня. Первая страница листа дня никогда не показывается, и кабинет теряет часть записей. Кроме того, `page <= 0` не проверяется: при отрицательном значении PostgreSQL падает на `OFFSET` < 0.
++Исправление: `Skip((page - 1) * PageSize)`, при `page < 1` возвращать `ArgumentOutOfRangeException` / 400.
++
++## 4. `Services/ProcedureService.cs` → `RemoveConsumableAsync`: гонка с закрытием процедуры и загрузка всех строк ради одной — **medium**
++- **Параллельная правка.** Статус проверяется в памяти, удаление идёт отдельной командой. Токена конкурентности нет, проверка и удаление не атомарны. Если процедуру закроют между чтением и `SaveChanges`, строка исчезнет из уже закрытого списания, а README это прямо запрещает. Токен `xmin` на `Procedure` здесь сам по себе не поможет: удаление зависимой строки не меняет строку `Procedures`.
++- **Загрузка.** `Include(p => p.Consumables)` загружает и отслеживает все строки расходников, а у инфузий их сотни (см. примечание в MR). Всё это ради удаления одной строки.
++
++Исправление: одна атомарная команда:
++`db.ConsumableLines.Where(c => c.Id == lineId && c.ProcedureId == procedureId && c.Procedure.Status != ProcedureStatus.Closed).ExecuteDeleteAsync()`.
++Если удалено 0 строк, отдельно выяснить причину (нет строки или процедура закрыта). Сам разрыв связи через `Remove` корректен: FK required, по конвенции `Cascade`, сирота удаляется.
++
++## 5. `Services/ProcedureService.cs` → `RescheduleAsync`: перенос без защиты от параллельной смены статуса — **medium**
++Проверка `Status == Scheduled` и запись `ScheduledLocal` не защищены токеном конкурентности. Если процедуру параллельно перевели в `InProgress`/`Cancelled`/`Closed`, перенос всё равно пройдёт: UPDATE пишет только `ScheduledLocal` и о новом статусе не знает. В итоге перенесена уже начатая или отменённая процедура.
++Исправление: concurrency token на `Procedure` (`xmin` через `UseXminAsConcurrencyToken()`/`IsRowVersion()` в Npgsql 8) с обработкой `DbUpdateConcurrencyException`. Другой вариант — условный `ExecuteUpdateAsync` с `Where(p => p.Id == id && p.Status == Scheduled)`.
++
++## 6. `Data/ClinicDbContext.cs` → `OnModelCreating` (`Procedure` → `Pet`): каскадное удаление журнала процедур вместе с питомцем — **medium**
++FK `PetId` required и `DeleteBehavior` не задан, поэтому по конвенции стоит `Cascade`. Тогда при удалении `Pet` каскадом удалятся его процедуры, а за ними строки расходников и заметки персонала. Это медицинский журнал и источник отчёта по расходу материалов. Историю нельзя терять из-за удаления карточки питомца.
++Исправление: `.OnDelete(DeleteBehavior.Restrict)` для связи `Procedure → Pet`.
++
++## 7. `Services/ProcedureSheetService.cs` → `SearchNotesAsync`: ищет только по `Procedure.Notes`, заметки персонала не охватываются; индекса нет — **low**
++В MR заявлен «поиск по заметкам», но запрос смотрит только колонку `"Notes"`. Записи в `StaffNotes` (заметки персонала) в поиск не попадают. Если поиск должен идти и по ним, это функциональный пробел. Кроме того, `to_tsvector('russian', coalesce("Notes",''))` считается на лету без GIN-индекса по выражению, поэтому каждый запрос — полный скан `Procedures`. Сама подстановка `{text}` в `FromSql` параметризована, инъекции нет.
++
++## 8. `Services/ProcedureService.cs` → `GetCardAsync`: загружаются полные сущности вместо нужных полей — **low**
++Загружаются полные `Pet`, `ConsumableLine` и `StaffNote` (сотни строк у длительных процедур), хотя DTO берёт лишь часть полей. Например, от `Pet` нужно только `Name`. Проекция `Select(p => new ProcedureCardDto(...))` с вложенными `Select`/`OrderBy` прямо в запросе убирает лишние колонки и сортирует заметки в БД. `AsSplitQuery` при двух коллекциях одного уровня здесь законен. Строки расходников приходят без явного порядка, поэтому их порядок в карточке недетерминирован.
++
++## 9. `Services/ProcedureService.cs` → `RescheduleAsync`, `RemoveConsumableAsync`, `CalculateDoseMlAsync`: «не найдено» превращается в 500 — **low**
++`SingleAsync` по несуществующему `id` бросает `InvalidOperationException` («Sequence contains no elements»). Это то же исключение, что и у бизнес-отказа «перенести можно только запланированную», поэтому клиент не отличит 404 от 409/500. Лучше `SingleOrDefaultAsync` + `KeyNotFoundException`, как уже сделано для строки расходников. Похоже и в `ScheduleAsync`: несуществующий `PetId` всплывает только как нарушение FK из `SaveChanges`.
++
++---
++
++Проверено, дефектов нет:
++- `ScheduledLocal`: `timestamp without time zone` + `Kind=Unspecified`.
++- `CreatedAt`: `timestamptz` + `UtcNow`.
++- Границы дня и месяца в `GetDaySheetAsync`/`GetConsumptionAsync`: `Unspecified` против `timestamp`.
++- Сортировка в `GetConsumptionAsync`: whitelist, значения идут параметрами.
++- `SingleOrDefault` по `ChipNumber`: уникальный индекс.
++- `Add` вместо `AddAsync`.
++- `AsNoTracking` в выборках для чтения.

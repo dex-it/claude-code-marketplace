@@ -1,0 +1,214 @@
+# Ключи к кейсам B1, B2, B3 (code), BR (review), BN (чистый review).
+# Стек всех кейсов: .NET 8, EF Core 8.0.x, Npgsql.EntityFrameworkCore.PostgreSQL 8.0.x, PostgreSQL 16.
+# Документация к строкам unit/harm/mine - в SOURCES.md (по id строки).
+# pass/fail описывают наблюдаемый результат в diff/ответе, а не конкретный API.
+
+B1:
+  source: заведён слепой стадией
+  items:
+    - id: B1-senior-filter
+      kind: unit
+      unit: untranslatable-filter
+      pass: "Условие «возрастной питомец» из (а) выражено в запросе в транслируемом виде (например, BirthDate сравнивается с граничными датами по видам, вычисленными в C# до запроса, или эквивалентное выражение над маппленными колонками), и отбор питомцев идёт в PostgreSQL. Pet.IsSenior / Pet.AgeYears не используются внутри Where/OrderBy/других операторов запроса (в финальном Select для вывода - допустимо)."
+      fail: "В Where запроса стоит p.IsSenior или p.AgeYears (несохраняемые вычисляемые свойства) - EF Core бросит InvalidOperationException о невозможности трансляции при выполнении; ИЛИ питомцы (все или все с согласием на SMS) загружаются в память через ToList/AsEnumerable/AsAsyncEnumerable и IsSenior фильтруется на клиенте по сотням тысяч строк."
+      disputed: "Частичный вариант: в БД отфильтрованы согласие и прививки, а IsSenior применяется в памяти к остатку. Объём остатка не ограничен (сотни тысяч питомцев), поэтому это всё равно клиентская фильтрация большой выборки."
+      primary: fail
+    - id: B1-phone-translate
+      kind: unit
+      unit: untranslatable-filter
+      pass: "В поиске по телефону (б) нормализуется только введённое значение (PhoneFormat.Normalize вызывается до запроса или над параметром), а с колонкой Phone сравнивается результат; над колонкой в Where не вызываются C#-методы."
+      fail: "В Where вызывается PhoneFormat.Normalize(o.Phone) или другой C#-метод над колонкой - исключение трансляции при выполнении; ИЛИ владельцы загружаются в память и фильтруются на клиенте."
+    - id: B1-report-notracking
+      kind: unit
+      unit: readonly-tracking
+      pass: "Строки отчёта (а) получены без отслеживания изменений: проекция в DTO/анонимный тип без экземпляров сущностей в результате, либо AsNoTracking/AsNoTrackingWithIdentityResolution на запросе."
+      fail: "Отчёт материализует отслеживаемые сущности (например, Pets с Include(Owner)/Include(Vaccinations) без AsNoTracking) и строит строки из них - десятки/сотни тысяч сущностей в change tracker при запросе, который ничего не сохраняет."
+    - id: B1-phone-multi
+      kind: unit
+      unit: single-not-unique
+      pass: "Поиск по телефону (б) не использует Single/SingleOrDefault (и их Async-варианты) по условию на Phone; если номер записан на нескольких владельцев, метод возвращает всех (список) или явно обрабатывает неоднозначность - без исключения."
+      fail: "SingleOrDefaultAsync/SingleAsync по Phone (например, по образцу FindByEmailAsync) - при семейном номере InvalidOperationException «more than one element»."
+      disputed: "FirstOrDefault по телефону (с OrderBy или без): исключения нет, но регистратор видит только одного из членов семьи, остальные клиенты по номеру не находятся."
+      primary: fail
+    - id: B1-optout-utc
+      kind: unit
+      unit: datetime-column
+      pass: "В (в) SmsConsentChangedAt записывается моментом с Kind=Utc (DateTime.UtcNow, DateTimeOffset.UtcNow.UtcDateTime, ToUniversalTime() и т.п.) или значение ставит сама БД (now() через ExecuteUpdate/SQL)."
+      fail: "SmsConsentChangedAt = DateTime.Now / DateTime.Today / значение с Kind Local или Unspecified - колонка по умолчанию timestamp with time zone, SaveChanges упадёт с исключением Npgsql о записи не-UTC DateTime в timestamptz."
+    - id: B1-h-email-single
+      kind: harm
+      unit: single-not-unique
+      what: "Меняет SingleOrDefaultAsync в существующем FindByEmailAsync на First*/FirstOrDefault* или называет его ошибкой: Email закрыт уникальным индексом (HasIndex(o => o.Email).IsUnique()), Single там корректен."
+    - id: B1-h-legacy-switch
+      kind: harm
+      unit: datetime-column
+      what: "Чтобы принять локальное время, включает AppContext-переключатель Npgsql.EnableLegacyTimestampBehavior или меняет тип колонки SmsConsentChangedAt на timestamp without time zone - меняет маппинг дат для всего приложения/ломает единообразие колонок вместо записи UTC."
+    - id: B1-m-notracking-write
+      kind: mine
+      what: "В (в) или в существующем UpdateContactsAsync сущность читается через AsNoTracking, либо в контексте глобально включён QueryTrackingBehavior.NoTracking, и при этом нет Update/Attach/ExecuteUpdate: изменение согласия/контактов молча не сохраняется SaveChanges."
+
+B2:
+  source: заведён слепой стадией
+  items:
+    - id: B2-owner-softdelete
+      kind: unit
+      unit: softdelete-cascade
+      pass: "DeleteOwnerAsync не удаляет строки физически (нет Remove/RemoveRange/ExecuteDelete по Owner/Pet/Visit/Allergy): владелец, его питомцы и их запланированные визиты помечаются IsDeleted=true (+DeletedAt) в одной операции, либо фильтры согласованы так, что питомцы и визиты удалённого владельца исключаются из всех запросов (например, фильтр Pet учитывает Owner.IsDeleted, фильтр Visit - Pet.IsDeleted). Пометка затрагивает и незагруженных зависимых (их надо загрузить или обновить через ExecuteUpdate)."
+      fail: "db.Owners.Remove(owner) / ExecuteDelete - физический DELETE; FK по умолчанию Cascade (ON DELETE CASCADE в БД и каскад EF по загруженным) удаляет питомцев, аллергии и визиты, нарушая README. ИЛИ помечается только Owner.IsDeleted: питомцы и визиты остаются видны в GetPlannedVisitsAsync и в запросах без навигации к Owner, а в запросах через обязательную навигацию к Owner пропадают (INNER JOIN с отфильтрованным Owner) - списки рассогласованы."
+    - id: B2-allergies-orphans
+      kind: unit
+      unit: required-orphans
+      pass: "ReplaceAllergiesAsync не разрывает обязательную связь Allergy->Pet: аллергии, которых нет в новом списке, помечаются IsDeleted=true (+DeletedAt) и остаются строками в БД; новые добавляются; совпадающие можно оставить/обновить. Нет pet.Allergies.Clear()/Remove(...) из коллекции и нет db.Allergies.Remove/RemoveRange."
+      fail: "pet.Allergies.Clear() (или Remove из коллекции) и добавление нового списка: связь обязательная с DeleteBehavior.Cascade по умолчанию, EF помечает осиротевшие аллергии Deleted и выполняет DELETE - история аллергий физически удаляется вопреки README. Так же fail: явные Remove/RemoveRange/ExecuteDelete по аллергиям."
+    - id: B2-deletedat-utc
+      kind: unit
+      unit: datetime-column
+      pass: "DeletedAt (и любые другие моменты, которые пишет новый код) записываются с Kind=Utc (DateTime.UtcNow и т.п.) или ставятся БД (now() в ExecuteUpdate)."
+      fail: "DeletedAt = DateTime.Now (Kind Local) или Unspecified - колонка timestamp with time zone, SaveChanges/ExecuteUpdate падает с исключением Npgsql о записи не-UTC DateTime."
+    - id: B2-migration-path
+      kind: unit
+      unit: prod-migration
+      pass: "Изменение схемы (в) оформлено как миграция EF Core в Migrations/ (с обновлением снапшота модели или с явной инструкцией сгенерировать её через dotnet ef migrations add), применение на прод - через существующий pipeline (CI генерирует идемпотентный скрипт, DBA запускает db-migrate). В коде приложения нет применения миграций/DDL при старте."
+      fail: "Добавлен Database.Migrate()/MigrateAsync()/EnsureCreated() в Program.cs или иной запуск DDL из приложения (под ролью vet_app без прав DDL упадёт при старте; обходит ревью скрипта DBA); ИЛИ инструкция применить изменение на проде через dotnet ef database update / ручной ALTER мимо pipeline."
+    - id: B2-h-filters-weakened
+      kind: harm
+      unit: softdelete-cascade
+      what: "Убирает или ослабляет существующие HasQueryFilter (например, снимает фильтр с Pet/Visit) либо добавляет IgnoreQueryFilters() в существующие списки GetPetCardAsync/GetPlannedVisitsAsync - удалённые записи начинают показываться пользователям."
+    - id: B2-m-drop-notes
+      kind: mine
+      what: "Миграция переименования делает DropColumn(Notes) + AddColumn(Anamnesis) (так EF по умолчанию скаффолдит переименование свойства) без переноса данных: при применении на проде теряются все существующие заметки визитов. Верно - RenameColumn (или Add+UPDATE+Drop)."
+
+B3:
+  source: заведён слепой стадией
+  items:
+    - id: B3-scope-sql
+      kind: unit
+      unit: fromsql-alias
+      pass: "scope из query string отображается на фиксированные фрагменты SQL из белого списка (switch/словарь; неизвестное значение отклоняется или заменяется значением по умолчанию), имя колонки/таблицы из запроса в SQL не попадает; текст поиска всегда передаётся параметром ({0}-плейсхолдер FromSqlRaw, DbParameter или FromSql с интерполяцией)."
+      fail: "Значение scope и/или текст поиска подставлены в SQL-строку FromSqlRaw конкатенацией или C#-интерполяцией ($\"...{scope}...\", $\"...'{text}'...\") - SQL-инъекция; в том числе FromSqlRaw($\"...{text}...\") без параметров."
+    - id: B3-drug-resultset
+      kind: unit
+      unit: fromsql-alias
+      pass: "Для scope=drug SQL возвращает ровно колонки Visit с именами, совпадающими с маппингом (v.* по Visits или явный список колонок/алиасов под имена колонок Visit), и каждый визит один раз (EXISTS/IN/DISTINCT по визиту) - либо поиск по препаратам вынесен в LINQ над Prescriptions/подзапрос, а raw SQL возвращает только Visits."
+      fail: "SELECT * из JOIN Visits и Prescriptions (в результате колонки обеих таблиц, дублируются Id и др.) - при композиции EF поверх подзапроса ошибка неоднозначной колонки или неверная материализация; ИЛИ колонки переименованы алиасами, не совпадающими с маппингом Visit (EF требует все колонки сущности под их именами); ИЛИ визит дублируется по числу совпавших назначений."
+    - id: B3-lastvisit-split
+      kind: unit
+      unit: split-single
+      pass: "GetLastVisitCardAsync выбирает визит детерминированно при глобальном SplitQuery: порядок уникален (SlotStart + Id или другой уникальный тай-брейкер), либо сначала определяется Id визита, а затем визит с коллекциями грузится по Id, либо запрос явно выполняется одним SQL (AsSingleQuery) или проекцией без split; анализы и назначения гарантированно относятся к одному и тому же визиту."
+      fail: "OrderByDescending(v => v.SlotStart).FirstOrDefault(...) с Include(LabResults)/Include(Prescriptions) (или проекцией коллекций) под глобальным SplitQuery без уникального тай-брейкера: при совместном приёме в одном слоте отдельные SQL-запросы split могут выбрать разные визиты, и в карточку попадут анализы/назначения чужого визита."
+    - id: B3-export-notracking
+      kind: unit
+      unit: readonly-tracking
+      pass: "Выгрузка (в) читает данные без отслеживания: проекция в DTO/анонимный тип (включая число назначений через Count в проекции) или AsNoTracking."
+      fail: "Выгрузка материализует отслеживаемые сущности Visit (с Include(Pet)/Include(Prescriptions) без AsNoTracking) для до 100 тыс. строк."
+    - id: B3-export-range-utc
+      kind: unit
+      unit: datetime-column
+      pass: "Границы периода из DateOnly from/to (местные даты клиники, обе включительно) переводятся в UTC-моменты с учётом пояса клиники (Asia/Yekaterinburg: TimeZoneInfo/NodaTime или фиксированное смещение +5 с пояснением) и передаются в запрос как DateTime с Kind=Utc (или DateTimeOffset с нулевым смещением); верхняя граница - начало дня после to (полуинтервал) или эквивалент. Время в CSV выводится в местном поясе."
+      fail: "В запрос передаются границы с Kind Unspecified/Local (from.ToDateTime(TimeOnly.MinValue), DateTime.Today и т.п.) против колонки timestamp with time zone - исключение Npgsql о не-UTC DateTime; ИЛИ границы помечены Utc через SpecifyKind без перевода из местного времени - период сдвинут на 5 часов и приёмы на краях дней теряются/попадают лишние."
+      disputed: "Механизм исключения для параметров запроса (а не для записи) в документации Npgsql описан общей фразой «send a non-UTC DateTime as timestamptz will throw»; сдвиг на 5 часов при SpecifyKind(Utc) - ошибка часового пояса, выводимая из README. Оба варианта - fail."
+      primary: fail
+    - id: B3-h-existing-search
+      kind: harm
+      unit: fromsql-alias
+      what: "Объявляет существующий SearchAsync уязвимым к SQL-инъекции: там FromSqlRaw с плейсхолдером {0} и отдельным аргументом - значение уходит DbParameter-ом."
+    - id: B3-m-fts-lost
+      kind: mine
+      what: "Заменяет полнотекстовый поиск на LIKE/ILIKE/Contains по колонкам (или на to_tsvector-выражение, не совпадающее с индексом, без замечания) - поиск перестаёт попадать в GIN-индексы и теряет морфологию, вопреки поручению."
+
+BR:
+  source: заведён слепой стадией
+  items:
+    - id: BR-long-stays
+      kind: unit
+      unit: untranslatable-filter
+      pass: "Отмечает, что GetLongStaysAsync фильтрует по Stay.DaysInWard - вычисляемому свойству без маппинга: EF Core не транслирует его и бросает InvalidOperationException при выполнении. Предлагает транслируемое условие (например, AdmittedOn <= граничная дата, вычисленная до запроса)."
+      fail: "Не замечает; или предлагает «исправить» через ToList()/AsEnumerable() перед Where - загрузка всех госпитализаций (включая историю) в память."
+    - id: BR-box-occupant
+      kind: unit
+      unit: single-not-unique
+      pass: "Отмечает, что GetBoxCardAsync ищет текущую госпитализацию через SingleOrDefaultAsync по BoxId + DischargedOn == null, хотя в боксе может быть несколько животных (Capacity, README): при двух пациентах - InvalidOperationException; карточка должна возвращать список пациентов."
+      fail: "Не замечает или считает условие уникальным."
+    - id: BR-decommission-filter
+      kind: unit
+      unit: softdelete-cascade
+      pass: "Отмечает, что глобальный фильтр Box (!IsDecommissioned) при обязательной связи Stay->Box скрывает госпитализации из выведенных боксов во всех запросах через навигацию s.Box (INNER JOIN с отфильтрованным Box): GetWardPatientsAsync и отчёт по занятости теряют пациентов, которые ещё лежат в выведенном боксе (README требует их показывать), а DischargeAsync с Include(Box) не находит госпитализацию и падает. Предлагает решение: запрет вывода занятого бокса, необязательная навигация/LEFT JOIN, IgnoreQueryFilters в этих запросах, перенос фильтра только туда, где выбирают бокс при поступлении, и т.п."
+      fail: "Не замечает или видит только «бокс пропал из выбора» без последствий для госпитализаций."
+    - id: BR-medplan-clear
+      kind: unit
+      unit: required-orphans
+      pass: "Отмечает, что ReplaceMedicationPlanAsync делает MedicationOrders.Clear() на обязательной связи с OnDelete(Restrict): разрыв обязательной связи с загруженными зависимыми даёт InvalidOperationException на SaveChanges; и что по README назначения не удаляются - отменённые надо помечать CancelledAt, новые добавлять."
+      fail: "Не замечает; или считает, что Clear() просто удалит старые назначения и это нормально."
+    - id: BR-latest-stay-split
+      kind: unit
+      unit: split-single
+      pass: "Отмечает, что GetLatestStayAsync c AsSplitQuery выбирает одну госпитализацию через OrderByDescending(AdmittedOn).FirstOrDefault, а AdmittedOn не уникален (повторная госпитализация в тот же день): в EF 8 отдельные SQL-запросы split могут выбрать разные госпитализации, и назначения/наблюдения окажутся от другой. Предлагает уникальный порядок (ThenByDescending(Id)), выбор Id и загрузку по Id, или single query."
+      fail: "Не замечает."
+    - id: BR-occupancy-sql
+      kind: unit
+      unit: fromsql-alias
+      pass: "Отмечает SQL-инъекцию в GetOccupancyAsync: ward подставлен в FromSqlRaw как строковый литерал, sortBy - как идентификатор из query string. Предлагает: значение - параметром, имя столбца - только из белого списка (или сортировку через LINQ)."
+      fail: "Не замечает или предлагает только «экранировать кавычки» в sortBy/ward без параметра и белого списка."
+    - id: BR-startup-migrate
+      kind: unit
+      unit: prod-migration
+      pass: "Отмечает, что MigrateAsync при старте противоречит процессу выкладки из README/.gitlab-ci.yml: роль vet_app без прав DDL (старт упадёт или потребует расширить права), миграции обходят просмотр идемпотентного скрипта DBA, 3 реплики при rolling update выполняют миграцию одновременно (в EF 8 нет блокировки миграций, она появилась в EF 9). Предлагает убрать и оставить db-migrate."
+      fail: "Не замечает или одобряет как удобство."
+    - id: BR-billing
+      kind: coverage
+      what: "DischargeAsync: стоимость считается как (DischargedOn - AdmittedOn) дней × тариф, а README требует считать календарные дни включая день поступления и день выписки - не хватает +1 (выписка в день поступления даёт 0)."
+    - id: BR-discharge-auth
+      kind: coverage
+      what: "Эндпоинт /stays/{id}/discharge закрыт только RequireAuthorization() без политики Vet - выписать может любой аутентифицированный пользователь, хотя README разрешает выписку только врачу."
+    - id: BR-h-box-code
+      kind: harm
+      unit: single-not-unique
+      what: "Называет ошибкой SingleOrDefaultAsync в FindBoxByCodeAsync: Box.Code закрыт уникальным индексом."
+    - id: BR-h-history-fromsql
+      kind: harm
+      unit: fromsql-alias
+      what: "Называет SQL-инъекцией GetPetHistoryAsync: там FromSql с интерполированной строкой - значение petId передаётся DbParameter-ом."
+    - id: BR-m-cascade-fix
+      kind: mine
+      what: "Предлагает исправить ReplaceMedicationPlanAsync через OnDelete(Cascade)/ClientCascade или явный RemoveRange: исключение уходит, но назначения физически удаляются, что нарушает README (назначения не удаляются, отмена = CancelledAt)."
+    - id: BR-m-ddl-grant
+      kind: mine
+      what: "Предлагает выдать роли приложения vet_app права на DDL, чтобы MigrateAsync при старте работал."
+
+BN:
+  source: заведён слепой стадией
+  items:
+    - id: BN-h-local-time
+      kind: harm
+      unit: datetime-column
+      what: "Требует хранить ScheduledLocal в UTC (DateTime.UtcNow, ToUniversalTime, SpecifyKind(Utc)) или утверждает, что запись/сравнение DateTime с Kind Unspecified упадёт в Npgsql: колонка явно timestamp without time zone, в неё пишутся Unspecified-значения - верно; запись Utc-значения в неё как раз бросила бы исключение. Замечание о том, что клиент может прислать значение со смещением, допустимо и вредом не считается."
+    - id: BN-h-split-card
+      kind: harm
+      unit: split-single
+      what: "Называет ошибкой AsSplitQuery в GetCardAsync (выборка одной процедуры по первичному ключу через SingleOrDefault с Include двух коллекций): требует убрать split или заявляет, что отдельные запросы могут подмешать данные другой процедуры. Корень выбирается по уникальному Id, коллекций две и они большие (MR.md) - split здесь уместен."
+    - id: BN-h-tracking
+      kind: harm
+      unit: readonly-tracking
+      what: "Требует добавить AsNoTracking в GetDaySheetAsync/FindByTitleAsync/SearchNotesAsync (проекции в DTO - сущности не отслеживаются) как исправление дефекта, или предлагает AsNoTracking в RescheduleAsync/RemoveConsumableAsync (там сущность меняется и сохраняется - без отслеживания изменения потеряются)."
+    - id: BN-h-chip-single
+      kind: harm
+      unit: single-not-unique
+      what: "Называет ошибкой SingleOrDefaultAsync в FindPetByChipAsync или требует заменить на FirstOrDefault: ChipNumber закрыт уникальным индексом."
+    - id: BN-h-fromsql
+      kind: harm
+      unit: fromsql-alias
+      what: "Находит SQL-инъекцию в SearchNotesAsync (FromSql с интерполированной строкой - параметр) или в GetConsumptionAsync (ORDER BY берётся только из словаря ConsumptionSort, неизвестное значение отклоняется; значения - NpgsqlParameter), либо утверждает, что алиасы в SqlQueryRaw не совпадут со свойствами ConsumptionRow."
+    - id: BN-h-tolower
+      kind: harm
+      unit: untranslatable-filter
+      what: "Утверждает, что Title.ToLower().Contains(q) в FindByTitleAsync не транслируется / выполняется на клиенте / упадёт: Npgsql транслирует ToLower в lower(), Contains - в серверное сравнение подстроки."
+    - id: BN-h-consumable-remove
+      kind: harm
+      unit: required-orphans
+      what: "Утверждает, что procedure.Consumables.Remove(line) в RemoveConsumableAsync не удалит строку из БД, оставит «сироту» или упадёт на FK: связь обязательная с каскадом по умолчанию, коллекция загружена - EF удаляет осиротевшую строку, а README прямо разрешает удалять строки до закрытия процедуры."
+    - id: BN-pagination
+      kind: coverage
+      what: "GetDaySheetAsync: Skip(page * PageSize) при нумерации страниц с 1 (контракт в MR.md) - первая страница пропускается, page=1 отдаёт строки 31-60."
+    - id: BN-dose-grams
+      kind: coverage
+      what: "CalculateDoseMlAsync: вес берётся в граммах (WeightGrams) и умножается на мг/кг без деления на 1000 - объём препарата завышен в 1000 раз."

@@ -1,0 +1,298 @@
+diff --git a/BillingDbContext.cs b/BillingDbContext.cs
+index a178566..0fce2f0 100644
+--- a/BillingDbContext.cs
++++ b/BillingDbContext.cs
+@@ -9,6 +9,7 @@ public class BillingDbContext : DbContext
+     public DbSet<Tariff> Tariffs => Set<Tariff>();
+     public DbSet<Subscriber> Subscribers => Set<Subscriber>();
+     public DbSet<Payment> Payments => Set<Payment>();
++    public DbSet<UnmatchedPayment> UnmatchedPayments => Set<UnmatchedPayment>();
+ 
+     protected override void ConfigureConventions(ModelConfigurationBuilder b)
+     {
+@@ -26,6 +27,12 @@ public class BillingDbContext : DbContext
+             e.Property(s => s.ContractNo).HasMaxLength(16);
+             e.Property(s => s.Phone).HasMaxLength(20);
+             e.Property(s => s.Status).HasConversion<string>().HasMaxLength(16);
++
++            // Телефоны вводятся в произвольном формате («+7 (912) 345-45-18»), поэтому ищем по цифрам.
++            // Разворот превращает «заканчивается на 4518» в префиксный LIKE '8154%', который идёт по индексу.
++            e.Property(s => s.PhoneDigitsReversed).HasMaxLength(20)
++                .HasComputedColumnSql(@"reverse(regexp_replace(""Phone"", '\D', '', 'g'))", stored: true);
++            e.HasIndex(s => s.PhoneDigitsReversed).HasOperators("text_pattern_ops");
+         });
+ 
+         b.Entity<Payment>(e =>
+@@ -33,5 +40,12 @@ public class BillingDbContext : DbContext
+             e.HasIndex(p => p.BankRef).IsUnique();
+             e.Property(p => p.BankRef).HasMaxLength(64);
+         });
++
++        b.Entity<UnmatchedPayment>(e =>
++        {
++            e.HasIndex(p => p.BankRef).IsUnique();
++            e.Property(p => p.BankRef).HasMaxLength(64);
++            e.Property(p => p.Reason).HasMaxLength(100);
++        });
+     }
+ }
+diff --git a/Models.cs b/Models.cs
+index bfb8200..5f29f5b 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -24,10 +24,28 @@ public class Subscriber
+     public decimal Balance { get; set; }
+     public DateTime CreatedAt { get; set; }
+     public DateTime? ConnectedAt { get; set; }
++    // Когда абонент последний раз вернулся из Suspended в Active после оплаты.
++    public DateTime? ReactivatedAt { get; set; }
++
++    // Цифры телефона в обратном порядке; генерируемая колонка БД для поиска по последним цифрам.
++    public string PhoneDigitsReversed { get; private set; } = "";
+ 
+     public List<Payment> Payments { get; set; } = new();
+ }
+ 
++// Строка выписки, для которой не нашёлся абонент: ждёт ручного разбора бухгалтером.
++public class UnmatchedPayment
++{
++    public int Id { get; set; }
++    public string BankRef { get; set; } = "";
++    public DateOnly PaidOn { get; set; }
++    public decimal Amount { get; set; }
++    public string PayerName { get; set; } = "";
++    public string Purpose { get; set; } = "";
++    public string Reason { get; set; } = "";
++    public DateTime LoadedAt { get; set; }
++}
++
+ public class Payment
+ {
+     public int Id { get; set; }
+diff --git a/PaymentImportService.cs b/PaymentImportService.cs
+new file mode 100644
+index 0000000..8d61e9f
+--- /dev/null
++++ b/PaymentImportService.cs
+@@ -0,0 +1,106 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Tarif.Billing;
++
++public record StatementImportResult(int Credited, int Unmatched, int AlreadyLoaded, int Reactivated);
++
++public class PaymentImportService
++{
++    private readonly BillingDbContext _db;
++
++    public PaymentImportService(BillingDbContext db) => _db = db;
++
++    public async Task<StatementImportResult> ImportAsync(IReadOnlyList<StatementLine> lines)
++    {
++        var now = DateTime.Now;
++
++        // Вся выписка - одна транзакция: либо зачислена целиком, либо (при ошибке) не зачислено ничего,
++        // и её можно спокойно загрузить ещё раз.
++        await using var tx = await _db.Database.BeginTransactionAsync();
++
++        // Идемпотентность по банковскому референсу: уже загруженные строки (и разнесённые, и неразобранные) пропускаем.
++        var refs = lines.Select(l => l.BankRef).Distinct().ToList();
++        var known = new HashSet<string>(
++            await _db.Payments.Where(p => refs.Contains(p.BankRef)).Select(p => p.BankRef)
++                .Union(_db.UnmatchedPayments.Where(p => refs.Contains(p.BankRef)).Select(p => p.BankRef))
++                .ToListAsync());
++
++        var contractNos = lines.Select(l => PaymentPurpose.ExtractContractNo(l.Purpose))
++            .OfType<string>().Distinct().ToList();
++        var subscribers = await _db.Subscribers.AsNoTracking()
++            .Where(s => s.ContractNo != null && contractNos.Contains(s.ContractNo))
++            .Select(s => new { s.Id, ContractNo = s.ContractNo!, s.Status })
++            .ToDictionaryAsync(s => s.ContractNo);
++
++        var credits = new Dictionary<int, decimal>();
++        int credited = 0, unmatched = 0, alreadyLoaded = 0;
++
++        foreach (var line in lines)
++        {
++            // known пополняется по ходу, чтобы дубль строки внутри одного файла тоже не зачёлся дважды.
++            if (!known.Add(line.BankRef))
++            {
++                alreadyLoaded++;
++                continue;
++            }
++
++            var contractNo = PaymentPurpose.ExtractContractNo(line.Purpose);
++            var reason =
++                line.Amount <= 0 ? "Неположительная сумма"
++                : contractNo is null ? "Номер договора не найден в назначении"
++                : !subscribers.TryGetValue(contractNo, out var s) ? $"Нет абонента с договором {contractNo}"
++                : s.Status == SubscriberStatus.Closed ? $"Договор {contractNo} закрыт"
++                : null;
++
++            if (reason is not null)
++            {
++                _db.UnmatchedPayments.Add(new UnmatchedPayment
++                {
++                    BankRef = line.BankRef,
++                    PaidOn = line.PaidOn,
++                    Amount = line.Amount,
++                    PayerName = line.PayerName,
++                    Purpose = line.Purpose,
++                    Reason = reason,
++                    LoadedAt = now,
++                });
++                unmatched++;
++                continue;
++            }
++
++            var subscriberId = subscribers[contractNo!].Id;
++            _db.Payments.Add(new Payment
++            {
++                SubscriberId = subscriberId,
++                Amount = line.Amount,
++                BankRef = line.BankRef,
++                PaidOn = line.PaidOn,
++                CreditedAt = now,
++                Purpose = line.Purpose,
++            });
++            credits[subscriberId] = credits.GetValueOrDefault(subscriberId) + line.Amount;
++            credited++;
++        }
++
++        // Вставка платежей первой: при параллельной загрузке той же выписки здесь сработает
++        // уникальный индекс по BankRef, и транзакция откатится до изменения балансов.
++        await _db.SaveChangesAsync();
++
++        // Баланс меняем атомарным UPDATE (Balance = Balance + x), чтобы не потерять параллельные списания.
++        foreach (var (subscriberId, amount) in credits)
++        {
++            await _db.Subscribers.Where(s => s.Id == subscriberId)
++                .ExecuteUpdateAsync(u => u.SetProperty(s => s.Balance, s => s.Balance + amount));
++        }
++
++        var creditedIds = credits.Keys.ToList();
++        var reactivated = await _db.Subscribers
++            .Where(s => creditedIds.Contains(s.Id) && s.Status == SubscriberStatus.Suspended && s.Balance >= 0)
++            .ExecuteUpdateAsync(u => u
++                .SetProperty(s => s.Status, SubscriberStatus.Active)
++                .SetProperty(s => s.ReactivatedAt, now));
++
++        await tx.CommitAsync();
++        return new StatementImportResult(credited, unmatched, alreadyLoaded, reactivated);
++    }
++}
+diff --git a/Program.cs b/Program.cs
+index 81dd291..f2723c2 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -1,11 +1,16 @@
++using System.Text;
+ using Microsoft.EntityFrameworkCore;
++using Npgsql;
+ using Tarif.Billing;
+ 
++Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
++
+ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<BillingDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Billing")));
+ builder.Services.AddScoped<SubscriberService>();
++builder.Services.AddScoped<PaymentImportService>();
+ 
+ var app = builder.Build();
+ 
+@@ -21,4 +26,51 @@ app.MapPost("/subscribers/{id:int}/contract", async (int id, ContractRequest req
+ app.MapGet("/subscribers/by-contract/{contractNo}", async (string contractNo, SubscriberService s) =>
+     await s.GetByContractAsync(contractNo) is { } dto ? Results.Ok(dto) : Results.NotFound());
+ 
++app.MapGet("/subscribers/search", async (string? phone, SubscriberService s) =>
++{
++    var digits = new string((phone ?? "").Where(char.IsAsciiDigit).ToArray());
++    if (digits.Length < SubscriberService.MinPhoneDigits || digits.Length > 15)
++        return Results.BadRequest($"Укажите от {SubscriberService.MinPhoneDigits} до 15 цифр телефона");
++
++    return Results.Ok(await s.SearchByPhoneTailAsync(digits));
++});
++
++app.MapPost("/bank/statements", async (HttpRequest request, PaymentImportService import) =>
++{
++    using var buffer = new MemoryStream();
++    await request.Body.CopyToAsync(buffer);
++    var bytes = buffer.ToArray();
++
++    // Интернет-банки отдают CSV то в UTF-8, то в Windows-1251: пробуем строгий UTF-8, иначе 1251.
++    string text;
++    try
++    {
++        text = new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(bytes);
++    }
++    catch (DecoderFallbackException)
++    {
++        text = Encoding.GetEncoding(1251).GetString(bytes);
++    }
++
++    List<StatementLine> lines;
++    try
++    {
++        lines = BankStatement.Parse(new StringReader(text.TrimStart('﻿')));
++    }
++    catch (Exception e) when (e is FormatException or IndexOutOfRangeException or OverflowException)
++    {
++        return Results.BadRequest($"Не удалось разобрать выписку: {e.Message}");
++    }
++
++    try
++    {
++        return Results.Ok(await import.ImportAsync(lines));
++    }
++    catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
++    {
++        // Та же выписка параллельно загружается другим запросом - эта транзакция откатилась целиком.
++        return Results.Conflict("Выписка уже загружается, повторите позже");
++    }
++});
++
+ app.Run();
+diff --git a/SubscriberService.cs b/SubscriberService.cs
+index af52716..4fc1975 100644
+--- a/SubscriberService.cs
++++ b/SubscriberService.cs
+@@ -50,4 +50,20 @@ public class SubscriberService
+             ? null
+             : new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance);
+     }
++
++    public const int MinPhoneDigits = 4;
++    private const int SearchLimit = 20;
++
++    // Поиск по последним цифрам телефона; формат ввода (пробелы, скобки, дефисы) не важен.
++    public async Task<List<SubscriberDto>> SearchByPhoneTailAsync(string digits)
++    {
++        var reversed = new string(digits.Reverse().ToArray());
++
++        return await _db.Subscribers.AsNoTracking()
++            .Where(s => s.PhoneDigitsReversed.StartsWith(reversed))
++            .OrderBy(s => s.Id)
++            .Take(SearchLimit)
++            .Select(s => new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance))
++            .ToListAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..f092d7f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++**Файлы:**
++- `PaymentImportService.cs` — новый: загрузка выписки, зачисление на баланс, возврат приостановленных абонентов в Active.
++- `Models.cs` — новая сущность `UnmatchedPayment`; в `Subscriber` добавлены поля `ReactivatedAt` и `PhoneDigitsReversed`.
++- `BillingDbContext.cs` — `DbSet<UnmatchedPayment>` с уникальным `BankRef`; для `PhoneDigitsReversed` — генерируемая колонка и индекс `text_pattern_ops`.
++- `SubscriberService.cs` — метод `SearchByPhoneTailAsync`.
++- `Program.cs` — `POST /bank/statements` и `GET /subscribers/search`, регистрация сервиса и кодировки 1251.
++
++**Решения:**
++- Повторная загрузка: строка, чей `BankRef` уже есть в платежах или в неразобранных, пропускается; повторы внутри одного файла тоже. Вся выписка грузится в одной транзакции. Баланс увеличивается атомарным `UPDATE Balance = Balance + x`, поэтому одновременные изменения баланса не теряются. Если ту же выписку загружают параллельно, второй запрос упирается в уникальный индекс, откатывается и получает 409. Возврат в Active делается после зачисления условным `UPDATE` (`Suspended && Balance >= 0`), время записывается в `ReactivatedAt`. Платежи по закрытым договорам и с суммой ≤ 0 уходят в неразобранные с указанием причины.
++- Поиск: телефоны записаны в разном формате, поэтому в PostgreSQL добавлена генерируемая колонка — цифры телефона в обратном порядке. Тогда «заканчивается на 4518» превращается в индексируемый `LIKE '8154%'`, а для существующих строк колонка заполнится сама. Нужно от 4 до 15 цифр, не больше 20 результатов, сортировка по Id.
++- Миграций в репозитории нет, их нужно создать (`dotnet ef migrations add`). Сборку и тесты я не запускал, как и было сказано. Время пишется через `DateTime.Now`, как в остальном коде.

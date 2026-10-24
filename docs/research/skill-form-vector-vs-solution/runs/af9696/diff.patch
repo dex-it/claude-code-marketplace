@@ -1,0 +1,42 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e960e1d
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,36 @@
++# Ревью MR: Outbox-воркер рассылки уведомлений
++
++## Critical
++
++1. **`OutboxWorker.ProcessBatchAsync`** (OutboxWorker.cs:50-54)
++   `m.SentAt = now;` выставляется и коммитится (`SaveChangesAsync`) **до** попытки реальной отправки письма. В `catch` при ошибке отправки инкрементируется только `m.Attempts`, `SentAt` не сбрасывается. Так как выборка использует фильтр `m.SentAt == null`, сообщение после первой же неудачной попытки навсегда считается «отправленным» и больше никогда не подхватывается. `MaxRetries`, `Attempts`, `LockTimeout` фактически становятся мёртвым кодом — при любом сбое SMTP письмо тихо теряется, при этом в БД видно, что оно «отправлено». Это ломает саму суть outbox-паттерна (at-least-once delivery).
++
++2. **`ThrottleService.WaitAsync`** (ThrottleService.cs:7)
++   Читает ключ `"Throttle:MessagesPerMinute"`, а во всех appsettings секция называется `"Throttle:PerMinute"`. `GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` кинет `DivideByZeroException` на **каждый** вызов. Вместе с находкой №1 это означает, что реально ни одно письмо не будет отправлено: исключение из `WaitAsync` попадёт в `catch` в `ProcessBatchAsync`, `SentAt` уже стоит — рассылка молча полностью не работает.
++
++3. **`Program.cs`** (строка 11)
++   `builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"))` — секция называется `"Mail"`, а в appsettings.json/Staging/Production она называется `"Smtp"`. В результате `SmtpOptions` никогда не забиндится из конфигурации: `Host`/`FromAddress` останутся `null`, `Port` — `0`. `SmtpMailSender.SendAsync` упадёт (NRE / ошибка подключения) при первой попытке отправки.
++
++4. **`OutboxWorker`** — конструктор использует `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>` (OutboxWorker.cs:11, используется как `options.Value` в ExecuteAsync:18,22). `IOptions<T>.Value` вычисляется один раз при первом обращении и не обновляется при последующих изменениях `appsettings.json` в рантайме. Это напрямую противоречит требованию MR: «Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта». Нужен `IOptionsMonitor<OutboxOptions>` с обращением к `.CurrentValue` на каждой итерации цикла.
++
++5. **`OutboxWorker.ExecuteAsync`** (OutboxWorker.cs:33): `Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)`. В appsettings.json `PollInterval = 500`, а по описанию MR опрос должен идти «раз в полсекунды», то есть значение задумано как миллисекунды. Из-за интерпретации `FromSeconds` воркер реально будет опрашивать outbox раз в ~500 секунд (~8.3 минуты) вместо раз в 500 мс. Первопричина — имя настройки `PollInterval` не содержит единицу измерения, из-за чего смешались секунды/миллисекунды.
++
++6. **`appsettings.Production.json`** — в репозитории закоммичены боевые секреты открытым текстом: пароль БД `Kx7!pQ2vR9wz` (строка 3) и пароль/ключ SMTP-релея `rl_live_9f3a1c77e2b04d6d` (строка 16). Секреты продакшена не должны храниться в appsettings в git.
++
++## High
++
++7. **`Options/OutboxOptionsValidator.cs`** — не проверяется кросс-полевой инвариант `MinBatchSize <= MaxBatchSize` (а также `MinBatchSize > 0`, `PollInterval > 0`). В `appsettings.Production.json` этот инвариант реально нарушен: `MinBatchSize: 200 > MaxBatchSize: 100` (строки 6-7). При такой конфигурации адаптивная логика батчинга в `OutboxWorker.ExecuteAsync` (строки 25-31) будет вести себя непредсказуемо/противоречиво.
++
++8. **`Program.cs`** — `OutboxOptionsValidator` нигде не зарегистрирован в DI (нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()`), и нет `.ValidateOnStart()` для `OutboxOptions`. Существующая валидация — мёртвый код, который никогда не выполняется, поэтому невалидный конфиг (см. находку №7) не будет отловлен при старте сервиса.
++
++9. **`appsettings.Staging.json`** (строка 3) — строка подключения содержит плейсхолдер `${NOTIFY_DB_PASSWORD}`. В `Program.cs` не подключено ни одного провайдера конфигурации, который бы подставлял переменные окружения внутрь значения строки (стандартный `IConfiguration` не делает token-подстановку `${VAR}` внутри значения ключа — это не docker-compose и не отдельный шаблонизатор). Как следствие, в Staging в качестве пароля Npgsql будет использована буквальная строка `${NOTIFY_DB_PASSWORD}`, подключение к БД будет падать.
++
++## Medium
++
++10. **`appsettings.Staging.json` vs `appsettings.Production.json`** — `Outbox:MaxInFlight` в Staging равен `20`, а в Production — `5` (Staging строка 6, Production строка 8). Staging сконфигурирован агрессивнее продакшена по параллелизму отправки, хотя обычно staging не должен давить на внешние сервисы (SMTP-релей, БД) сильнее прод-профиля — похоже на перепутанные значения при копировании.
++
++11. **`Options/SmtpOptions.cs`** — `Host` и `FromAddress` объявлены как non-nullable `string` без `required` и без значения по умолчанию, но валидатор (`IValidateOptions<SmtpOptions>`) для этого класса вообще отсутствует. В сочетании с находкой №3 (неверное имя секции) это приводит к тихому падению в рантайме (NRE при отправке письма) вместо быстрого и понятного отказа при старте сервиса.
++
++## Low
++
++12. **`appsettings.json` / `appsettings.Staging.json` / `appsettings.Production.json`** — `Outbox:MaxRetries` = `5` продублировано одинаковым значением во всех трёх файлах, хотя нигде реально не отличается по окружениям. Стоит оставить значение только в базовом `appsettings.json`, чтобы не плодить риск рассинхронизации при будущих правках.

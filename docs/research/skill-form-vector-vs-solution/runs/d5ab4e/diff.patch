@@ -1,0 +1,67 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..f6bbdd7
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,61 @@
++# Ревью MR !231 «Процедурный кабинет»
++
++## 1. `Services/ProcedureService.cs` — `CalculateDoseMlAsync`: вес в граммах подставлен как килограммы — **critical**
++`doseMg = weightGrams * drugMgPerKg`. Доза задана в мг/кг, а `Pet.WeightGrams` хранит граммы, и деления на 1000 нет.
++Пример: кот 4 кг (4000 г), 2.5 мг/кг, 10 мг/мл. Правильный объём 1 мл, метод вернёт 1000 мл. Получается тысячекратная
++передозировка в инфузии, то есть прямой вред животному. Нужно `weightGrams / 1000m * drugMgPerKg`, а на расчёт — тест с эталонными значениями.
++
++## 2. `Domain/Pet.cs` (`WeightGrams`) + `CalculateDoseMlAsync`: питомец без взвешивания получает вес 0 и дозу 0 мл — **high**
++Колонку `WeightGrams` добавили как `int NOT NULL`. Миграция `AddProcedures` поставит всем существующим питомцам 0 (default), а у новых
++питомцев без взвешивания тоже будет 0. Метод дозы не проверяет вес и молча вернёт `0.00` мл. Это клинически неверный
++ответ, и ошибкой он не выглядит. Нужно сделать вес `int?` (колонка nullable: «вес неизвестен»), а в расчёте при `null`/`<= 0` бросать
++понятную ошибку («нет актуального веса») вместо числа.
++
++## 3. `Services/ProcedureSheetService.cs` — `GetDaySheetAsync`: пагинация со смещением на страницу — **high**
++По контракту страницы нумеруются с 1, а код делает `Skip(page * PageSize)`. Для `page=1` пропускаются первые 30 процедур дня:
++утренние записи никогда не попадут в лист дня, а если процедур за день ≤ 30, лист будет пустым. Нужно `Skip((page - 1) * PageSize)`
++и проверка `page >= 1`. Иначе при `page=0` или отрицательном значении получится отрицательный OFFSET и ошибка PostgreSQL, то есть 500.
++
++## 4. `Services/ProcedureService.cs` — `RemoveConsumableAsync`: гонка с закрытием процедуры, можно изменить закрытое списание — **medium**
++Код проверяет `Status != Closed` на прочитанной копии, затем отдельно вызывает `SaveChanges`. Concurrency token нет (например, `xmin`,
++`UseXminAsConcurrencyToken`/`IsRowVersion`), блокировки и транзакции тоже нет. Если процедуру закрыли между чтением и сохранением, строка
++удалится из уже закрытого списания. По README это запрещено, и отчёт по расходу за месяц исказится. Чек-лист: «Параллельная правка
++одной записи». Нужно одно из двух: `SELECT … FOR UPDATE` на процедуру в явной транзакции либо concurrency token на `Procedure`, который
++меняется при удалении строки, с обработкой `DbUpdateConcurrencyException`. Ещё один вариант — условный
++`ExecuteDelete` с проверкой статуса в самом `WHERE`, но тогда закрытие тоже должно идти через блокировку/токен.
++Попутно (low): ради удаления одной строки грузятся все расходники процедуры, а у инфузий их сотни. Достаточно загрузить
++одну строку по `Id` и `ProcedureId` (статус проверять через ту же блокировку).
++
++## 5. `Services/ProcedureService.cs` — `RescheduleAsync`: проверка статуса без защиты от параллельной правки — **medium**
++Сценарий тот же. Перенос проверяет `Status == Scheduled`, но если процедуру параллельно перевели в `InProgress`/`Closed`/`Cancelled`,
++перенос всё равно запишет новое время уже начатой, закрытой или отменённой процедуре. Из-за этого она сдвигается в другой день
++в листе дня и в отчёте за другой месяц. Нужен concurrency token на `Procedure` (`xmin`) с обработкой конфликта.
++Попутно: при несуществующем `id` `SingleAsync` бросает `InvalidOperationException`, тот же тип, что и у бизнес-ошибки «нельзя
++перенести». Вызывающий код не отличит 404 от 409. Лучше `SingleOrDefaultAsync` и явный `KeyNotFoundException`.
++
++## 6. `Services/ProcedureSheetService.cs` — `SearchNotesAsync`: ищет не по заметкам персонала — **medium** (уточнить у автора)
++В MR заявлены «заметки персонала» как сущность `StaffNote` и «поиск по заметкам». Запрос ищет только по колонке `Procedures.Notes`, а таблицу
++`StaffNotes` не затрагивает. Записи персонала поиском не находятся. Если имелся в виду поиск по `StaffNotes.Text`, нужен
++`EXISTS` по `"StaffNotes"`. Параметризация здесь корректная (`FromSql` с интерполяцией передаёт `{text}` как параметр).
++Попутно (low): `to_tsvector(...)` по всей таблице без GIN-индекса по выражению означает полный скан на каждый поиск.
++
++## 7. `Data/ClinicDbContext.cs` — `Procedure → Pet`: каскадное удаление уносит историю процедур и списаний — **low/medium**
++Связь `HasOne(p => p.Pet).WithMany().HasForeignKey(p => p.PetId)` required, поэтому по конвенции получает `ON DELETE CASCADE`. Вместе
++с каскадом `Procedure → ConsumableLine/StaffNote` удаление карточки питомца физически удалит все его процедуры, закрытые
++списания расходников и заметки. Отчёт по расходу материалов за прошлые месяцы изменится задним числом. Для учётных данных
++стоит задать `OnDelete(DeleteBehavior.Restrict)` на `Procedure → Pet`.
++
++## 8. `Services/ProcedureService.cs` — `GetCardAsync`: полные сущности вместо проекции — **low**
++Запрос read-only, `AsNoTracking` и `AsSplitQuery` выбраны правильно: у инфузий сотни расходников и заметок, single query дал бы декартово
++произведение. Но ради `Pet.Name` грузится вся сущность `Pet`, а `ConsumableLine`/`StaffNote` тоже приходят целиком. Проекция сразу в `ProcedureCardDto`
++(с `AsSplitQuery`, сортировкой заметок в SQL) выберет только нужные столбцы. Чек-лист: «Полная сущность там, где нужна часть полей».
++
++## 9. `Services/ProcedureSheetService.cs` — `GetConsumptionAsync`: `sort = null` даёт 500 — **low**
++`ConsumptionSort.TryGetValue(null, …)` бросает `ArgumentNullException`, а не ожидаемый `ArgumentException`. Нужна проверка на null/пустую строку
++(или значение по умолчанию). В остальном метод корректен: ORDER BY берётся из белого списка, значения передаются через
++`NpgsqlParameter`, `DateTime` с `Kind=Unspecified` уходит как `timestamp` и совпадает с типом колонки `ScheduledLocal`.
++
++---
++Проверено, дефектов нет: `ScheduleAsync`/`RescheduleAsync` пишут `ScheduledLocal` с `Kind=Unspecified` в
++`timestamp without time zone`, `CreatedAt = UtcNow` пишется в `timestamptz`. `FindPetByChipAsync`: `SingleOrDefault` подкреплён уникальным индексом
++по `ChipNumber`. `Add` синхронный. `FindByTitleAsync` транслируется в SQL.

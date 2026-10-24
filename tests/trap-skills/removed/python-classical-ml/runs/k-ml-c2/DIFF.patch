@@ -1,0 +1,290 @@
+diff --git a/src/shelfwatch/churn_model.py b/src/shelfwatch/churn_model.py
+new file mode 100644
+index 0000000..c9cf44c
+--- /dev/null
++++ b/src/shelfwatch/churn_model.py
+@@ -0,0 +1,180 @@
++"""Модель оттока магазинов: случайный лес против XGBoost.
++
++Постановка: по срезу магазина за месяц t предсказываем, будет ли `churned == 1` в срезе за
++месяц t+1. Строки, где магазин уже отвалился (`churned == 1`), в обучение и в прогноз не
++берутся. Пары (t, t+1) строятся только для соседних месяцев: если среза за t+1 нет, строка
++без метки и в обучение не попадает.
++
++Валидация - по времени, а не случайная: по магазину много срезов, и случайное разбиение
++подмешало бы в тест соседние месяцы тех же магазинов. Месяцы делятся на train / val / test
++(test - самые поздние). Модель выбирается по val, итоговая цифра считается один раз на test.
++
++Метрика - PR-AUC (average precision): отток 5%, accuracy и ROC-AUC при таком дисбалансе
++дают завышенную картину. Для справки: у модели без навыка PR-AUC равна доле оттока (~0.05).
++Веса классов не используются, чтобы вероятности оставались вероятностями.
++"""
++
++from dataclasses import dataclass
++
++import numpy as np
++import pandas as pd
++from sklearn.compose import ColumnTransformer
++from sklearn.ensemble import RandomForestClassifier
++from sklearn.metrics import average_precision_score
++from sklearn.pipeline import Pipeline
++from sklearn.preprocessing import OneHotEncoder
++from xgboost import XGBClassifier
++
++from shelfwatch.paths import DATA_DIR
++
++SEED = 42
++N_VAL_MONTHS = 3
++N_TEST_MONTHS = 3
++
++NUMERIC = ["tenure_months", "revenue", "n_tickets", "no_tickets"]
++CATEGORICAL = ["plan"]
++FEATURES = NUMERIC + CATEGORICAL
++REQUIRED = ["store_id", "snapshot", "tenure_months", "plan", "n_tickets", "revenue", "churned"]
++
++
++@dataclass(frozen=True)
++class ChurnReport:
++    best_model: str
++    val_pr_auc: dict[str, float]
++    test_pr_auc: float  # единственная цифра для отчёта
++    test_base_rate: float  # PR-AUC константного прогноза, для сравнения
++
++
++def _check(df: pd.DataFrame) -> None:
++    missing = [c for c in REQUIRED if c not in df.columns]
++    if missing:
++        raise ValueError(f"нет колонок: {missing}")
++
++
++def _prepare(df: pd.DataFrame) -> pd.DataFrame:
++    """Приводит срез к месяцу, убирает дубли и строит признаки."""
++    _check(df)
++    out = df.copy()
++    out["month"] = pd.to_datetime(out["snapshot"]).dt.to_period("M")
++    out = out.sort_values(["store_id", "month"]).drop_duplicates(["store_id", "month"], keep="last")
++    # Пустой n_tickets = ни разу не обращались: это ноль, а не пропуск; факт сохраняем флагом.
++    out["no_tickets"] = out["n_tickets"].isna().astype(int)
++    out["n_tickets"] = out["n_tickets"].fillna(0)
++    return out.reset_index(drop=True)
++
++
++def build_training_frame(df: pd.DataFrame) -> pd.DataFrame:
++    """Признаки среза t и метка `target` = churned в срезе t+1 того же магазина."""
++    data = _prepare(df)
++    nxt = data[["store_id", "month", "churned"]].copy()
++    nxt["month"] = nxt["month"] - 1
++    nxt = nxt.rename(columns={"churned": "target"})
++    data = data.merge(nxt, on=["store_id", "month"], how="inner")
++    data = data[data["churned"] == 0]
++    return data.reset_index(drop=True)
++
++
++def split_by_time(
++    data: pd.DataFrame, n_val: int = N_VAL_MONTHS, n_test: int = N_TEST_MONTHS
++) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
++    months = sorted(data["month"].unique())
++    if len(months) < n_val + n_test + 1:
++        raise ValueError(f"мало месяцев для разбиения: {len(months)}")
++    test_m = set(months[-n_test:])
++    val_m = set(months[-n_test - n_val : -n_test])
++    is_test = data["month"].isin(test_m)
++    is_val = data["month"].isin(val_m)
++    return data[~is_test & ~is_val], data[is_val], data[is_test]
++
++
++def make_model(name: str, **params: object) -> Pipeline:
++    pre = ColumnTransformer(
++        [
++            ("num", "passthrough", NUMERIC),
++            ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL),
++        ]
++    )
++    if name == "random_forest":
++        defaults: dict[str, object] = {
++            "n_estimators": 300,
++            "min_samples_leaf": 5,
++            "n_jobs": -1,
++            "random_state": SEED,
++        }
++        clf = RandomForestClassifier(**{**defaults, **params})
++    elif name == "xgboost":
++        defaults = {
++            "n_estimators": 300,
++            "learning_rate": 0.05,
++            "max_depth": 4,
++            "subsample": 0.8,
++            "colsample_bytree": 0.8,
++            "eval_metric": "aucpr",
++            "n_jobs": -1,
++            "random_state": SEED,
++        }
++        clf = XGBClassifier(**{**defaults, **params})
++    else:
++        raise ValueError(f"неизвестная модель: {name}")
++    return Pipeline([("pre", pre), ("clf", clf)])
++
++
++def _fit_score(name: str, train: pd.DataFrame, test: pd.DataFrame, params: dict) -> float:
++    model = make_model(name, **params).fit(train[FEATURES], train["target"])
++    proba = model.predict_proba(test[FEATURES])[:, 1]
++    return float(average_precision_score(test["target"], proba))
++
++
++def evaluate(df: pd.DataFrame, params: dict[str, dict] | None = None) -> ChurnReport:
++    """Выбирает лучшую модель по val и честно оценивает её на test."""
++    params = params or {}
++    train, val, test = split_by_time(build_training_frame(df))
++    for part_name, part in (("train", train), ("val", val), ("test", test)):
++        if part["target"].nunique() < 2:
++            raise ValueError(f"в {part_name} один класс, PR-AUC не определена")
++
++    val_scores = {
++        name: _fit_score(name, train, val, params.get(name, {}))
++        for name in ("random_forest", "xgboost")
++    }
++    best = max(val_scores, key=lambda k: val_scores[k])
++    # Победитель переобучается на train+val, test трогаем один раз.
++    trainval = pd.concat([train, val])
++    test_score = _fit_score(best, trainval, test, params.get(best, {}))
++    return ChurnReport(best, val_scores, test_score, float(test["target"].mean()))
++
++
++def predict_next_month(
++    df: pd.DataFrame, model_name: str | None = None, params: dict | None = None
++) -> pd.Series:
++    """Вероятность оттока каждого магазина в месяце после его последнего среза.
++
++    Модель обучается на всех размеченных парах из `df`. Если `model_name` не задан, лучшая
++    выбирается через `evaluate`. Магазины, у которых в последнем срезе уже `churned == 1`,
++    в результат не попадают. Индекс - `store_id`.
++    """
++    params = params or {}
++    if model_name is None:
++        model_name = evaluate(df, params).best_model
++    train = build_training_frame(df)
++    model = make_model(model_name, **params.get(model_name, {})).fit(
++        train[FEATURES], train["target"]
++    )
++    data = _prepare(df)
++    last = data.groupby("store_id").tail(1)
++    last = last[last["churned"] == 0]
++    proba = model.predict_proba(last[FEATURES])[:, 1]
++    return pd.Series(proba, index=pd.Index(last["store_id"].to_numpy(), name="store_id"),
++                     name="churn_proba")
++
++
++def main() -> None:
++    df = pd.read_parquet(DATA_DIR / "accounts.parquet")
++    report = evaluate(df)
++    print(f"лучшая модель: {report.best_model}")
++    print(f"PR-AUC на test: {report.test_pr_auc:.3f} (константный прогноз: {report.test_base_rate:.3f})")
++    print(f"PR-AUC на val: {report.val_pr_auc}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/tests/test_churn_model.py b/tests/test_churn_model.py
+new file mode 100644
+index 0000000..a94ba7f
+--- /dev/null
++++ b/tests/test_churn_model.py
+@@ -0,0 +1,98 @@
++import numpy as np
++import pandas as pd
++import pytest
++
++from shelfwatch.churn_model import (
++    FEATURES,
++    build_training_frame,
++    evaluate,
++    predict_next_month,
++    split_by_time,
++)
++
++FAST = {
++    "random_forest": {"n_estimators": 30, "n_jobs": 1},
++    "xgboost": {"n_estimators": 30, "n_jobs": 1},
++}
++
++
++def synthetic(n_stores: int = 400, n_months: int = 14, seed: int = 0) -> pd.DataFrame:
++    """Отток зависит от числа обращений и выручки; у части магазинов n_tickets пуст."""
++    rng = np.random.default_rng(seed)
++    months = pd.period_range("2025-01", periods=n_months, freq="M")
++    rows = []
++    for store in range(n_stores):
++        risky = rng.random() < 0.2
++        plan = rng.choice(["basic", "plus", "pro"])
++        gone = False
++        for i, m in enumerate(months):
++            if gone:
++                break
++            tickets = rng.poisson(6 if risky else 1)
++            rows.append(
++                {
++                    "account_id": store,
++                    "snapshot": m.to_timestamp(),
++                    "tenure_months": i + 12,
++                    "plan": plan,
++                    "store_id": store,
++                    "n_tickets": np.nan if tickets == 0 and rng.random() < 0.7 else tickets,
++                    "revenue": rng.normal(50 if risky else 100, 10),
++                    "churned": 0,
++                }
++            )
++            if risky and rng.random() < 0.25:
++                rows[-1]["churned"] = 1
++                gone = True
++    return pd.DataFrame(rows)
++
++
++def test_target_is_next_month_churn() -> None:
++    df = pd.DataFrame(
++        {
++            "store_id": [1, 1, 1, 2, 2],
++            "account_id": [1, 1, 1, 2, 2],
++            "snapshot": pd.to_datetime(["2025-01-01", "2025-02-01", "2025-03-01", "2025-01-01", "2025-03-01"]),
++            "tenure_months": 1,
++            "plan": "basic",
++            "n_tickets": [1.0, 2.0, 3.0, np.nan, 1.0],
++            "revenue": 10.0,
++            "churned": [0, 0, 1, 0, 0],
++        }
++    )
++    got = build_training_frame(df)
++    # магазин 1: янв->фев (0), фев->мар (1); магазин 2: пропуск месяца, пар нет
++    assert got["store_id"].tolist() == [1, 1]
++    assert got["target"].tolist() == [0, 1]
++
++
++def test_split_is_chronological() -> None:
++    train, val, test = split_by_time(build_training_frame(synthetic()))
++    assert train["month"].max() < val["month"].min()
++    assert val["month"].max() < test["month"].min()
++
++
++def test_missing_tickets_become_zero_with_flag() -> None:
++    data = build_training_frame(synthetic())
++    assert data[FEATURES].isna().sum().sum() == 0
++    assert (data.loc[data["no_tickets"] == 1, "n_tickets"] == 0).all()
++
++
++def test_evaluate_beats_base_rate() -> None:
++    report = evaluate(synthetic(), FAST)
++    assert report.best_model in {"random_forest", "xgboost"}
++    assert report.test_pr_auc > 2 * report.test_base_rate
++
++
++def test_predict_next_month() -> None:
++    df = synthetic()
++    pred = predict_next_month(df, "random_forest", FAST)
++    assert pred.index.is_unique
++    assert pred.between(0, 1).all()
++    still_active = df.groupby("store_id").tail(1).query("churned == 0")["store_id"]
++    assert set(pred.index) == set(still_active)
++
++
++def test_missing_columns() -> None:
++    with pytest.raises(ValueError):
++        evaluate(synthetic().drop(columns=["revenue"]), FAST)

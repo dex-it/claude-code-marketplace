@@ -1,0 +1,111 @@
+{
+  "id": "8b9662",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0832274,
+    "durationMs": 12667,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6684,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1466,
+      "output_tokens_details": {
+        "thinking_tokens": 284
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6684,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1466,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6684,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6684
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "условия фильтра ссылаются на исходное имя таблицы: `\"Products\".\"Category\" = @p0`",
+      "why": "Находка прямо называет обращение к \"Products\" при заданном алиасе p."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync(p => p.Sku == sku)` бросит исключение \"Sequence contains more than one element\" для любого SKU, присутствующего на нескольких складах",
+      "why": "Дефект SingleAsync по SKU, неуникальному между складами, назван явно."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`last!.Value` в этом случае бросит `NullReferenceException`. Нужно фильтровать `Where(o => o.ShippedAt != null)`",
+      "why": "Назван MaxAsync(ShippedAt) с !.Value без фильтра null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "избыточный `UpdateRange` на уже отслеживаемых сущностях",
+      "why": "Дефект UpdateRange на отслеживаемых сущностях назван с последствиями."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "Scoped `ShopDbContext` внедрён в singleton `BackgroundService`",
+      "why": "Назван DbContext в конструкторе BackgroundService с рекомендацией IServiceScopeFactory."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "`Include(Items)` + `Include(Payments)` без `AsSplitQuery()` порождают декартово произведение",
+      "why": "Названы две коллекции Include на тысячах заказов без split."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` без явной транзакции, гонка при резервировании остатка",
+      "why": "Дефект FOR UPDATE без явной транзакции назван."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "обновление делается без optimistic concurrency (нет rowversion/`xmin`",
+      "why": "Отсутствие concurrency token при правке заказа названо."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "Миграция дропает `Orders.Category`, не перенося данные в `Categories`/`OrderCategories`",
+      "why": "DropColumn Category без переноса данных назван."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "загружает **весь** `Orders` в память (`ToListAsync()` без `Where`, без `AsNoTracking`) и лишь потом фильтрует `IsOverdue` на клиенте",
+      "why": "GetAllAsync + фильтр IsOverdue в памяти назван."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "В `GetCard` рядом `AsSplitQuery()` использован верно",
+      "why": "Исполнитель одобрил AsSplitQuery на карточке заказа, не оспаривал его."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против Kind=Unspecified/чтения как Utc нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "суммирует цену за единицу без умножения на `i.Qty`",
+      "why": "Сумма заказа без Qty названа как дефект."
+    }
+  },
+  "stderr": ""
+}

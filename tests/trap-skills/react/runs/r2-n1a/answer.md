@@ -1,0 +1,1 @@
+blocker: 5, major: 7, minor: 10

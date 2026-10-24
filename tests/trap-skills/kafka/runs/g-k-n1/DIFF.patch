@@ -1,0 +1,430 @@
+diff --git a/src/Fulfil/Contracts/OrderEvents.cs b/src/Fulfil/Contracts/OrderEvents.cs
+index bb61974..b49c1b0 100644
+--- a/src/Fulfil/Contracts/OrderEvents.cs
++++ b/src/Fulfil/Contracts/OrderEvents.cs
+@@ -1,6 +1,7 @@
+ namespace Fulfil.Contracts;
+ 
+ // События заказов, которые публикует витрина и смежные команды.
+-public sealed record OrderPlaced(Guid OrderId, Guid CustomerId, IReadOnlyList<Domain.OrderLine> Lines, DateTimeOffset PlacedAt);
++// GiftWrap появился позже: в старом формате его нет, тогда берётся false.
++public sealed record OrderPlaced(Guid OrderId, Guid CustomerId, IReadOnlyList<Domain.OrderLine> Lines, DateTimeOffset PlacedAt, bool GiftWrap = false);
+ 
+ public sealed record OrderStatusChanged(Guid OrderId, Domain.OrderStatus Status, DateTimeOffset ChangedAt);
+diff --git a/src/Fulfil/Domain/Order.cs b/src/Fulfil/Domain/Order.cs
+index 00325b0..09e0225 100644
+--- a/src/Fulfil/Domain/Order.cs
++++ b/src/Fulfil/Domain/Order.cs
+@@ -9,7 +9,8 @@ public sealed record Order(
+     Guid CustomerId,
+     OrderStatus Status,
+     IReadOnlyList<OrderLine> Lines,
+-    DateTimeOffset PlacedAt)
++    DateTimeOffset PlacedAt,
++    bool GiftWrap = false)
+ {
+     public decimal Total => Lines.Sum(l => l.Quantity * l.UnitPrice);
+ }
+diff --git a/src/Fulfil/Kafka/KafkaSupport.cs b/src/Fulfil/Kafka/KafkaSupport.cs
+new file mode 100644
+index 0000000..38c3652
+--- /dev/null
++++ b/src/Fulfil/Kafka/KafkaSupport.cs
+@@ -0,0 +1,109 @@
++using System.Text;
++using System.Text.Json;
++using System.Text.Json.Serialization;
++using Confluent.Kafka;
++using Fulfil.Contracts;
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Kafka;
++
++public static class OrderJson
++{
++    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
++    {
++        Converters = { new JsonStringEnumConverter() }
++    };
++
++    // null - сообщение не разобрать или оно не соответствует контракту (ядовитое).
++    // Старый формат без giftWrap даёт GiftWrap = false.
++    public static OrderPlaced? TryParse(byte[]? value, out string error)
++    {
++        error = "";
++        if (value is null || value.Length == 0) { error = "empty value"; return null; }
++        try
++        {
++            var e = JsonSerializer.Deserialize<OrderPlaced>(value, Options);
++            if (e is null || e.OrderId == Guid.Empty || e.CustomerId == Guid.Empty || e.Lines is null)
++            {
++                error = "missing required fields";
++                return null;
++            }
++            return e;
++        }
++        catch (JsonException ex)
++        {
++            error = ex.Message;
++            return null;
++        }
++    }
++}
++
++public static class Retry
++{
++    // Временные сбои (Mongo, брокер) повторяем на месте, не пропуская сообщение:
++    // смещение сохраняется только после успеха.
++    public static async Task RunAsync(Func<Task> action, ILogger logger, string what, CancellationToken ct)
++    {
++        var delay = TimeSpan.FromSeconds(1);
++        while (true)
++        {
++            try { await action(); return; }
++            catch (Exception ex) when (ex is not OperationCanceledException)
++            {
++                logger.LogWarning(ex, "{What} failed, retry in {Delay}", what, delay);
++                await Task.Delay(delay, ct);
++                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, 30));
++            }
++        }
++    }
++}
++
++// Общий идемпотентный продьюсер: статусы заказов и dead-letter.
++public sealed class KafkaPublisher : IDisposable
++{
++    private readonly IProducer<byte[]?, byte[]?> _producer;
++    private readonly FulfilOptions _options;
++
++    public KafkaPublisher(IOptions<FulfilOptions> options)
++    {
++        _options = options.Value;
++        _producer = new ProducerBuilder<byte[]?, byte[]?>(new ProducerConfig
++        {
++            BootstrapServers = _options.KafkaBootstrapServers,
++            EnableIdempotence = true,
++            Acks = Acks.All
++        }).Build();
++    }
++
++    public async Task PublishStatusChangedAsync(OrderPlaced placed, CancellationToken ct)
++    {
++        var evt = new OrderStatusChanged(placed.OrderId, Domain.OrderStatus.Placed, DateTimeOffset.UtcNow);
++        await _producer.ProduceAsync(_options.StatusChangedTopic, new Message<byte[]?, byte[]?>
++        {
++            Key = Encoding.UTF8.GetBytes(placed.OrderId.ToString()),
++            Value = JsonSerializer.SerializeToUtf8Bytes(evt, OrderJson.Options)
++        }, ct);
++    }
++
++    public async Task SendToDeadLetterAsync(ConsumeResult<byte[]?, byte[]?> source, string error, CancellationToken ct)
++    {
++        var headers = new Headers
++        {
++            { "dlq-error", Encoding.UTF8.GetBytes(error) },
++            { "dlq-source", Encoding.UTF8.GetBytes($"{source.Topic}[{source.Partition.Value}]@{source.Offset.Value}") }
++        };
++        await _producer.ProduceAsync(source.Topic + ".dlq", new Message<byte[]?, byte[]?>
++        {
++            Key = source.Message.Key,
++            Value = source.Message.Value,
++            Headers = headers
++        }, ct);
++    }
++
++    public void Dispose()
++    {
++        _producer.Flush(TimeSpan.FromSeconds(5));
++        _producer.Dispose();
++    }
++}
+diff --git a/src/Fulfil/Kafka/OrderConsumers.cs b/src/Fulfil/Kafka/OrderConsumers.cs
+new file mode 100644
+index 0000000..163c59e
+--- /dev/null
++++ b/src/Fulfil/Kafka/OrderConsumers.cs
+@@ -0,0 +1,138 @@
++using Confluent.Kafka;
++using Fulfil.Contracts;
++using Fulfil.Mongo;
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Kafka;
++
++internal static class ConsumerFactory
++{
++    // Смещения не сохраняются автоматически: StoreOffset вызывается только после обработки,
++    // а фоновый автокоммит (в том числе при ребалансе) коммитит лишь сохранённое.
++    public static IConsumer<byte[]?, byte[]?> Create(FulfilOptions o, string groupId) =>
++        new ConsumerBuilder<byte[]?, byte[]?>(new ConsumerConfig
++        {
++            BootstrapServers = o.KafkaBootstrapServers,
++            GroupId = groupId,
++            EnableAutoCommit = true,
++            EnableAutoOffsetStore = false,
++            AutoOffsetReset = AutoOffsetReset.Earliest,
++            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
++        }).Build();
++}
++
++// orders.placed -> проекция клиента -> OrderStatusChanged(Placed).
++public sealed class OrdersPlacedConsumer(
++    IOptions<FulfilOptions> options,
++    CustomerProjection projection,
++    KafkaPublisher publisher,
++    ILogger<OrdersPlacedConsumer> logger) : BackgroundService
++{
++    private readonly FulfilOptions _o = options.Value;
++
++    protected override Task ExecuteAsync(CancellationToken ct) => Task.Run(() => RunAsync(ct), ct);
++
++    private async Task RunAsync(CancellationToken ct)
++    {
++        using var consumer = ConsumerFactory.Create(_o, _o.OrdersGroupId);
++        consumer.Subscribe(_o.OrdersPlacedTopic);
++        try
++        {
++            while (!ct.IsCancellationRequested)
++            {
++                ConsumeResult<byte[]?, byte[]?> r;
++                try { r = consumer.Consume(ct); }
++                catch (ConsumeException ex)
++                {
++                    logger.LogWarning(ex, "Consume error");
++                    continue;
++                }
++                if (r?.Message is null) continue;
++
++                var placed = OrderJson.TryParse(r.Message.Value, out var error);
++                if (placed is null)
++                {
++                    logger.LogError("Poison message {Tp}@{Offset}: {Error}, sent to dead letter",
++                        r.TopicPartition, r.Offset.Value, error);
++                    await Retry.RunAsync(() => publisher.SendToDeadLetterAsync(r, error, ct),
++                        logger, "dead letter publish", ct);
++                }
++                else
++                {
++                    await Retry.RunAsync(async () =>
++                    {
++                        await projection.ApplyAsync(placed, ct);
++                        // публикуем и для повторно пришедшего заказа: прошлая попытка могла
++                        // упасть между учётом и публикацией; склад получит дубль события
++                        await publisher.PublishStatusChangedAsync(placed, ct);
++                    }, logger, $"order {placed.OrderId}", ct);
++                }
++                consumer.StoreOffset(r);
++            }
++        }
++        catch (OperationCanceledException) { }
++        finally { consumer.Close(); }
++    }
++}
++
++// orders.import: пачки по ImportBatchSize, один InsertMany на пачку.
++public sealed class OrdersImportConsumer(
++    IOptions<FulfilOptions> options,
++    OrderImportStore store,
++    KafkaPublisher publisher,
++    ILogger<OrdersImportConsumer> logger) : BackgroundService
++{
++    private readonly FulfilOptions _o = options.Value;
++
++    protected override Task ExecuteAsync(CancellationToken ct) => Task.Run(() => RunAsync(ct), ct);
++
++    private async Task RunAsync(CancellationToken ct)
++    {
++        using var consumer = ConsumerFactory.Create(_o, _o.OrdersImportGroupId);
++        consumer.Subscribe(_o.OrdersImportTopic);
++        try
++        {
++            while (!ct.IsCancellationRequested)
++            {
++                var results = new List<ConsumeResult<byte[]?, byte[]?>>();
++                try
++                {
++                    var first = consumer.Consume(ct);
++                    if (first?.Message is null) continue;
++                    results.Add(first);
++                    while (results.Count < _o.ImportBatchSize)
++                    {
++                        var next = consumer.Consume(TimeSpan.FromMilliseconds(500));
++                        if (next?.Message is null) break;
++                        results.Add(next);
++                    }
++                }
++                catch (ConsumeException ex)
++                {
++                    logger.LogWarning(ex, "Consume error");
++                    if (results.Count == 0) continue;
++                }
++
++                var orders = new List<OrderPlaced>(results.Count);
++                foreach (var r in results)
++                {
++                    var placed = OrderJson.TryParse(r.Message.Value, out var error);
++                    if (placed is null)
++                    {
++                        logger.LogError("Poison message {Tp}@{Offset}: {Error}, sent to dead letter",
++                            r.TopicPartition, r.Offset.Value, error);
++                        await Retry.RunAsync(() => publisher.SendToDeadLetterAsync(r, error, ct),
++                            logger, "dead letter publish", ct);
++                    }
++                    else orders.Add(placed);
++                }
++
++                await Retry.RunAsync(() => store.InsertBatchAsync(orders, ct), logger, "import batch", ct);
++                foreach (var r in results) consumer.StoreOffset(r);
++            }
++        }
++        catch (OperationCanceledException) { }
++        finally { consumer.Close(); }
++    }
++}
+diff --git a/src/Fulfil/Mongo/OrderStores.cs b/src/Fulfil/Mongo/OrderStores.cs
+new file mode 100644
+index 0000000..d5652d2
+--- /dev/null
++++ b/src/Fulfil/Mongo/OrderStores.cs
+@@ -0,0 +1,79 @@
++using Fulfil.Contracts;
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++using MongoDB.Bson;
++using MongoDB.Driver;
++
++namespace Fulfil.Mongo;
++
++public sealed class CustomerProjection
++{
++    private readonly IMongoCollection<BsonDocument> _customers;
++
++    public CustomerProjection(IMongoClient client, IOptions<FulfilOptions> options) =>
++        _customers = client.GetDatabase(options.Value.MongoDatabase).GetCollection<BsonDocument>("customers");
++
++    // Учёт идемпотентен: доставка at-least-once, при ребалансе или падении реплики
++    // заказ приходит повторно. Идентификаторы учтённых заказов лежат в самом документе
++    // клиента, так что проверка и приращение - одна атомарная операция.
++    // false - заказ уже был учтён.
++    public async Task<bool> ApplyAsync(OrderPlaced placed, CancellationToken ct)
++    {
++        var total = placed.Lines.Sum(l => l.Quantity * l.UnitPrice);
++        var orderId = placed.OrderId.ToString();
++        var filter = Builders<BsonDocument>.Filter.Eq("_id", placed.CustomerId.ToString())
++                     & Builders<BsonDocument>.Filter.Ne("processedOrders", orderId);
++        var update = Builders<BsonDocument>.Update
++            .Inc("ordersCount", 1)
++            .Inc("totalSpent", (Decimal128)total)
++            .AddToSet("processedOrders", orderId);
++        try
++        {
++            await _customers.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, ct);
++            return true;
++        }
++        catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
++        {
++            // клиент есть, и заказ в нём уже учтён
++            return false;
++        }
++    }
++}
++
++public sealed class OrderImportStore
++{
++    private readonly IMongoCollection<BsonDocument> _orders;
++
++    public OrderImportStore(IMongoClient client, IOptions<FulfilOptions> options) =>
++        _orders = client.GetDatabase(options.Value.MongoDatabase).GetCollection<BsonDocument>("orders");
++
++    // Один InsertMany на пачку. Повтор пачки после сбоя безопасен: дубликаты по _id игнорируются.
++    public async Task InsertBatchAsync(IReadOnlyCollection<OrderPlaced> batch, CancellationToken ct)
++    {
++        var docs = batch.GroupBy(o => o.OrderId).Select(g => ToDocument(g.First())).ToList();
++        if (docs.Count == 0) return;
++        try
++        {
++            await _orders.InsertManyAsync(docs, new InsertManyOptions { IsOrdered = false }, ct);
++        }
++        catch (MongoBulkWriteException<BsonDocument> ex)
++            when (ex.WriteErrors.All(e => e.Category == ServerErrorCategory.DuplicateKey))
++        {
++        }
++    }
++
++    private static BsonDocument ToDocument(OrderPlaced o) => new()
++    {
++        { "_id", o.OrderId.ToString() },
++        { "customerId", o.CustomerId.ToString() },
++        { "status", Domain.OrderStatus.Placed.ToString() },
++        { "lines", new BsonArray(o.Lines.Select(l => new BsonDocument
++            {
++                { "sku", l.Sku },
++                { "quantity", l.Quantity },
++                { "unitPrice", (Decimal128)l.UnitPrice }
++            })) },
++        { "placedAt", o.PlacedAt.UtcDateTime },
++        { "giftWrap", o.GiftWrap }
++    };
++}
+diff --git a/src/Fulfil/Options/FulfilOptions.cs b/src/Fulfil/Options/FulfilOptions.cs
+index fb25fdf..2735750 100644
+--- a/src/Fulfil/Options/FulfilOptions.cs
++++ b/src/Fulfil/Options/FulfilOptions.cs
+@@ -3,6 +3,12 @@ namespace Fulfil.Options;
+ public sealed class FulfilOptions
+ {
+     public string KafkaBootstrapServers { get; set; } = "localhost:9092";
++    public string OrdersPlacedTopic { get; set; } = "orders.placed";
++    public string OrdersImportTopic { get; set; } = "orders.import";
++    public string StatusChangedTopic { get; set; } = "orders.status-changed";
++    public string OrdersGroupId { get; set; } = "fulfil-orders";
++    public string OrdersImportGroupId { get; set; } = "fulfil-orders-import";
++    public int ImportBatchSize { get; set; } = 100;
+     public string RabbitMqHost { get; set; } = "localhost";
+     public string RedisConfiguration { get; set; } = "localhost:6379";
+     public string MongoConnectionString { get; set; } = "mongodb://localhost:27017";
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..9d11d31 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,8 +1,19 @@
++using Fulfil.Kafka;
++using Fulfil.Mongo;
+ using Fulfil.Options;
++using Microsoft.Extensions.Options;
++using MongoDB.Driver;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++builder.Services.AddSingleton<IMongoClient>(sp =>
++    new MongoClient(sp.GetRequiredService<IOptions<FulfilOptions>>().Value.MongoConnectionString));
++builder.Services.AddSingleton<CustomerProjection>();
++builder.Services.AddSingleton<OrderImportStore>();
++builder.Services.AddSingleton<KafkaPublisher>();
++builder.Services.AddHostedService<OrdersPlacedConsumer>();
++builder.Services.AddHostedService<OrdersImportConsumer>();
+ 
+-var app = builder.Build();
++var app =builder.Build();
+ app.MapGet("/health", () => Results.Ok());
+ app.Run();
+diff --git a/src/Fulfil/appsettings.json b/src/Fulfil/appsettings.json
+index 56eb014..ac16ded 100644
+--- a/src/Fulfil/appsettings.json
++++ b/src/Fulfil/appsettings.json
+@@ -1,6 +1,12 @@
+ {
+   "Fulfil": {
+     "KafkaBootstrapServers": "localhost:9092",
++    "OrdersPlacedTopic": "orders.placed",
++    "OrdersImportTopic": "orders.import",
++    "StatusChangedTopic": "orders.status-changed",
++    "OrdersGroupId": "fulfil-orders",
++    "OrdersImportGroupId": "fulfil-orders-import",
++    "ImportBatchSize": 100,
+     "RabbitMqHost": "localhost",
+     "RedisConfiguration": "localhost:6379",
+     "MongoConnectionString": "mongodb://localhost:27017",

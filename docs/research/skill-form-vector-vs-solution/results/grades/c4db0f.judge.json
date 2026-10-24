@@ -1,0 +1,121 @@
+{
+  "id": "c4db0f",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1056994,
+    "durationMs": 15107,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8683,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1790,
+      "output_tokens_details": {
+        "thinking_tokens": 402
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8683,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1790,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 8683,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8683
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "на staging с `MaxInFlight = 20` это в 20 раз",
+      "why": "Значение 20 упомянуто только как множитель в находке про троттлинг; то, что Staging (20) выше Production (5), не названо проблемой."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Находки о дублировании MaxRetries 5 в Staging и Production при том же дефолте нет."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "Нужна проверка обязательных полей.",
+      "why": "Модификатор required не упоминается; для SmtpOptions предложена валидация."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Там лежат пароль к боевой БД и пароль SMTP-релея.",
+      "why": "Названы оба закоммиченных пароля в appsettings.Production.json и нужна их ротация."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "Значение получается 0, и `60_000 / 0` бросает `DivideByZeroException` на каждом вызове.",
+      "why": "Названо несовпадение ключа MessagesPerMinute/PerMinute, из-за которого получается 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "Он не добавлен в DI и нет `ValidateOnStart`, поэтому никогда не вызывается.",
+      "why": "Названо, что валидатор не зарегистрирован и ValidateOnStart отсутствует."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` читается один раз при старте, поэтому `MaxInFlight`, `MaxBatchSize` и `MinBatchSize` фактически заморожены.",
+      "why": "Названо нарушение требования менять настройки на лету и предложен IOptionsMonitor."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Адаптивный батчинг в проде молча выключается",
+      "why": "Названо, что при Min 200 > Max 100 адаптивный батчинг тихо выключается."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "код делает `TimeSpan.FromSeconds(500)`, то есть около 8,3 минуты между опросами",
+      "why": "Названо несовпадение единиц PollInterval."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "поля `Host` и `FromAddress` объявлены как non-nullable без инициализации.",
+      "why": "Названы non-nullable поля без дефолта и без проверки."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "блокировка на 30 секунд может истечь раньше, чем обработается пачка",
+      "why": "Находка касается длительности lease, а не формата TimeSpan \"00:00:30\"."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt` проставляется до отправки. Сообщения теряются.",
+      "why": "Названо, что SentAt ставится до отправки и неудачное письмо не повторяется."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`SmtpOptions` привязаны к секции `\"Mail\"`, а во всех appsettings секция называется `\"Smtp\"`.",
+      "why": "Названо, что из-за несовпадения секции SmtpOptions остаются пустыми."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Конфигурация .NET не подставляет переменные окружения в значения",
+      "why": "Названо, что ${NOTIFY_DB_PASSWORD} попадёт в пароль буквальной строкой."
+    }
+  },
+  "stderr": ""
+}

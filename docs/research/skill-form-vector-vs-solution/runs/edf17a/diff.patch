@@ -1,0 +1,317 @@
+diff --git a/20261002_AddRequestFeaturesAndPlanUpdate.cs b/20261002_AddRequestFeaturesAndPlanUpdate.cs
+new file mode 100644
+index 0000000..4035568
+--- /dev/null
++++ b/20261002_AddRequestFeaturesAndPlanUpdate.cs
+@@ -0,0 +1,33 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++namespace Domovoy.Housing.Migrations;
++
++public partial class AddRequestFeaturesAndPlanUpdate : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.AddColumn<string>(
++            name: "contact_phone",
++            table: "service_requests",
++            type: "character varying(20)",
++            maxLength: 20,
++            nullable: true);
++
++        migrationBuilder.AddColumn<string>(
++            name: "completion_comment",
++            table: "service_requests",
++            type: "text",
++            nullable: true);
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropColumn(
++            name: "contact_phone",
++            table: "service_requests");
++
++        migrationBuilder.DropColumn(
++            name: "completion_comment",
++            table: "service_requests");
++    }
++}
+diff --git a/HousesController.cs b/HousesController.cs
+new file mode 100644
+index 0000000..d2ad865
+--- /dev/null
++++ b/HousesController.cs
+@@ -0,0 +1,34 @@
++using Microsoft.AspNetCore.Mvc;
++
++namespace Domovoy.Housing.Api;
++
++[ApiController]
++[Route("api/[controller]")]
++public class HousesController : ControllerBase
++{
++    private readonly PlanService _service;
++
++    public HousesController(PlanService service) => _service = service;
++
++    [HttpPut("{id}/plan")]
++    public async Task<IActionResult> UpdatePlan(int id, [FromBody] UpdatePlanDto dto)
++    {
++        try
++        {
++            if (dto.Items == null || !dto.Items.Any())
++                return BadRequest("План должен содержать хотя бы одну работу");
++
++            await _service.UpdatePlanAsync(id, dto.Items.Select(i =>
++                new PlanItemInput(i.WorkCode, i.Title, i.PeriodDays)).ToList());
++            return Ok();
++        }
++        catch (KeyNotFoundException)
++        {
++            return NotFound();
++        }
++    }
++}
++
++public record UpdatePlanDto(List<PlanItemInputDto> Items);
++
++public record PlanItemInputDto(string WorkCode, string Title, int PeriodDays);
+diff --git a/HousingDbContext.cs b/HousingDbContext.cs
+index b6add19..ec7da21 100644
+--- a/HousingDbContext.cs
++++ b/HousingDbContext.cs
+@@ -32,6 +32,7 @@ public class HousingDbContext : DbContext
+         {
+             e.Property(r => r.Status).HasConversion<string>().HasMaxLength(16);
+             e.Property(r => r.Category).HasMaxLength(50);
++            e.Property(r => r.ContactPhone).HasMaxLength(20);
+             e.HasIndex(r => r.CreatedAt);
+             // search_vector - generated tsvector-колонка (создана SQL в миграции AddRequestSearch), в модель не входит
+         });
+diff --git a/HousingService.cs b/HousingService.cs
+index a5041e3..bc9c241 100644
+--- a/HousingService.cs
++++ b/HousingService.cs
+@@ -5,15 +5,15 @@ using Npgsql;
+ namespace Domovoy.Housing;
+ 
+ public record RequestSearch(string? Text, RequestStatus? Status, int? HouseId, string? District,
+-    int Page = 1, int PageSize = 50);
++    string Sort = "date", string Dir = "desc", int Page = 1, int PageSize = 50);
+ 
+ public record RequestRow(int Id, DateTime CreatedAt, string Address, string Apartment,
+-    RequestStatus Status, string Category, string Text);
++    RequestStatus Status, string Category, string Text, string? ContactPhone);
+ 
+ public record RequestCard(int Id, DateTime CreatedAt, string Address, string Apartment,
+-    RequestStatus Status, string Category, string Text);
++    RequestStatus Status, string Category, string Text, string? ContactPhone, string? CompletionComment);
+ 
+-public record NewRequest(int ApartmentId, string Text, string Category);
++public record NewRequest(int ApartmentId, string Text, string Category, string? ContactPhone = null);
+ 
+ public class HousingService
+ {
+@@ -30,6 +30,7 @@ public class HousingService
+             Category = req.Category,
+             Status = RequestStatus.New,
+             CreatedAt = DateTime.UtcNow,
++            ContactPhone = req.ContactPhone,
+         };
+         _db.ServiceRequests.Add(request);
+         await _db.SaveChangesAsync();
+@@ -47,7 +48,7 @@ public class HousingService
+         return r is null
+             ? null
+             : new RequestCard(r.Id, r.CreatedAt, r.Apartment.House.Address, r.Apartment.Number,
+-                r.Status, r.Category, r.Text);
++                r.Status, r.Category, r.Text, r.ContactPhone, r.CompletionComment);
+     }
+ 
+     // Реестр заявок для диспетчерской.
+@@ -92,9 +93,23 @@ public class HousingService
+         if (where.Count > 0)
+             sql.Append(" WHERE ").Append(string.Join(" AND ", where));
+ 
++        if (s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || s.Sort == "address")
++            sql.Append(" JOIN apartments a ON a.id = r.apartment_id");
++
++        if (s.Sort == "address" || !string.IsNullOrWhiteSpace(s.District))
++            sql.Append(" JOIN houses h ON h.id = a.house_id");
++
++        var orderDir = s.Dir == "asc" ? "" : " DESC";
++        sql.Append(" ORDER BY ");
++        sql.Append(s.Sort switch
++        {
++            "address" => $"h.address{orderDir}, a.number{orderDir}",
++            "status" => $"r.status{orderDir}",
++            _ => $"r.created_at{orderDir}",
++        });
++
+         var pageSize = Math.Clamp(s.PageSize, 1, 200);
+         var offset = (Math.Max(s.Page, 1) - 1) * pageSize;
+-        sql.Append(" ORDER BY r.created_at DESC");
+         sql.Append($" LIMIT {pageSize} OFFSET {offset}");
+ 
+         var requests = await _db.ServiceRequests
+@@ -111,7 +126,20 @@ public class HousingService
+ 
+         return requests
+             .Select(r => new RequestRow(r.Id, r.CreatedAt, apartments[r.ApartmentId].Address,
+-                apartments[r.ApartmentId].Number, r.Status, r.Category, r.Text))
++                apartments[r.ApartmentId].Number, r.Status, r.Category, r.Text, r.ContactPhone))
+             .ToList();
+     }
++
++    public async Task CloseRequestAsync(int id, string comment)
++    {
++        var request = await _db.ServiceRequests.FirstOrDefaultAsync(r => r.Id == id)
++            ?? throw new KeyNotFoundException($"Заявка {id} не найдена");
++
++        if (request.Status != RequestStatus.InProgress)
++            throw new InvalidOperationException("Заявку можно закрыть только в статусе InProgress");
++
++        request.Status = RequestStatus.Done;
++        request.CompletionComment = comment.Trim();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/Models.cs b/Models.cs
+index d11ec0f..4ca38fc 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -27,6 +27,8 @@ public class ServiceRequest
+     public string Category { get; set; } = "";
+     public RequestStatus Status { get; set; }
+     public DateTime CreatedAt { get; set; }
++    public string? ContactPhone { get; set; }
++    public string? CompletionComment { get; set; }
+ }
+ 
+ // План планово-предупредительных работ по дому.
+diff --git a/PlanService.cs b/PlanService.cs
+index b7d6b67..dd8b84d 100644
+--- a/PlanService.cs
++++ b/PlanService.cs
+@@ -4,6 +4,8 @@ namespace Domovoy.Housing;
+ 
+ public record PlanItemDto(string WorkCode, string Title, int PeriodDays, DateOnly? LastDoneOn, DateOnly? NextDueOn);
+ 
++public record PlanItemInput(string WorkCode, string Title, int PeriodDays);
++
+ public class PlanService
+ {
+     private readonly HousingDbContext _db;
+@@ -66,4 +68,43 @@ public class PlanService
+ 
+         await _db.SaveChangesAsync();
+     }
++
++    public async Task UpdatePlanAsync(int houseId, List<PlanItemInput> newItems)
++    {
++        var plan = await _db.MaintenancePlans
++            .Include(p => p.Items).ThenInclude(i => i.Completions)
++            .FirstOrDefaultAsync(p => p.HouseId == houseId)
++            ?? throw new KeyNotFoundException($"План для дома {houseId} не найден");
++
++        var newCodes = newItems.Select(i => i.WorkCode).ToHashSet();
++        var currentCodes = plan.Items.Select(i => i.WorkCode).ToHashSet();
++
++        // Удаляем работы, которых нет в новом плане
++        foreach (var item in plan.Items.Where(i => !newCodes.Contains(i.WorkCode)).ToList())
++        {
++            plan.Items.Remove(item);
++        }
++
++        // Обновляем существующие и добавляем новые работы
++        foreach (var input in newItems)
++        {
++            var existing = plan.Items.FirstOrDefault(i => i.WorkCode == input.WorkCode);
++            if (existing is not null)
++            {
++                existing.Title = input.Title;
++                existing.PeriodDays = input.PeriodDays;
++            }
++            else
++            {
++                plan.Items.Add(new PlanItem
++                {
++                    WorkCode = input.WorkCode,
++                    Title = input.Title,
++                    PeriodDays = input.PeriodDays,
++                });
++            }
++        }
++
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/RequestsController.cs b/RequestsController.cs
+new file mode 100644
+index 0000000..56f974b
+--- /dev/null
++++ b/RequestsController.cs
+@@ -0,0 +1,35 @@
++using Microsoft.AspNetCore.Mvc;
++
++namespace Domovoy.Housing.Api;
++
++[ApiController]
++[Route("api/[controller]")]
++public class RequestsController : ControllerBase
++{
++    private readonly HousingService _service;
++
++    public RequestsController(HousingService service) => _service = service;
++
++    [HttpPost("{id}/close")]
++    public async Task<IActionResult> CloseRequest(int id, [FromBody] CloseRequestDto dto)
++    {
++        try
++        {
++            if (string.IsNullOrWhiteSpace(dto.Comment))
++                return BadRequest("Комментарий обязателен");
++
++            await _service.CloseRequestAsync(id, dto.Comment);
++            return Ok();
++        }
++        catch (InvalidOperationException ex)
++        {
++            return StatusCode(409, ex.Message);
++        }
++        catch (KeyNotFoundException)
++        {
++            return NotFound();
++        }
++    }
++}
++
++public record CloseRequestDto(string Comment);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..ddf6d27
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,21 @@
++# Решение задач по сервису управляющей компании
++
++## Изменённые файлы:
++
++1. **Models.cs** - добавлены поля `ContactPhone` и `CompletionComment` в модель `ServiceRequest`
++2. **HousingDbContext.cs** - конфигурация для нового поля `ContactPhone` с ограничением длины
++3. **HousingService.cs** - обновлены records `RequestSearch`, `RequestRow`, `RequestCard`, `NewRequest`; реализована поддержка сортировки в `SearchAsync`; добавлен метод `CloseRequestAsync`
++4. **PlanService.cs** - добавлен record `PlanItemInput`; добавлен метод `UpdatePlanAsync`
++5. **20261002_AddRequestFeaturesAndPlanUpdate.cs** - миграция для добавления новых колонок
++6. **RequestsController.cs** - контроллер с endpoint `POST /requests/{id}/close`
++7. **HousesController.cs** - контроллер с endpoint `PUT /houses/{id}/plan`
++
++## Реализованные функции:
++
++**(а) Сортировка реестра заявок:** Фронт передаёт параметры `sort=date|address|status` и `dir=asc|desc`. По умолчанию сортировка по дате (новые сверху). При сортировке по адресу учитывается дом, затем квартира.
++
++**(б) Закрытие заявки:** Endpoint `POST /requests/{id}/close` требует статус `InProgress` (иначе возвращает 409), обязательный комментарий сохраняется в `CompletionComment`, статус меняется на `Done`.
++
++**(в) Обновление плана дома:** Endpoint `PUT /houses/{id}/plan` принимает список работ (код, название, периодичность); история выполнения (`PlanItemCompletion`) сохраняется для работ, которые остаются в плане; удалённые работы удаляются вместе с их историей.
++
++**(г) Контактный телефон:** Добавлено необязательное поле `ContactPhone` в `ServiceRequest`; диспетчер может заполнить при создании заявки; мастер видит телефон в карточке заявки.

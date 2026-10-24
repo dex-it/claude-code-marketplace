@@ -1,0 +1,14 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'cd /work; ls -laR cores prod symbols src; readelf -n prod/crashme | grep -i build; file cores/core; cat src/crashme.c'
+cd /work; for f in symbols/*; do echo $f; readelf -n $f | grep 'Build ID'; done; gdb -batch -ex 'bt' -ex 'info registers pc' -ex 'x/6i $pc-8' -ex 'info proc mappings' prod/crashme cores/core 2>&1 | head -60
+docker exec <ctr> sh -c 'cd /work; for f in symbols/*; do echo $f; readelf -n $f | grep "Build ID"; done; gdb -batch -ex bt -ex "info registers" -ex "x/8i \$pc-12" -ex "info proc mappings" prod/crashme cores/core 2>&1 | head -90'
+docker exec <ctr> sh -c 'cd /work; addr2line -e symbols/build-0419.debug -f -i 0x9c4 0xa2c 0x7c0; echo ---; addr2line -e symbols/build-0412.debug -f 0x9c4; echo ---; gdb -batch -ex "frame 1" -ex "info registers x19 x20 x21" -ex "x/8gx \$sp" -ex "x/6i 0xaaaae6570a10" prod/crashme cores/core 2>&1 | tail -20; gdb -batch -ex "x/s *(char**)(\$x19)" prod/crashme cores/core 2>&1|tail -2'
+docker exec <ctr> sh -c 'cd /work; gdb -batch -ex "frame 1" -ex "x/3gx 0xfffff1b94960-24" -ex "x/s *(char**)(0xfffff1b94960-16)" -ex "x/dw 0xfffff1b94960-24" -ex "x/s 0xaaaae6570000+0xb48" -ex "x/6gx 0xaaaae658fda0" -ex "p \$x1" prod/crashme cores/core 2>&1 | tail -12; readelf -S symbols/build-0419.debug | grep -c debug_line; echo; readelf -p .rodata prod/crashme | head'
+docker exec <ctr> sh -c 'cd /work; gdb -batch -ex "x/15gx 0xfffff1b94960" -ex "x/s 0xaaaae6570a90" -ex "x/s 0xaaaae6570a68" -ex "x/s 0xaaaae6570a70" -ex "x/s 0xaaaae6570a78" -ex "x/s 0xaaaae6570a60" -ex "x/s 0xaaaae6570a58" -ex "info registers x21" prod/crashme cores/core 2>&1 | tail -22'
+docker exec <ctr> sh -c 'cd /work; gdb -batch -ex "find /g 0xfffff1b90000, 0xfffff1b95000, 0xaaaae6570a90" prod/crashme cores/core 2>&1 | tail -4; gdb -batch -ex "x/12gx 0xfffff1b94a70-160" prod/crashme cores/core 2>&1|tail -6'
+[Write] <lab>/REPORT.md

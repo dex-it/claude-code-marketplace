@@ -1,0 +1,92 @@
+{
+  "id": "c818dd",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.100159,
+    "durationMs": 9757,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9743,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1089,
+      "output_tokens_details": {
+        "thinking_tokens": 252
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9743,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1089,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9743,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9743
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "`SpecifyKind(..., Unspecified)` правильно подходит для колонки `timestamp without time zone`",
+      "why": "Выход не требует хранить время в UTC; он только предлагает отклонять входные значения со смещением, а это ключ разрешает."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "`AsNoTracking` и split query для двух коллекций одного уровня — правильный выбор при сотнях строк",
+      "why": "AsSplitQuery в GetCardAsync выход признаёт уместным."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход нигде не требует добавить или убрать AsNoTracking в перечисленных методах."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefault` подходит, у номера чипа уникальный индекс",
+      "why": "SingleOrDefault в FindPetByChipAsync выход признаёт корректным."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "`FromSql` с интерполяцией передаёт значения параметрами",
+      "why": "SQL-инъекций в SearchNotesAsync и GetConsumptionAsync выход не находит."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Трансляцию ToLower().Contains в FindByTitleAsync выход не оспаривает."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "если процедуру закроют в этот промежуток, строка удалится из уже закрытой процедуры",
+      "why": "Находка про гонку со статусом процедуры; выход не утверждает, что Remove не удалит строку, оставит сироту или упадёт на FK."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "по контракту страницы нумеруются с 1, а код делает `Skip(page * PageSize)`",
+      "why": "Сдвиг пагинации на одну страницу выход называет прямо."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "Код считает `weightGrams * drugMgPerKg` и не переводит граммы в килограммы",
+      "why": "Завышение дозы в 1000 раз из-за граммов выход находит и оценивает как critical."
+    }
+  },
+  "stderr": ""
+}

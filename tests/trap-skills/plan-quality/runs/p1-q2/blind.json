@@ -1,0 +1,68 @@
+{
+ "total_cost_usd": 0.1013828,
+ "model": "claude-opus-5-5",
+ "verdict": {
+  "cells": [
+   {
+    "code": "PQ1",
+    "score": "1",
+    "quote": "S6a. Двойная запись: `donations` - Закрывает: FR-1, NFR-1. … S5 - Закрывает: FR-4, FR-1. … S3 - Закрывает: FR-2. … S1 - Закрывает: FR-3"
+   },
+   {
+    "code": "PQ2",
+    "score": "1",
+    "quote": "S6a: каждая новая строка `donations` имеет заполненные `amount` и `amount_minor`; S7: `SELECT count(*) FROM donations WHERE amount_minor IS NULL` = 0"
+   },
+   {
+    "code": "PQ3",
+    "score": "1",
+    "quote": "Вне плана - Мультивалютные донаты (отдельная работа после PL-31)."
+   },
+   {
+    "code": "PQ4",
+    "score": "1",
+    "quote": "S1 стоит до всех шагов, меняющих схему, данные и нагрузку (S4, S11), S13 - после S7-S9, S11, S12a."
+   },
+   {
+    "code": "PQ5",
+    "score": "1",
+    "quote": "S17 Удаление записи в старую колонку - Зависит от: S6a, S6b, S6c, S12a, S12b, S12c, S15 и 30 дней после последнего из S12a, S12b, S12c, S15."
+   },
+   {
+    "code": "PQ6",
+    "score": "1",
+    "quote": "Шаги, меняющие один объект, идут строго по порядку: `donations` - S4, S6a, S7, S11, S17, S19; `payouts` - S4, S6b, S8, S17, S19"
+   },
+   {
+    "code": "PQ7",
+    "score": "1",
+    "quote": "S4 Проверка: запрос к `information_schema.columns` возвращает колонку для всех трёх таблиц; метрика ошибок записи донатов за время миграции не выросла"
+   },
+   {
+    "code": "PQ8",
+    "score": "1",
+    "quote": "S6c Проверка: тест на наборе донатов с нечётными копейками: `amount_minor` совпадает с эталоном округления вниз."
+   },
+   {
+    "code": "PQ9",
+    "score": "1",
+    "quote": "S14 Исход: `/v2/donations` отдаёт и принимает `amount_minor` (целое) по `docs/api/donations-v2.yaml`. S15: ответ v1 побайтно совпадает с прежним"
+   },
+   {
+    "code": "PQ10",
+    "score": "1",
+    "quote": "S2 `docs/adr/ADR-0005-money-minor-units.md`; S4 Миграция; S16 `docs/api/donations-v1-sunset.md` … и рассылка 14 партнёрам"
+   },
+   {
+    "code": "PQ11",
+    "score": "1",
+    "quote": "S18 Снимок и сверка перед удалением … пробное восстановление снимка; S19 (схема: `DROP COLUMN amount`; необратимо)"
+   },
+   {
+    "code": "PQ12",
+    "score": "1",
+    "quote": "Допущение…: файла `docs/api/donations-v2.yaml`… в репозитории нет. Шаг S3 его создаёт; расхождение возвращает шаги S6*/S7-S9 на доработку"
+   }
+  ]
+ }
+}

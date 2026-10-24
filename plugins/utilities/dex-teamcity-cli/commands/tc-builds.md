@@ -23,6 +23,6 @@ argument-hint: "[--project name] [--status SUCCESS|FAILURE|RUNNING] [--count N] 
 
 **Constraints:**
 
-- Требует `teamcity` (CLI от JetBrains) в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `teamcity` (CLI от JetBrains) в PATH; если не найден -- показать инструкцию установки.
 - Сервер и аутентификация настраиваются через `teamcity auth login` (interactive) или env `TEAMCITY_URL` + `TEAMCITY_TOKEN`.
 - Read-only.

@@ -1,0 +1,45 @@
+{
+  "iid": 53,
+  "title": "docs: свод правил проекта",
+  "author": "rulebook-bot",
+  "created_at": "2026-10-11T10:00:00+03:00",
+  "merged_at": null,
+  "state": "opened",
+  "commits": [
+    {
+      "title": "docs: свод правил проекта",
+      "authored_at": "2026-10-11T09:50:00+03:00"
+    }
+  ],
+  "threads": [
+    {
+      "id": "t1",
+      "author": "sergey",
+      "created_at": "2026-10-11T15:00:00+03:00",
+      "file": "docs/rules/README.md",
+      "body": "Добавьте правило: каждый MR, который трогает src/billing/, согласует Сергей.",
+      "resolved": true,
+      "notes": [
+        {
+          "author": "rulebook-bot",
+          "created_at": "2026-10-11T16:00:00+03:00",
+          "body": "Добавлено: RUL-0017."
+        },
+        {
+          "author": "sergey",
+          "created_at": "2026-10-12T09:10:00+03:00",
+          "body": "Снимаю это замечание: согласование по src/billing/ решаем через CODEOWNERS, в своде оно не нужно."
+        }
+      ]
+    },
+    {
+      "id": "t2",
+      "author": "olga",
+      "created_at": "2026-10-11T17:00:00+03:00",
+      "file": "docs/rules/README.md",
+      "body": "RUL-0003 отклоняю: миграции у нас идут в том же MR, что и код, который их использует.",
+      "resolved": true,
+      "notes": []
+    }
+  ]
+}

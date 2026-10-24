@@ -1,0 +1,37 @@
+{
+  "id": "k3-c1",
+  "case": "K3",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 6,
+  "cost": 0.0795956,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 3,
+    "Edit": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd api; cat src/services/reservation.ts; ls src/services src/**/ | head -50; cat src/clients/warehouse*.ts | head -80; find . -name \"*.test.ts\" -not -path \"*/node_modules/*\"",
+    "cd <run>/api; cat src/clients/inventory.ts; head -30 test/orders.test.ts; cat src/domain/order.ts | head -20; cat package.json | grep -A",
+    "cd <run>/api; cat > test/reservation.test.ts <<'EOF'\nimport { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';\nimport { "
+  ]
+}

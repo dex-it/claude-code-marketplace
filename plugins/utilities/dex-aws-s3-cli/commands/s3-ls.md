@@ -24,7 +24,7 @@ argument-hint: "[s3://bucket[/prefix]] [--recursive] [--profile name] [--region 
 
 **Constraints:**
 
-- Требует `aws` CLI в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `aws` CLI в PATH; если не найден -- показать инструкцию установки.
 - Параметры доступа: `~/.aws/credentials` / `~/.aws/config` или env (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` / `AWS_PROFILE` / `AWS_REGION`). Ключи не печатать в выводе.
 - Read-only.
 - Для больших бакетов `--recursive` может стоить денег (LIST API requests) и занимать время -- упомянуть в выводе.

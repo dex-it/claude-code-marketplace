@@ -1,0 +1,197 @@
+diff --git a/src/carrier/fallback.js b/src/carrier/fallback.js
+new file mode 100644
+index 0000000..aab14ee
+--- /dev/null
++++ b/src/carrier/fallback.js
+@@ -0,0 +1,18 @@
++import { CarrierError } from './errors.js';
++
++// Основной перевозчик; резервный - только когда основной недоступен (сеть или 5xx).
++// Отказ по существу (например, 422 адрес вне зоны) резервному не передаётся.
++export function withFallback(primary, secondary) {
++  return {
++    name: primary.name,
++
++    async createShipment(order) {
++      try {
++        return { ...(await primary.createShipment(order)), carrier: primary.name };
++      } catch (error) {
++        if (!(error instanceof CarrierError) || !error.retryable) throw error;
++        return { ...(await secondary.createShipment(order)), carrier: secondary.name };
++      }
++    },
++  };
++}
+diff --git a/src/carrier/swiftpost.js b/src/carrier/swiftpost.js
+new file mode 100644
+index 0000000..244e390
+--- /dev/null
++++ b/src/carrier/swiftpost.js
+@@ -0,0 +1,36 @@
++import { CarrierError } from './errors.js';
++
++export function createSwiftPostClient({ baseUrl, token, fetchImpl = fetch }) {
++  return {
++    name: 'swiftpost',
++
++    async createShipment(order) {
++      const request = {
++        reference: String(order.id),
++        weight_grams: Math.round(order.weightKg * 1000),
++        service: order.express ? 'express' : 'standard',
++        recipient: {
++          name: order.customer.name,
++          phone: order.customer.phone,
++          address: { postcode: order.address.postcode, line: order.address.line },
++        },
++      };
++      let res;
++      try {
++        res = await fetchImpl(`${baseUrl}/v2/shipments`, {
++          method: 'POST',
++          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
++          body: JSON.stringify(request),
++        });
++      } catch (error) {
++        throw new CarrierError(`SwiftPost недоступен: ${error.message}`, { carrier: 'swiftpost' });
++      }
++      if (!res.ok) {
++        const text = await res.text();
++        throw new CarrierError(`SwiftPost ответил ${res.status}: ${text}`, { carrier: 'swiftpost', status: res.status });
++      }
++      const body = await res.json();
++      return { trackingNumber: body.tracking_number, eta: body.estimated_delivery };
++    },
++  };
++}
+diff --git a/src/config.js b/src/config.js
+index e151521..c9ea846 100644
+--- a/src/config.js
++++ b/src/config.js
+@@ -4,4 +4,8 @@ export const config = {
+     url: process.env.COURIER_URL ?? 'http://127.0.0.1:4020',
+     token: process.env.COURIER_TOKEN ?? '',
+   },
++  swiftPost: {
++    url: process.env.SWIFTPOST_URL ?? 'http://127.0.0.1:4030',
++    token: process.env.SWIFTPOST_TOKEN ?? '',
++  },
+ };
+diff --git a/src/http/webhooks.js b/src/http/webhooks.js
+index bb5c12c..790576f 100644
+--- a/src/http/webhooks.js
++++ b/src/http/webhooks.js
+@@ -1,10 +1,15 @@
+ import { createCourierServiceClient } from '../carrier/courier-service.js';
++import { createSwiftPostClient } from '../carrier/swiftpost.js';
++import { withFallback } from '../carrier/fallback.js';
+ import { config } from '../config.js';
+ import { pay } from '../order.js';
+ import { createShipmentForOrder } from '../shipping.js';
+ 
+ export function defaultCarrier() {
+-  return createCourierServiceClient({ baseUrl: config.courierService.url, apiKey: config.courierService.token });
++  return withFallback(
++    createSwiftPostClient({ baseUrl: config.swiftPost.url, token: config.swiftPost.token }),
++    createCourierServiceClient({ baseUrl: config.courierService.url, apiKey: config.courierService.token }),
++  );
+ }
+ 
+ // Платёжный шлюз шлёт { event, data: { order_id, amount_kopecks } }
+diff --git a/src/shipping.js b/src/shipping.js
+index a2594a4..64815e0 100644
+--- a/src/shipping.js
++++ b/src/shipping.js
+@@ -1,7 +1,7 @@
+ export async function createShipmentForOrder(order, { carrier }) {
+-  const { trackingNumber, eta } = await carrier.createShipment(order);
++  const { trackingNumber, eta, carrier: used } = await carrier.createShipment(order);
+   order.trackingNumber = trackingNumber;
+   order.eta = eta;
+-  order.carrier = 'courier-service';
++  order.carrier = used ?? carrier.name;
+   return order;
+ }
+diff --git a/test/swiftpost.test.js b/test/swiftpost.test.js
+new file mode 100644
+index 0000000..4822794
+--- /dev/null
++++ b/test/swiftpost.test.js
+@@ -0,0 +1,77 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { createSwiftPostClient } from '../src/carrier/swiftpost.js';
++import { withFallback } from '../src/carrier/fallback.js';
++import { CarrierError } from '../src/carrier/errors.js';
++import { createShipmentForOrder } from '../src/shipping.js';
++
++const order = {
++  id: 1042,
++  weightKg: 1.2,
++  express: false,
++  customer: { name: 'Мария Белова', phone: '+79213456703' },
++  address: { postcode: '190121', line: 'Санкт-Петербург, наб. Крюкова канала, 4, кв. 9' },
++};
++
++function fakeFetch(status, body) {
++  const calls = [];
++  const impl = async (url, init) => {
++    calls.push({ url, init });
++    return { ok: status >= 200 && status < 300, status, json: async () => body, text: async () => JSON.stringify(body) };
++  };
++  return { impl, calls };
++}
++
++const sp = (impl) => createSwiftPostClient({ baseUrl: 'http://sp.test', token: 'sbx_parcel_dev', fetchImpl: impl });
++const courier = { name: 'courier-service', createShipment: async () => ({ trackingNumber: 'CS-1', eta: '2026-10-05' }) };
++
++test('SwiftPost: запрос по контракту v2', async () => {
++  const { impl, calls } = fakeFetch(201, { id: 'shp_1', tracking_number: 'SP0001234567', estimated_delivery: '2026-10-02T18:00:00+03:00', label_url: 'u' });
++  const result = await sp(impl).createShipment(order);
++  assert.deepEqual(result, { trackingNumber: 'SP0001234567', eta: '2026-10-02T18:00:00+03:00' });
++  assert.equal(calls[0].url, 'http://sp.test/v2/shipments');
++  assert.equal(calls[0].init.headers.authorization, 'Bearer sbx_parcel_dev');
++  assert.deepEqual(JSON.parse(calls[0].init.body), {
++    reference: '1042',
++    weight_grams: 1200,
++    service: 'standard',
++    recipient: { name: 'Мария Белова', phone: '+79213456703', address: order.address },
++  });
++});
++
++test('SwiftPost: express-заказ - service express', async () => {
++  const { impl, calls } = fakeFetch(201, { tracking_number: 'SP1', estimated_delivery: '2026-10-02' });
++  await sp(impl).createShipment({ ...order, express: true });
++  assert.equal(JSON.parse(calls[0].init.body).service, 'express');
++});
++
++test('при 503 SwiftPost отправка создаётся у Курьер-Сервиса', async () => {
++  const { impl } = fakeFetch(503, { error: 'x' });
++  const o = { ...order };
++  await createShipmentForOrder(o, { carrier: withFallback(sp(impl), courier) });
++  assert.equal(o.carrier, 'courier-service');
++  assert.equal(o.trackingNumber, 'CS-1');
++});
++
++test('сетевая ошибка SwiftPost - резервный перевозчик', async () => {
++  const impl = async () => { throw new Error('ECONNREFUSED'); };
++  const o = { ...order };
++  await createShipmentForOrder(o, { carrier: withFallback(sp(impl), courier) });
++  assert.equal(o.carrier, 'courier-service');
++});
++
++test('SwiftPost доступен - трек и дата от SwiftPost, carrier swiftpost', async () => {
++  const { impl } = fakeFetch(201, { tracking_number: 'SP1', estimated_delivery: '2026-10-02' });
++  const o = { ...order };
++  await createShipmentForOrder(o, { carrier: withFallback(sp(impl), courier) });
++  assert.deepEqual([o.carrier, o.trackingNumber, o.eta], ['swiftpost', 'SP1', '2026-10-02']);
++});
++
++test('422 от SwiftPost - ошибка без отката на Курьер-Сервис', async () => {
++  const { impl } = fakeFetch(422, { error: { code: 'ADDRESS_UNDELIVERABLE' } });
++  await assert.rejects(withFallback(sp(impl), courier).createShipment(order), (e) => {
++    assert.ok(e instanceof CarrierError);
++    assert.equal(e.status, 422);
++    return true;
++  });
++});

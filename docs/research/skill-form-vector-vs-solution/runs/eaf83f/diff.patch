@@ -1,0 +1,77 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..25a1dba
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,71 @@
++# Ревью MR !4127: сервисы заказов и каталога для админки
++
++## Critical
++
++1. **Migrations/20260920_OrderCategories.cs (`Up`) + Model.cs (`Order.Category`)**
++   Миграция дропает колонку `Orders.Category` и создаёт `Categories`/`OrderCategories`, но:
++   - нет data-миграции, которая перенесла бы существующие значения `Orders.Category` в новые таблицы — все исторические данные о категориях заказов теряются безвозвратно;
++   - `Model.cs` (не менялся в MR) по-прежнему объявляет `public string Category` в `Order`, замапленный на скалярную колонку, которой после миграции не существует. `OrderAdmin.UpdateOrder` активно пишет в это поле (`order.Category = edit.Category`). После применения миграции любой запрос к `Orders` упадёт с ошибкой Postgres "column \"Category\" does not exist" — приложение сломается целиком.
++   Severity: **critical**.
++
++2. **Services/CatalogService.cs: `Search`**
++   Сырой SQL алиасит таблицу как `p` (`FROM "Products" p`), но условия квалифицируют колонки оригинальным именем таблицы: `"Products"."Category"`, `"Products"."Price"`. PostgreSQL запрещает ссылаться на исходное имя таблицы после присвоения алиаса ("invalid reference to FROM-clause entry for table \"Products\""). Любой вызов с `category` или `minPrice` (то есть основной сценарий использования метода) упадёт с ошибкой SQL.
++   Severity: **critical**.
++
++3. **Services/CatalogService.cs: `Reserve`**
++   `SELECT ... FOR UPDATE` и последующий `SaveChangesAsync()` выполняются как два отдельных implicit-транзакции (явного `BeginTransactionAsync` нет). Блокировка строки, взятая `FOR UPDATE`, снимается сразу после автокоммита SELECT-запроса и не защищает следующий за ним `UPDATE`. Два параллельных вызова `Reserve` для одного и того же товара могут оба прочитать одинаковый `Stock`, оба пройти проверку `Stock < qty` и оба уменьшить остаток — классический race condition, ведущий к перепродаже товара (overselling). Нужна явная транзакция, охватывающая SELECT и SaveChanges.
++   Severity: **critical**.
++
++4. **Services/OrderQueries.cs: `GetProductBySku`**
++   Используется `SingleAsync(p => p.Sku == sku)`, но по контексту модели один SKU нормально лежит сразу на нескольких складах (уникален только в рамках склада). Как только у SKU есть остатки на нескольких складах — а это штатная ситуация, — метод бросает `InvalidOperationException` ("Sequence contains more than one element").
++   Severity: **critical**.
++
++5. **Services/OrderAdmin.cs: `RecalcTotal`**
++   `order.Total = order.Items.Sum(i => prices[i.ProductId])` не учитывает `OrderItem.Qty`. По условиям модели `Product.Price` — цена за единицу, `Qty` — количество, поэтому должно быть `prices[i.ProductId] * i.Qty`. Для любой позиции с количеством > 1 пересчитанная сумма заказа будет занижена — прямая денежная ошибка.
++   Severity: **critical**.
++
++6. **Workers/OverdueNotifier.cs + Program.cs**
++   `OverdueNotifier` регистрируется через `AddHostedService<OverdueNotifier>()` (хостинг создаёт и резолвит его из root/singleton-провайдера), но в конструктор напрямую инжектируется `ShopDbContext`, зарегистрированный со стандартным Scoped-временем жизни (`AddDbContext`). Резолв Scoped-сервиса из синглтона либо падает на `builder.Build()` (в Development включена валидация scope by default), либо кидает `InvalidOperationException: Cannot resolve scoped service ... from root provider` при старте хоста. Приложение с этим кодом не запустится. Нужно резолвить `ShopDbContext` через `IServiceScopeFactory` на каждой итерации.
++   Severity: **critical**.
++
++## High
++
++7. **Services/OrderQueries.cs: `ExportForCustomer`**
++   `Include(Items).Include(Payments)` без `AsSplitQuery()` — в отличие от `GetCard` в том же файле, где `AsSplitQuery()` применён. MR прямо указывает, что у крупных клиентов тысячи заказов; один SQL-джойн по двум one-to-many коллекциям даёт декартово произведение строк, что при тысячах заказов чревато огромным объёмом данных и таймаутами.
++   Severity: **high**.
++
++8. **Services/OrderQueries.cs: `LastShippedAt`**
++   `MaxAsync(o => o.ShippedAt)` возвращает `null`, если у клиента нет ни одного отгруженного заказа (все ещё активны) или заказов вовсе нет — SQL MAX по всем NULL-значениям даёт NULL. `last!.Value` в этом случае бросает исключение в рантайме; null-forgiving оператор маскирует реально достижимый кейс вместо того, чтобы вернуть `DateTime?` и дать вызывающему коду обработать отсутствие отгрузок.
++   Severity: **high**.
++
++9. **Services/OrderAdmin.cs: `OverdueReport`**
++   Метод грузит через `OrderRepository.GetAllAsync()` **весь** список заказов (без фильтра, с трекингом, без `AsNoTracking`) и только затем фильтрует в памяти вызовом `IsOverdue`. Для отчёта по просроченным заказам фильтрация должна идти на уровне БД (и желательно с проекцией только `Id`); текущая реализация — неограниченный full-table scan с трекингом при каждом вызове отчёта.
++   Severity: **high**.
++
++10. **Services/OrderAdmin.cs: `UpdateOrder`**
++    MR прямо указывает, что в админке несколько операторов правят один и тот же заказ одновременно, но метод не делает никакой проверки конкурентного доступа (нет RowVersion/concurrency token, нет сравнения с ожидаемым состоянием) — последняя запись молча перезатирает изменения другого оператора без обнаружения конфликта.
++    Severity: **high** (учитывая, что риск явно обозначен в самом описании MR).
++
++## Medium
++
++11. **Workers/OverdueNotifier.cs: `ExecuteAsync`**
++    Нет `try/catch` вокруг тела итерации. Любое исключение (например, временная недоступность БД) вылетает из `ExecuteAsync` и навсегда останавливает `BackgroundService` — воркер не переживёт ни одной транзиентной ошибки и перестанет писать уведомления до перезапуска приложения.
++    Severity: **medium**.
++
++12. **Workers/OverdueNotifier.cs: `ExecuteAsync`**
++    На каждый тик (раз в минуту) для всех всё ещё просроченных заказов пишется новая запись `AuditLog` без какой-либо дедупликации/отметки "уже уведомили". Заказ, просроченный неделю, получит по записи в `AuditLog` каждую минуту неограниченно долго — неконтролируемый рост таблицы и дублирующиеся "уведомления" об одном и том же событии.
++    Severity: **medium**.
++
++13. **Services/CatalogService.cs: `Reserve`**
++    Нет валидации `qty > 0`. Отрицательное значение `qty` проходит проверку `product.Stock < qty` и затем `product.Stock -= qty` фактически увеличивает остаток — метод "резервирования" можно использовать для порчи данных об остатках.
++    Severity: **medium**.
++
++## Low
++
++14. **Services/OrderAdmin.cs: `RecalcTotal`**
++    Индексатор `prices[i.ProductId]` бросает `KeyNotFoundException`, если товар из позиции заказа был удалён из каталога, вместо предсказуемой обработки такого случая.
++    Severity: **low**.
++
++15. **Services/CatalogService.cs: `Reprice`**
++    `_db.UpdateRange(products)` избыточен: сущности уже отслеживаются и помечены изменёнными после `ToListAsync()`/`p.Price *= factor`. Вдобавок `UpdateRange` помечает Modified **все** свойства каждой сущности, порождая ненужные full-column UPDATE вместо точечного обновления `Price`.
++    Severity: **low**.

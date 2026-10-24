@@ -1,0 +1,16 @@
+src/Pricing.Contracts/QuoteContracts.cs:9 - публичное свойство GrandTotal удалено, а версия пакета поднята только 1.3.0→1.4.0 (Pricing.Contracts.csproj:5); потребители, всё ещё ссылающиеся на GrandTotal, при обновлении «минорки» перестанут компилироваться - нужен major (2.0.0) - major
+src/Pricing.Exports/PriceListExporter.cs:16 - CultureInfo.CurrentCulture: формат decimal (запятая/точка) и CSV зависит от локали сервера/стенда, фид маркетплейсам ломается на разборе цены - нужен InvariantCulture - major
+src/Pricing.Exports/PriceListExporter.cs:9 - заголовок CSV будет «Sku;Name;Category;Price», а по задаче PRC-25 формат `sku;name;category;price`; потребитель с жёстким заголовком не прочитает файл - major
+src/Pricing.Exports/PriceListExporter.cs:18 - значения Name пишутся как есть: ячейка, начинающаяся с = + - @, станет формулой при открытии в Excel (CSV-инъекция) - minor
+src/Pricing.Exports/PriceListExporter.cs:15 - вся таблица грузится одним ListAsync(0, int.MaxValue), архив фильтруется уже в памяти; на реальном хранилище это выгрузка всего каталога в память - minor
+src/Pricing.Exports/Pricing.Exports.csproj:3 - TargetFramework, Nullable, ImplicitUsings (строки 3, 5, 6) скопированы из Directory.Build.props; значения разъедутся при смене в корне - minor
+src/Pricing.Exports/Pricing.Exports.csproj:12 - CopyLocalLockFileAssemblies=true в пакетируемой библиотеке: зависимости копируются в выход, раздувая пакет/вывод у потребителей (команда маркетплейсов) - major
+src/Pricing.Exports/Pricing.Exports.csproj:16 - Microsoft.Extensions.Http.Resilience подключён, но в проекте не используется; лишняя транзитивная зависимость у всех потребителей пакета - minor
+src/Pricing.Exports/Pricing.Exports.csproj:22 - ссылка на Pricing.Infrastructure (и избыточная на Application, строка 21) нужна только утилите; библиотека для внешней команды тянет Infrastructure с ASP.NET FrameworkReference и in-memory хранилищем - major
+src/Pricing.Exports/Pricing.Exports.csproj:17 - Roslynator.Analyzers без PrivateAssets="all" в пакетируемой библиотеке: анализатор попадёт зависимостью в пакет и в сборки потребителей - minor
+src/Pricing.Exports/Pricing.Exports.csproj:11 - переопределение OutputPath в пакетируемом проекте: вывод уходит из bin/, ломает стандартные пути/инкрементальную сборку и совпадает у конфигураций - minor
+tools/Pricing.ExportCli/Program.cs:14 - утилита выгружает захардкоженный демо-товар из пустого InMemoryStore, а не реальный прайс; «ручная выгрузка на стенде» из PRC-25 не работает, файл всегда содержит одну фиктивную строку - blocker
+tools/Pricing.ExportCli/Pricing.ExportCli.csproj:6 - ManagePackageVersionsCentrally=false в обход CPM и плавающая версия CsvHelper 33.* (строка 9): невоспроизводимые сборки, версия расходится с Directory.Packages.props; к тому же CsvHelper напрямую утилите не нужен - major
+tools/Directory.Build.props:1 - файл не импортирует родительский Directory.Build.props: Nullable/ImplicitUsings для tools молча пропадают (отсюда ручные using в Program.cs), nullable-проверок в утилите нет - minor
+Directory.Packages.props:4 - свойство CsvHelperVersion вводит индирекцию для одной версии, остальные пакеты так не заданы; расхождение со стилем файла - minor
+src/Pricing.Exports/PriceListExporter.cs:11 - нет ни одного теста на экспорт (формат, архив, культура); регрессии формата фида не поймает ничто - minor

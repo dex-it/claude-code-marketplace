@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: depot-api
+  namespace: depot
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: depot-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: depot-api
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: api
+          image: registry.example.com/depot/api:1.4.0
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: depot-secrets
+          securityContext: {}
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 0
+            periodSeconds: 1
+            failureThreshold: 1
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 5

@@ -1,0 +1,30 @@
+{
+  "id": "G3",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "Tarif.Billing - биллинг небольшого интернет-провайдера: заявки на подключение, абоненты и договоры, платежи из банковской выписки; ASP.NET Core 8 minimal API, EF Core 8, Npgsql, PostgreSQL 16",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G3/Models.cs",
+      "to": "Models.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G3/BillingDbContext.cs",
+      "to": "BillingDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G3/BankStatement.cs",
+      "to": "BankStatement.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G3/SubscriberService.cs",
+      "to": "SubscriberService.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G3/Program.cs",
+      "to": "Program.cs"
+    }
+  ],
+  "task": "Задачи по биллингу провайдера.\n(а) Загрузка банковской выписки (CSV из интернет-банка, раз в день; разбор строк и назначения платежа уже есть - BankStatement, PaymentPurpose): по каждой строке находим абонента по номеру договора из назначения платежа, зачисляем сумму на баланс и сохраняем платёж вместе с моментом зачисления. Строки, для которых абонент не нашёлся, откладываем бухгалтеру в «неразобранные» (их тоже храним). Повторная загрузка той же выписки не должна зачислять платежи второй раз. Endpoint POST /bank/statements (файл в теле запроса).\n(б) Если после зачисления у приостановленного (Suspended) абонента баланс стал неотрицательным - возвращаем его в Active и сохраняем, когда это произошло.\n(в) Колл-центру - поиск абонентов по последним цифрам телефона, не больше 20 результатов. Endpoint GET /subscribers/search?phone=4518."
+}

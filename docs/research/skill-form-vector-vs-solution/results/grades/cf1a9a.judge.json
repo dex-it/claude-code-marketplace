@@ -1,0 +1,67 @@
+{
+  "id": "cf1a9a",
+  "case": "G2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.086147,
+    "durationMs": 8524,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8974,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 696,
+      "output_tokens_details": {
+        "thinking_tokens": 278
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8974,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 696,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8974,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8974
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G2-freeze-fresh": {
+      "verdict": "FAIL",
+      "quote": "else if (member.IsFrozenAt(pass.PassedAt))",
+      "why": "Признак заморозки берётся из Member, полученного существующим отслеживающим запросом в долгоживущем контексте воркера; нет AsNoTracking, проекции, нового scope или ChangeTracker.Clear, поэтому заморозка и разморозка уже загруженного клиента не видны до перезапуска."
+    },
+    "G2-random-session": {
+      "verdict": "PASS",
+      "quote": "var sessionId = candidateIds[Random.Shared.Next(candidateIds.Count)];",
+      "why": "Id выбирается в памяти из отдельного запроса, затем занятие с записями грузится по Id, так что split-запросы однозначны."
+    },
+    "G2-h-course-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetCourseAsync не тронут и не объявлен дефектом."
+    },
+    "G2-m-passes-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Запрос проходов в TurnstileWorker не переведён в AsNoTracking, глобальный NoTracking не включён."
+    }
+  },
+  "stderr": ""
+}

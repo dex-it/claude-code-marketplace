@@ -1,0 +1,57 @@
+{
+  "name": "dex-session-dispatcher",
+  "version": "2.0.1",
+  "description": "Мод: одно окно для всех сессий Claude Code на машине. Панель /sessions показывает, какие сессии работают, какие ждут вашего ответа и какие закончили, с расходом токенов и заполнением контекста, планом, вызванными навыками и субагентами. Новую сессию можно запустить в фоне фразой-задачей, отправить любой сессии сообщение, прочитать её вывод, остановить или удалить; опасные кнопки спрашивают второй раз. Строка над вводом сообщает, что сессии ждут вас. Каждое действие есть и командой: /sessions new, say, log, open, stop, remove. Написан для новичка: слова вместо статусов, подсказка к каждому состоянию и три шага на пустом месте.",
+  "author": {
+    "name": "Dex Team",
+    "email": "mmx@dex-it.ru"
+  },
+  "keywords": [
+    "utility",
+    "mod",
+    "function-hooks",
+    "sessions",
+    "orchestration",
+    "background-agents",
+    "dashboard"
+  ],
+  "repository": "https://github.com/dex-it/claude-code-marketplace",
+  "license": "GPL-3.0",
+  "userConfig": {
+    "refreshSeconds": {
+      "type": "number",
+      "title": "Refresh interval, seconds",
+      "description": "Как часто мод читает список сессий и их транскрипты. Минимум 5 секунд.",
+      "default": 10,
+      "min": 5,
+      "max": 600
+    },
+    "contextWindow": {
+      "type": "number",
+      "title": "Context window, tokens",
+      "description": "Размер окна контекста для расчёта процентов. 0 - определить по занятому: до 200 тысяч - окно в 200 тысяч, больше - миллион.",
+      "default": 0,
+      "min": 0,
+      "max": 2000000
+    },
+    "permissionMode": {
+      "type": "string",
+      "title": "Permission mode of new sessions",
+      "description": "Режим разрешений для сессий, которые запускает мод. inherit - как у вас по умолчанию. В фоне сессия, которой нужно разрешение, встаёт в состояние «ждёт вас».",
+      "default": "inherit",
+      "options": ["inherit", "default", "acceptEdits", "plan"]
+    },
+    "model": {
+      "type": "string",
+      "title": "Model of new sessions",
+      "description": "Модель для новых сессий (псевдоним вроде sonnet или полное имя). Пусто - по умолчанию.",
+      "default": ""
+    },
+    "claudeBinary": {
+      "type": "string",
+      "title": "Claude command",
+      "description": "Команда, которой мод вызывает claude agents, --bg, stop, rm и logs. Меняйте, только если claude не найден в PATH.",
+      "default": "claude"
+    }
+  }
+}

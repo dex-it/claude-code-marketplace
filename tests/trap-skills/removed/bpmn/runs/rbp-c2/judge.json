@@ -1,0 +1,63 @@
+{
+ "total_cost_usd": 0.061293600000000004,
+ "model": "claude-opus-5-5",
+ "verdict": {
+  "cells": [
+   {
+    "code": "BPR1",
+    "score": "1",
+    "quote": "g_actions (exclusiveGateway) - три действия обязательны и независимы (правило 6), но эксклюзивный шлюз без условий выполнит одно: слот/уведомление/возврат могут не выполниться - blocker"
+   },
+   {
+    "code": "BPR2",
+    "score": "1",
+    "quote": "g_amount (parallelGateway) - параллельный шлюз игнорирует условия sf9/sf10 и запускает обе ветки: назначаются и полный возврат, и 50%"
+   },
+   {
+    "code": "BPR3",
+    "score": "1",
+    "quote": "g_restore (exclusiveGateway) - правило 5 допускает «и пакет, и промокод», эксклюзивный шлюз выберет одну ветку... нужен inclusive-шлюз"
+   },
+   {
+    "code": "BPR4",
+    "score": "1",
+    "quote": "g_answer (exclusiveGateway) + ev_refund_ok/ev_3days - «что пришло первым» делается event-based шлюзом; эксклюзивный без условий выберет первую ветку (sf26)"
+   },
+   {
+    "code": "BPR5",
+    "score": "1",
+    "quote": "g_finish_join (parallelGateway) - ...после g_answer выполняется ровно одна из ветвей: join ждёт вторую вечно, end_done недостижим, процесс никогда не завершается"
+   },
+   {
+    "code": "BPR6",
+    "score": "1",
+    "quote": "pf_sf3 - sequenceFlow из proc_payflow в ev_refund_ok другого процесса: недопустим в BPMN (между пулами только messageFlow)"
+   },
+   {
+    "code": "BPR7",
+    "score": "1",
+    "quote": "t_package - у задачи нет исходящего sequenceFlow...: токен «урок из пакета» застревает, отмена не доходит до возврата и освобождения слота"
+   },
+   {
+    "code": "BPR8",
+    "score": "1",
+    "quote": "proc_payflow - нет ветки отказа PayFlow: pf_refund всегда ведёт к успешному pf_end... остаётся только 3-дневный таймаут"
+   },
+   {
+    "code": "BPR9",
+    "score": "1",
+    "quote": "t_support «Сделать действия» - неинформативное имя; ... t_process «Обработать данные» - пустое по смыслу имя, не ясно что делает"
+   },
+   {
+    "code": "BPR10",
+    "score": "0",
+    "quote": "нет"
+   },
+   {
+    "code": "P1",
+    "score": "1",
+    "quote": "нет находки по g_fork_audit / ветке журнала"
+   }
+  ]
+ }
+}

@@ -1,0 +1,82 @@
+{
+  "id": "7fd4e0",
+  "case": "B3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.158731,
+    "durationMs": 11369,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 16777,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1204,
+      "output_tokens_details": {
+        "thinking_tokens": 349
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16777,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1204,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 16777,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 16777
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B3-scope-sql": {
+      "verdict": "PASS",
+      "quote": "private static readonly Dictionary<SearchScope, string> SearchSql",
+      "why": "scope через TryParseScope отображается на фиксированный SQL из словаря, неизвестное значение даёт 400, текст уходит параметром {0} в FromSqlRaw(SearchSql[scope], text)."
+    },
+    "B3-drug-resultset": {
+      "verdict": "PASS",
+      "quote": "SELECT * FROM \"Visits\" v WHERE EXISTS ( SELECT 1 FROM \"Prescriptions\" p",
+      "why": "Возвращаются только колонки Visits, каждый визит один раз благодаря EXISTS без JOIN."
+    },
+    "B3-lastvisit-split": {
+      "verdict": "PASS",
+      "quote": ".ThenByDescending(x => x.Id) ... .AsSingleQuery()",
+      "why": "Порядок уникален за счёт тай-брейкера Id, а проекция явно выполняется одним SQL, поэтому коллекции относятся к одному визиту."
+    },
+    "B3-export-notracking": {
+      "verdict": "PASS",
+      "quote": "PrescriptionCount = x.Prescriptions.Count()",
+      "why": "Выгрузка идёт проекцией в анонимный тип с Count и потоком через AsAsyncEnumerable, отслеживаемые сущности не материализуются."
+    },
+    "B3-export-range-utc": {
+      "verdict": "PASS",
+      "quote": "TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), ClinicTimeZone)",
+      "why": "Местные даты переводятся в UTC (Kind=Utc) по поясу Asia/Yekaterinburg, верхняя граница берётся как начало дня to+1 с условием <, а время в CSV выводится через ToLocal."
+    },
+    "B3-h-existing-search": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Существующий FromSqlRaw с {0} уязвимым не объявлен, параметризация сохранена."
+    },
+    "B3-m-fts-lost": {
+      "verdict": "NO",
+      "quote": "to_tsvector('russian', coalesce(\"Diagnosis\", '')) @@ plainto_tsquery('russian', {0})",
+      "why": "Полнотекстовый поиск сохранён, выражения повторяют индексы, на LIKE/Contains не заменены."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,76 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4d0e5f2
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,70 @@
++# Ревью MR !87: Партии проб - карточка, закрытие, переразметка, процент соответствия
++
++## 1. `BatchService.CompliancePercentAsync` — целочисленное деление + деление на ноль
++**Severity: critical**
++
++```csharp
++return compliant / total * 100;
++```
++`compliant` и `total` — `int` (результат `CountAsync`). `compliant / total` выполняется как целочисленное деление **до** умножения на 100, поэтому результат практически всегда 0%, кроме случая `compliant == total` (100%). Пример: 2 из 3 проб соответствуют норме → `2/3=0`, `0*100=0` вместо 66%.
++Дополнительно: если в партии нет проб (`total == 0`), код бросает `DivideByZeroException`.
++Нужно: `compliant * 100 / total` (или через `decimal`) и явная обработка `total == 0`.
++
++## 2. `BatchService.ListAsync` — ошибка на единицу в пагинации
++**Severity: high**
++
++```csharp
++/// <param name="page">Номер страницы, начиная с 1.</param>
++...
++.Skip(page * pageSize)
++```
++При `page = 1` (по контракту — первая страница) код делает `Skip(20)`, то есть пропускает первые 20 записей и отдаёт вторую страницу; первая страница становится вообще недостижимой ни для какого значения `page`, соответствующего контракту "с 1". Должно быть `Skip((page - 1) * pageSize)`.
++
++## 3. `BatchService.CompliancePercentAsync` — пробы без результатов считаются «соответствующими норме»
++**Severity: high**
++
++```csharp
++s.Results.All(r => r.Value <= r.Limit)
++```
++`All` на пустой коллекции (проба без единого результата) возвращает `true` — такая проба попадает в число «compliant», хотя по ней вообще нет данных. Это противоречит смыслу LAB-147 («доля проб, у которых **все показатели в норме**») и искусственно завышает процент соответствия, особенно в сочетании с находкой №4.
++
++## 4. `BatchService.CloseAsync` — проверка «без результатов» покрывает не все пробы партии
++**Severity: medium**
++
++Проверка на пустые результаты идёт только по пробам, уже имеющим статус `InAnalysis` (`GetInAnalysisForBatchAsync` фильтрует именно по нему):
++```csharp
++var samples = await _samples.GetInAnalysisForBatchAsync(batchId);
++if (samples.Any(s => s.Results.Count == 0)) ...
++```
++Если в партии есть пробы в статусе `Planned`/`Collected` без результатов, они не попадут в эту выборку, не будут переведены в `Done` и не заблокируют закрытие — партия получит `ClosedAt`/`ReportDate`, хотя формально условие LAB-143 «закрыть партию с пробами без результатов нельзя» нарушено.
++
++## 5. `BatchService.GetCardAsync` — перетягивание лишних колонок для read-only запроса
++**Severity: medium**
++
++Запрос `AsNoTracking()+Include(Instruments)+Include(Samples).ThenInclude(Results)` тянет полные сущности (`Sample.SiteId, PlannedLocal, CollectedAt, BatchId`, `Result.Id, SampleId, Parameter`, `BatchInstrument.Operator` и т.д.), хотя потребитель (`BatchCard`/`BatchSampleLine`) использует только `LabCode, Status, Results.Count, Value/Limit, InstrumentCode`. По правилу команды («полная сущность там, где нужна часть полей») для нетрекаемой выборки стоит сделать проекцию `Select` прямо в LINQ-запросе — это особенно заметно на карточке с 120+ пробами (как указано в MR, "проверено на стенде").
++
++## 6. `BatchService.CloseAsync` — нет защиты от повторного/конкурентного закрытия
++**Severity: low**
++
++Нет проверки `batch.ClosedAt != null` перед повторным закрытием — метод тихо перезапишет `ClosedAt`/`ReportDate` при повторном вызове. Также нет concurrency-токена (rowversion/xmin) — параллельный `CloseAsync` + `RetagAsync` (или два одновременных `CloseAsync`) могут тихо потерять часть изменений при `SaveChanges`.
++
++## 7. Отсутствуют индексы под новые паттерны запросов
++**Severity: low**
++
++`GetInAnalysisForBatchAsync` фильтрует по `(BatchId, Status)`, `CompliancePercentAsync` — по `BatchId`, `GetRecentBySiteAsync` — по `(site_id, collected_at)` через join по `Site.Code`. Ни для одного из этих сочетаний не заведён индекс в `LabDbContext` — при росте таблицы `samples` эти запросы уйдут в seq scan.
++
++## 8. `SampleRepository.GetRecentBySiteAsync` — тоже overfetch по колонкам
++**Severity: low**
++
++`SELECT s.*` возвращает все поля `Sample` (включая неиспользуемые для карточки объекта), хотя запрос `AsNoTracking`. Менее критично, чем находка №5, но тот же паттерн — стоит сузить через `.Select()` после `FromSql`, если потребителю не нужна полная сущность.
++
++---
++
++## Без находок (для контекста, проверено и корректно)
++
++- `FromSql` в `GetRecentBySiteAsync` использует интерполяцию с автопараметризацией значений (`{siteCode}`, `{since}`) — безопасно, идентификаторы и фрагменты из кода.
++- `AsSplitQuery` в `GetCardAsync` корректно задан явно для двух коллекций одного уровня (`Instruments`, `Samples->Results`).
++- `PlannedLocal` корректно сопоставлен с `timestamp without time zone`, заполняется значением с `Kind=Unspecified` (`DateOnly.ToDateTime`) — соответствует требованию «местное время объекта».
++- `Tags.Clear()` в `RetagAsync` безопасен: связь `SampleTag.SampleId` required, дефолтный `DeleteBehavior.Cascade` удалит старые теги при SaveChanges, а не бросит исключение.
++- `SingleOrDefaultAsync` по `LabCode` в `FindByLabCodeAsync` оправдан уникальным индексом на `LabCode`.
++- `GetInAnalysisForBatchAsync` возвращает трекаемую выборку (без `AsNoTracking`) — корректно, т.к. используется для последующей записи (`CloseAsync`).

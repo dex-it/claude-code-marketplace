@@ -1,0 +1,206 @@
+diff --git a/BankStatementService.cs b/BankStatementService.cs
+new file mode 100644
+index 0000000..0111015
+--- /dev/null
++++ b/BankStatementService.cs
+@@ -0,0 +1,81 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Tarif.Billing;
++
++public record BankStatementImportResult(int Credited, int AlreadyProcessed, int Unresolved);
++
++public class BankStatementService
++{
++    private readonly BillingDbContext _db;
++
++    public BankStatementService(BillingDbContext db) => _db = db;
++
++    public async Task<BankStatementImportResult> ImportAsync(TextReader reader)
++    {
++        var lines = BankStatement.Parse(reader);
++        var refs = lines.Select(l => l.BankRef).ToList();
++
++        // Строки, уже зачисленные или уже отложенные бухгалтеру при прошлой загрузке этой же выписки, пропускаем.
++        var processedRefs = await _db.Payments
++            .Where(p => refs.Contains(p.BankRef))
++            .Select(p => p.BankRef)
++            .Concat(_db.UnmatchedPayments
++                .Where(p => refs.Contains(p.BankRef))
++                .Select(p => p.BankRef))
++            .ToHashSetAsync();
++
++        var now = DateTime.Now;
++        int credited = 0, alreadyProcessed = 0, unresolved = 0;
++
++        foreach (var line in lines)
++        {
++            if (processedRefs.Contains(line.BankRef))
++            {
++                alreadyProcessed++;
++                continue;
++            }
++
++            var contractNo = PaymentPurpose.ExtractContractNo(line.Purpose);
++            var subscriber = contractNo is null
++                ? null
++                : await _db.Subscribers.SingleOrDefaultAsync(s => s.ContractNo == contractNo);
++
++            if (subscriber is null)
++            {
++                _db.UnmatchedPayments.Add(new UnmatchedPayment
++                {
++                    BankRef = line.BankRef,
++                    PaidOn = line.PaidOn,
++                    Amount = line.Amount,
++                    PayerName = line.PayerName,
++                    Purpose = line.Purpose,
++                    DetectedAt = now,
++                });
++                unresolved++;
++                continue;
++            }
++
++            subscriber.Balance += line.Amount;
++            _db.Payments.Add(new Payment
++            {
++                SubscriberId = subscriber.Id,
++                Amount = line.Amount,
++                BankRef = line.BankRef,
++                PaidOn = line.PaidOn,
++                CreditedAt = now,
++                Purpose = line.Purpose,
++            });
++
++            if (subscriber.Status == SubscriberStatus.Suspended && subscriber.Balance >= 0)
++            {
++                subscriber.Status = SubscriberStatus.Active;
++                subscriber.ReactivatedAt = now;
++            }
++
++            credited++;
++        }
++
++        await _db.SaveChangesAsync();
++        return new BankStatementImportResult(credited, alreadyProcessed, unresolved);
++    }
++}
+diff --git a/BillingDbContext.cs b/BillingDbContext.cs
+index a178566..22e6acc 100644
+--- a/BillingDbContext.cs
++++ b/BillingDbContext.cs
+@@ -9,6 +9,7 @@ public class BillingDbContext : DbContext
+     public DbSet<Tariff> Tariffs => Set<Tariff>();
+     public DbSet<Subscriber> Subscribers => Set<Subscriber>();
+     public DbSet<Payment> Payments => Set<Payment>();
++    public DbSet<UnmatchedPayment> UnmatchedPayments => Set<UnmatchedPayment>();
+ 
+     protected override void ConfigureConventions(ModelConfigurationBuilder b)
+     {
+@@ -33,5 +34,11 @@ public class BillingDbContext : DbContext
+             e.HasIndex(p => p.BankRef).IsUnique();
+             e.Property(p => p.BankRef).HasMaxLength(64);
+         });
++
++        b.Entity<UnmatchedPayment>(e =>
++        {
++            e.HasIndex(p => p.BankRef).IsUnique();
++            e.Property(p => p.BankRef).HasMaxLength(64);
++        });
+     }
+ }
+diff --git a/Models.cs b/Models.cs
+index bfb8200..938308b 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -24,6 +24,8 @@ public class Subscriber
+     public decimal Balance { get; set; }
+     public DateTime CreatedAt { get; set; }
+     public DateTime? ConnectedAt { get; set; }
++    // Момент, когда баланс погасил задолженность и абонент вернулся из Suspended в Active.
++    public DateTime? ReactivatedAt { get; set; }
+ 
+     public List<Payment> Payments { get; set; } = new();
+ }
+@@ -39,3 +41,16 @@ public class Payment
+     public DateTime CreditedAt { get; set; }
+     public string Purpose { get; set; } = "";
+ }
++
++// Строка выписки, для которой не удалось найти абонента по номеру договора из назначения платежа.
++// Откладывается бухгалтеру для ручного разбора.
++public class UnmatchedPayment
++{
++    public int Id { get; set; }
++    public string BankRef { get; set; } = "";
++    public DateOnly PaidOn { get; set; }
++    public decimal Amount { get; set; }
++    public string PayerName { get; set; } = "";
++    public string Purpose { get; set; } = "";
++    public DateTime DetectedAt { get; set; }
++}
+diff --git a/Program.cs b/Program.cs
+index 81dd291..fc098df 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.AddDbContext<BillingDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Billing")));
+ builder.Services.AddScoped<SubscriberService>();
++builder.Services.AddScoped<BankStatementService>();
+ 
+ var app = builder.Build();
+ 
+@@ -21,4 +22,13 @@ app.MapPost("/subscribers/{id:int}/contract", async (int id, ContractRequest req
+ app.MapGet("/subscribers/by-contract/{contractNo}", async (string contractNo, SubscriberService s) =>
+     await s.GetByContractAsync(contractNo) is { } dto ? Results.Ok(dto) : Results.NotFound());
+ 
++app.MapGet("/subscribers/search", async (string phone, SubscriberService s) =>
++    Results.Ok(await s.SearchByPhoneAsync(phone)));
++
++app.MapPost("/bank/statements", async (HttpRequest request, BankStatementService svc) =>
++{
++    using var reader = new StreamReader(request.Body);
++    return Results.Ok(await svc.ImportAsync(reader));
++});
++
+ app.Run();
+diff --git a/SubscriberService.cs b/SubscriberService.cs
+index af52716..c978ea6 100644
+--- a/SubscriberService.cs
++++ b/SubscriberService.cs
+@@ -50,4 +50,15 @@ public class SubscriberService
+             ? null
+             : new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance);
+     }
++
++    // Поиск для колл-центра по последним цифрам номера телефона, не более 20 результатов.
++    public async Task<List<SubscriberDto>> SearchByPhoneAsync(string phoneSuffix)
++    {
++        return await _db.Subscribers.AsNoTracking()
++            .Where(s => s.Phone.EndsWith(phoneSuffix))
++            .OrderBy(s => s.Id)
++            .Take(20)
++            .Select(s => new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance))
++            .ToListAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8bc3061
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,13 @@
++## Изменённые/созданные файлы
++
++- `Models.cs` — добавлено поле `Subscriber.ReactivatedAt` (момент возврата из Suspended в Active) и новая сущность `UnmatchedPayment` для неразобранных строк выписки.
++- `BillingDbContext.cs` — добавлен `DbSet<UnmatchedPayment>` с уникальным индексом по `BankRef`.
++- `BankStatementService.cs` (новый) — импорт выписки: парсинг через существующий `BankStatement.Parse`, поиск абонента по номеру договора из `PaymentPurpose.ExtractContractNo`, зачисление на баланс и сохранение `Payment.CreditedAt`; строки без найденного абонента уходят в `UnmatchedPayments`.
++- `SubscriberService.cs` — добавлен `SearchByPhoneAsync` (поиск по окончанию номера телефона, `Take(20)`).
++- `Program.cs` — регистрация `BankStatementService`, эндпоинты `POST /bank/statements` (тело запроса — CSV-файл выписки) и `GET /subscribers/search?phone=...`.
++
++## Решения
++
++- Повторная загрузка выписки не дублирует платежи: уникальный индекс `Payment.BankRef` и `UnmatchedPayment.BankRef` плюс предварительная проверка уже обработанных `BankRef` из обоих наборов — строка пропускается, если её `BankRef` уже встречался (и зачислен, и отложен бухгалтеру).
++- Возврат в `Active` проверяется сразу после зачисления суммы на баланс приостановленного абонента (`Balance >= 0`), момент фиксируется в новом поле `Subscriber.ReactivatedAt`.
++- Поиск по телефону — `Phone.EndsWith(suffix)` (подходит под «последние цифры»), результат ограничен 20 записями.

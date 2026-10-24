@@ -1,0 +1,25 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..212ea71
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,19 @@
++# Ревью MR !4210 — находки
++
++## 1. Workers/AuditWriter.cs — WriteAsync — critical
++`_db.AuditLogs.Add(new AuditLog { At = DateTime.UtcNow, ... })`. Свойство `AuditLog.At` — обычный `DateTime` без явной конфигурации типа колонки, поэтому Npgsql/EFCore.PG по умолчанию маппит его на `timestamp without time zone`. Начиная с Npgsql 6+ (в проекте — 8) запись `DateTime` с `Kind=Utc` в такую колонку запрещена и бросает исключение при `SaveChangesAsync` (`Cannot write DateTime with Kind=Utc to PostgreSQL type 'timestamp without time zone'`). Это в точности анти-паттерн "timestamp теряет Kind" из правил команды.
++Следствие: каждый вызов `WriteAsync` будет падать в рантайме — аудит операций оператора вообще не пишется. Нужно либо сменить тип колонки на `timestamptz` (тогда `UtcNow` пишется штатно), либо явно нормализовать значение под `timestamp` (`DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)`).
++
++## 2. Services/CustomerOrders.cs — ActivePageAsync — critical
++Фильтр `o.Status == "Active"` сравнивается с фактическим значением сущности `Order.Status = "active"` (default в `Model.cs`, регистр строчный). Сравнение строк в PostgreSQL через `=` регистрозависимо, других мест, где `Status` устанавливается в `"Active"`, в кодовой базе нет. В результате метод всегда возвращает пустой список для любого клиента — без исключения, молча. Это полный функциональный отказ фичи "список активных заказов клиента".
++
++## 3. Services/CustomerOrders.cs — ActivePageAsync — high
++Пагинация: `Skip(page * pageSize)` при нумерации страниц с 1 (согласно комментарию в коде и описанию MR). Для `page = 1` пропускается `pageSize` записей — то есть первая страница вообще недоступна клиенту, а каждая последующая страница сдвинута на один блок вперёд (показывает данные "следующей" страницы). Правильно: `Skip((page - 1) * pageSize)`.
++
++## 4. Services/OrderCard.cs — GetAsync — low
++DTO `OrderCardDto` содержит `order.Items`/`order.Payments` как полные списки entity-классов `OrderItem`/`Payment` (не проекция). Учитывая `AsNoTracking()`, критичной проблемы с Change Tracker нет, но это расхождение с правилом "проекция вместо ToList" — если для карточки нужны не все поля позиций/платежей, стоит спроецировать в отдельные DTO вместо передачи EF-сущностей наружу. Не блокер, но стоит подтвердить с автором MR, действительно ли нужны все поля.
++
++## Проверено и без замечаний
++- Services/CartLookup.cs: AsNoTracking + Select-проекция + `Contains` по массиву id (транслируется в `= ANY(@p)`, безопасно для тысяч id) — соответствует правилам.
++- Services/OrderCard.cs: `AsSplitQuery()` уместен, т.к. два `Include` коллекций (Items + Payments) дают cartesian explosion на одном заказе — расщепление запроса оправдано (это не кейс "AsSplitQuery для single entity" из анти-паттернов, там был только один Include).
++- Workers/AuditWriter.cs: используется `Add()`, а не `AddAsync()` — корректно (нет HiLo).

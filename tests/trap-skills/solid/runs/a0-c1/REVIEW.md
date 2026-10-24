@@ -1,0 +1,1 @@
+src/Billing.Api/Application/Handlers/Invoices/PayInvoiceHandler.cs:18 - проводка в Ledger по-прежнему на полную invoice.Amount, а не invoice.AmountDue: после скидки клиент платит меньше, а в Ledger уходит полная сумма, учёт расходится с «к оплате» (требование BILL-35 не выполнено) - blocker

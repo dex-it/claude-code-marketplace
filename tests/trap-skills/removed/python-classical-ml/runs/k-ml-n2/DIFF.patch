@@ -1,0 +1,277 @@
+diff --git a/src/shelfwatch/churn_model.py b/src/shelfwatch/churn_model.py
+new file mode 100644
+index 0000000..9b6eca4
+--- /dev/null
++++ b/src/shelfwatch/churn_model.py
+@@ -0,0 +1,163 @@
++"""Модель оттока магазинов: выбор между случайным лесом и XGBoost, прогноз на следующий месяц.
++
++Постановка: признаки среза магазина за месяц t -> отток (`churned`) в срезе за месяц t+1.
++Пары строятся только для подряд идущих месяцев одного магазина (`store_id`).
++Выбор модели и отчётная цифра считаются на разных периодах: модель выбирается по валидации,
++цифра для отчёта - на более позднем отложенном тесте, который в выборе не участвует.
++Метрика - PR-AUC (average precision): при доле оттока 5% accuracy и ROC-AUC вводят в заблуждение.
++"""
++
++from dataclasses import dataclass
++
++import numpy as np
++import pandas as pd
++from sklearn.compose import ColumnTransformer
++from sklearn.ensemble import RandomForestClassifier
++from sklearn.metrics import average_precision_score
++from sklearn.pipeline import Pipeline
++from sklearn.preprocessing import OneHotEncoder
++from xgboost import XGBClassifier
++
++from shelfwatch.paths import DATA_DIR
++
++SEED = 42
++N_HOLDOUT_MONTHS = 3
++NUMERIC_FEATURES = ["tenure_months", "n_tickets", "revenue", "has_tickets"]
++CATEGORICAL_FEATURES = ["plan"]
++FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
++MODEL_NAMES = ("random_forest", "xgboost")
++
++
++@dataclass(frozen=True)
++class ChurnReport:
++    best_model: str
++    test_pr_auc: float  # цифра для отчёта: PR-AUC выбранной модели на отложенном тесте
++    test_base_rate: float  # PR-AUC случайного ранжирования = доля оттока в тесте
++    val_pr_auc: dict[str, float]  # PR-AUC обеих моделей на валидации (по ним выбрана лучшая)
++
++
++def load_accounts() -> pd.DataFrame:
++    return pd.read_parquet(DATA_DIR / "accounts.parquet")
++
++
++def _month(df: pd.DataFrame) -> pd.Series:
++    return pd.to_datetime(df["snapshot"]).dt.to_period("M")
++
++
++def _add_features(df: pd.DataFrame) -> pd.DataFrame:
++    out = df.copy()
++    out["month"] = _month(out)
++    # пустой n_tickets - магазин ни разу не обращался в поддержку, то есть 0 обращений
++    out["has_tickets"] = out["n_tickets"].notna().astype(int)
++    out["n_tickets"] = out["n_tickets"].fillna(0)
++    return out
++
++
++def build_dataset(df: pd.DataFrame) -> pd.DataFrame:
++    """Пары (срез t, отток в t+1) по подряд идущим месяцам одного магазина."""
++    cur = _add_features(df).sort_values(["store_id", "month"])
++    nxt = cur[["store_id", "month", "churned"]].copy()
++    nxt["month"] = nxt["month"] - 1  # отток из среза t+1 присоединяется к срезу t
++    nxt = nxt.rename(columns={"churned": "target"})
++    pairs = cur.merge(nxt, on=["store_id", "month"], how="inner", validate="one_to_one")
++    return pairs.reset_index(drop=True)
++
++
++def split_by_time(
++    data: pd.DataFrame, n_holdout_months: int = N_HOLDOUT_MONTHS
++) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
++    """train / val / test по времени: тест - последние месяцы, валидация - предыдущие."""
++    months = sorted(data["month"].unique())
++    if len(months) < 3 * n_holdout_months:
++        raise ValueError(f"мало месяцев для разбиения: {len(months)}")
++    val_start = months[-2 * n_holdout_months]
++    test_start = months[-n_holdout_months]
++    train = data[data["month"] < val_start]
++    val = data[(data["month"] >= val_start) & (data["month"] < test_start)]
++    test = data[data["month"] >= test_start]
++    return train, val, test
++
++
++def make_model(name: str, y_train: pd.Series) -> Pipeline:
++    """Модель с учётом дисбаланса: веса классов у леса, scale_pos_weight у бустинга."""
++    prep = ColumnTransformer(
++        [
++            ("num", "passthrough", NUMERIC_FEATURES),
++            ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_FEATURES),
++        ]
++    )
++    if name == "random_forest":
++        clf = RandomForestClassifier(
++            n_estimators=300,
++            min_samples_leaf=5,
++            class_weight="balanced_subsample",
++            n_jobs=-1,
++            random_state=SEED,
++        )
++    elif name == "xgboost":
++        n_pos = int((y_train == 1).sum())
++        n_neg = int((y_train == 0).sum())
++        clf = XGBClassifier(
++            n_estimators=300,
++            max_depth=4,
++            learning_rate=0.05,
++            scale_pos_weight=n_neg / max(n_pos, 1),
++            eval_metric="aucpr",
++            n_jobs=-1,
++            random_state=SEED,
++        )
++    else:
++        raise ValueError(f"неизвестная модель: {name}")
++    return Pipeline([("prep", prep), ("clf", clf)])
++
++
++def _fit(name: str, data: pd.DataFrame) -> Pipeline:
++    model = make_model(name, data["target"])
++    model.fit(data[FEATURES], data["target"])
++    return model
++
++
++def _pr_auc(model: Pipeline, data: pd.DataFrame) -> float:
++    proba = model.predict_proba(data[FEATURES])[:, 1]
++    return float(average_precision_score(data["target"], proba))
++
++
++def evaluate(df: pd.DataFrame) -> ChurnReport:
++    """Выбирает лучшую модель по валидации и считает PR-AUC на отложенном тесте."""
++    train, val, test = split_by_time(build_dataset(df))
++    val_scores = {name: _pr_auc(_fit(name, train), val) for name in MODEL_NAMES}
++    best = max(val_scores, key=lambda name: val_scores[name])
++    # на тесте - модель, обученная на train+val: как будет в проде, но тест не виден
++    final = _fit(best, pd.concat([train, val]))
++    return ChurnReport(
++        best_model=best,
++        test_pr_auc=_pr_auc(final, test),
++        test_base_rate=float(test["target"].mean()),
++        val_pr_auc=val_scores,
++    )
++
++
++def predict_next_month(df: pd.DataFrame, model_name: str | None = None) -> pd.Series:
++    """Вероятность оттока на следующий месяц для магазинов из последнего среза.
++
++    Индекс - `store_id`. Если модель не задана, выбирается лучшая через `evaluate`;
++    обучение идёт на всей доступной истории пар (t, t+1).
++    """
++    if model_name is None:
++        model_name = evaluate(df).best_model
++    model = _fit(model_name, build_dataset(df))
++    feats = _add_features(df)
++    last = feats[feats["month"] == feats["month"].max()]
++    proba = model.predict_proba(last[FEATURES])[:, 1]
++    return pd.Series(proba, index=pd.Index(last["store_id"].to_numpy(), name="store_id"), name="churn_proba")
++
++
++def main() -> None:
++    report = evaluate(load_accounts())
++    print(f"лучшая модель: {report.best_model}")
++    print(f"PR-AUC на тесте: {report.test_pr_auc:.3f} (случайно: {report.test_base_rate:.3f})")
++    print(f"PR-AUC на валидации: {report.val_pr_auc}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/tests/test_churn_model.py b/tests/test_churn_model.py
+new file mode 100644
+index 0000000..15d108a
+--- /dev/null
++++ b/tests/test_churn_model.py
+@@ -0,0 +1,102 @@
++import numpy as np
++import pandas as pd
++import pytest
++
++from shelfwatch.churn_model import (
++    FEATURES,
++    MODEL_NAMES,
++    build_dataset,
++    evaluate,
++    make_model,
++    predict_next_month,
++    split_by_time,
++)
++
++N_STORES = 400
++N_MONTHS = 14
++
++
++def synthetic_accounts(seed: int = 0) -> pd.DataFrame:
++    """Отток ~5%, зависит от числа обращений; n_tickets пуст у части строк."""
++    rng = np.random.default_rng(seed)
++    rows = []
++    for store in range(N_STORES):
++        plan = rng.choice(["basic", "plus", "pro"])
++        for m in range(N_MONTHS):
++            tickets = rng.poisson(1.0)
++            logit = -4.5 + 0.8 * tickets
++            churned = int(rng.random() < 1 / (1 + np.exp(-logit)))
++            rows.append(
++                {
++                    "account_id": store * 100 + m,
++                    "snapshot": pd.Timestamp("2025-01-01") + pd.DateOffset(months=m),
++                    "tenure_months": m + 5,
++                    "plan": plan,
++                    "store_id": store,
++                    "n_tickets": np.nan if tickets == 0 else float(tickets),
++                    "revenue": float(rng.gamma(2.0, 500.0)),
++                    "churned": churned,
++                }
++            )
++    return pd.DataFrame(rows)
++
++
++def test_build_dataset_uses_next_month_label() -> None:
++    df = pd.DataFrame(
++        {
++            "account_id": [1, 2, 3, 4],
++            "snapshot": ["2025-01-01", "2025-02-01", "2025-04-01", "2025-01-01"],
++            "tenure_months": [1, 2, 4, 1],
++            "plan": ["basic"] * 4,
++            "store_id": [7, 7, 7, 8],
++            "n_tickets": [np.nan, 2.0, 1.0, 1.0],
++            "revenue": [1.0, 2.0, 3.0, 4.0],
++            "churned": [0, 1, 0, 0],
++        }
++    )
++    data = build_dataset(df)
++    # пара только одна: (магазин 7, январь) -> отток в феврале; пропуск марта пары не даёт
++    assert len(data) == 1
++    assert data.loc[0, "store_id"] == 7
++    assert data.loc[0, "target"] == 1
++    assert data.loc[0, "n_tickets"] == 0
++    assert data.loc[0, "has_tickets"] == 0
++
++
++def test_split_by_time_has_no_overlap_and_is_ordered() -> None:
++    train, val, test = split_by_time(build_dataset(synthetic_accounts()))
++    assert train["month"].max() < val["month"].min()
++    assert val["month"].max() < test["month"].min()
++
++
++def test_split_by_time_rejects_short_history() -> None:
++    data = build_dataset(synthetic_accounts())
++    data = data[data["month"] < data["month"].min() + 4]
++    with pytest.raises(ValueError):
++        split_by_time(data)
++
++
++def test_models_are_class_weighted() -> None:
++    y = pd.Series([0] * 95 + [1] * 5)
++    rf = make_model("random_forest", y)
++    xgb = make_model("xgboost", y)
++    assert rf.named_steps["clf"].class_weight == "balanced_subsample"
++    assert xgb.named_steps["clf"].scale_pos_weight == pytest.approx(19.0)
++
++
++def test_evaluate_beats_base_rate() -> None:
++    report = evaluate(synthetic_accounts())
++    assert report.best_model in MODEL_NAMES
++    assert set(report.val_pr_auc) == set(MODEL_NAMES)
++    assert report.test_pr_auc > report.test_base_rate
++
++
++@pytest.mark.parametrize("name", MODEL_NAMES)
++def test_predict_next_month_returns_probabilities_for_last_snapshot(name: str) -> None:
++    df = synthetic_accounts()
++    proba = predict_next_month(df, model_name=name)
++    assert proba.index.name == "store_id"
++    assert len(proba) == N_STORES
++    assert proba.between(0, 1).all()
++    assert not proba.isna().any()
++    assert set(FEATURES) <= set(build_dataset(df).columns)

@@ -1,0 +1,161 @@
+{
+  "name": "dex-jira-tracker",
+  "version": "1.0.1",
+  "description": "Мод на function hooks: мониторинг Jira через jira-cli. Строка над вводом и панель /jira несут задачи проекта по группам - в работе, открытые, мои, закрытые за сутки; смена статуса, исполнителя, новая задача и новый комментарий приходят тостом и строкой в транскрипт, а то, что случилось, пока сессия была закрыта, - одной сводкой при старте. Команда /jira comments отдаёт комментарии модели текстом. От задачи работа идёт по кнопкам: постановка (команда каталога /feature либо встроенный шаблон; в Jira пишется только по «оформляй»), взять в работу (назначить, перевести, завести ветку, реализовать командой /implement либо встроенным поручением), сдать (push, PR/MR на GitHub или GitLab, ссылка в задачу), после чего PR/MR ведёт трекер хостинга, если он установлен. /jira tools показывает, какие инструменты каталога подхвачены и чем заменены остальные, /jira install ставит jira-cli.",
+  "author": {
+    "name": "Dex Team",
+    "email": "mmx@dex-it.ru"
+  },
+  "keywords": [
+    "utility",
+    "mod",
+    "function-hooks",
+    "jira",
+    "jira-cli",
+    "tracker",
+    "issues",
+    "comments",
+    "notifications",
+    "workflow"
+  ],
+  "repository": "https://github.com/dex-it/claude-code-marketplace",
+  "license": "GPL-3.0",
+  "userConfig": {
+    "project": {
+      "type": "string",
+      "title": "Project key",
+      "description": "Ключ проекта Jira (SUP, ABC). Пусто - проект из конфига jira-cli (jira init).",
+      "default": ""
+    },
+    "scope": {
+      "type": "string",
+      "title": "What to follow",
+      "description": "project - все открытые задачи проекта; mine - только назначенные на вас; sprint - задачи открытых спринтов (нужна доска Scrum); jql - свой запрос из настройки jql. Меняется и командой /jira scope.",
+      "default": "project",
+      "options": [
+        "project",
+        "mine",
+        "sprint",
+        "jql"
+      ]
+    },
+    "jql": {
+      "type": "string",
+      "title": "Custom JQL",
+      "description": "Запрос для охвата jql, без ORDER BY: jira-cli дописывает свой. Проект подставляет сам jira-cli.",
+      "default": ""
+    },
+    "pollSeconds": {
+      "type": "number",
+      "title": "Poll interval, seconds",
+      "description": "Период опроса Jira. Минимум 30 секунд: на каждый опрос три запроса jira-cli.",
+      "default": 120,
+      "min": 30,
+      "max": 3600
+    },
+    "limit": {
+      "type": "number",
+      "title": "Issues limit",
+      "description": "Сколько задач держит наблюдение: самые свежие по обновлению. Потолок jira-cli - 100.",
+      "default": 100,
+      "min": 10,
+      "max": 100
+    },
+    "doneDays": {
+      "type": "number",
+      "title": "Show closed for, days",
+      "description": "Сколько дней закрытая задача остаётся в списке. 0 - уходит сразу, и её закрытие не объявляется.",
+      "default": 1,
+      "min": 0,
+      "max": 30
+    },
+    "notify": {
+      "type": "string",
+      "title": "What to announce",
+      "description": "all - каждое изменение; important - создание, статус, закрытие, исполнитель и комментарии, без правок названия, описания и приоритета; off - молча (список всё равно помечает новое).",
+      "default": "all",
+      "options": [
+        "all",
+        "important",
+        "off"
+      ]
+    },
+    "notifyMineOnly": {
+      "type": "boolean",
+      "title": "Announce only mine",
+      "description": "Объявлять только изменения в ваших задачах и в тех, за которыми вы наблюдаете в Jira. Назначение на вас объявляется всегда.",
+      "default": false
+    },
+    "sound": {
+      "type": "boolean",
+      "title": "Sound on change",
+      "description": "Звук системы на изменение (macOS, afplay). По умолчанию выключен - тоста и строки транскрипта хватает.",
+      "default": false
+    },
+    "band": {
+      "type": "boolean",
+      "title": "Band above the prompt",
+      "description": "Рисовать строку-итог и задачи, которые ждут вас, над полем ввода. Выключено - остаётся панель /jira.",
+      "default": true
+    },
+    "workStatus": {
+      "type": "string",
+      "title": "Status for work",
+      "description": "Статус, в который кнопка «взять в работу» переводит открытую задачу. Назван по workflow вашего Jira (In Progress, В работе). Пусто - статус не трогать.",
+      "default": "In Progress"
+    },
+    "workAssign": {
+      "type": "boolean",
+      "title": "Assign on take",
+      "description": "Кнопка «взять в работу» назначает чужую или ничью задачу на вас (jira issue assign). Выключено - исполнитель не меняется.",
+      "default": true
+    },
+    "branchPattern": {
+      "type": "string",
+      "title": "Branch name pattern",
+      "description": "Имя ветки: {type} - fix для багов и feature для остального, {key} - ключ задачи, {slug} - транслитерированное название.",
+      "default": "{type}/{key}-{slug}"
+    },
+    "baseBranch": {
+      "type": "string",
+      "title": "Base branch",
+      "description": "Ветка, от которой заводится рабочая и в которую открывается PR/MR. Пусто - основная ветка репозитория определяется по origin.",
+      "default": ""
+    },
+    "reviewStatus": {
+      "type": "string",
+      "title": "Status after PR/MR",
+      "description": "Статус, в который «сдать» переводит задачу после открытия PR/MR (In Review, На ревью). Пусто - статус не трогать.",
+      "default": ""
+    },
+    "issueType": {
+      "type": "string",
+      "title": "Type of new issues",
+      "description": "Тип задачи, который «оформить в Jira» ставит новой задаче (Task, Story, Задача).",
+      "default": "Task"
+    },
+    "hosting": {
+      "type": "string",
+      "title": "Git hosting",
+      "description": "auto - по адресу remote origin (github, gitlab в имени хоста); github или gitlab - задать руками, если имя хоста этого не говорит.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "github",
+        "gitlab"
+      ]
+    },
+    "implementCommand": {
+      "type": "string",
+      "title": "Implement command",
+      "description": "Команда сессии, которой «взять в работу» отдаёт реализацию (без слэша). Не установлена - работает встроенное поручение.",
+      "default": "implement"
+    },
+    "reviewCommand": {
+      "type": "string",
+      "title": "Review command",
+      "description": "Команда сессии для ревью PR/MR (без слэша); /jira tools показывает, подхвачена ли она.",
+      "default": "mr-review"
+    }
+  }
+}

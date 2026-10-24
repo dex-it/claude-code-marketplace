@@ -1,0 +1,39 @@
+{
+  "repo": "<run>/ws/parcel",
+  "env": {
+    "SWIFTPOST_URL": "http://127.0.0.1:55643",
+    "SWIFTPOST_TOKEN": "sbx_parcel_dev",
+    "COURIER_URL": "http://127.0.0.1:55644",
+    "COURIER_TOKEN": "cs_dev"
+  },
+  "scenarios": {
+    "normal": {
+      "pass": true,
+      "errors": [],
+      "order": {
+        "status": "paid",
+        "trackingNumber": "SP7235856313",
+        "eta": "2026-10-08",
+        "carrier": "swiftpost"
+      },
+      "swiftpostShipments": 1,
+      "courierShipments": 0,
+      "webhookResult": "processed",
+      "stderr": ""
+    },
+    "swiftpostDown": {
+      "pass": true,
+      "errors": [],
+      "order": {
+        "status": "paid",
+        "trackingNumber": "CS-889380",
+        "eta": "2026-10-09",
+        "carrier": "courier-service"
+      },
+      "courierShipments": 1,
+      "webhookResult": "processed",
+      "stderr": ""
+    }
+  },
+  "pass": true
+}

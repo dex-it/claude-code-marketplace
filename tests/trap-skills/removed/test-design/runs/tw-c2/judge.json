@@ -1,0 +1,142 @@
+{
+  "repo": "<run>/ws/parcel",
+  "base": "9bbfe85ae4030627b5dc3644a5d5573439e80854",
+  "testFiles": [
+    "test/courier-service.test.js",
+    "test/eta.test.js",
+    "test/order.test.js",
+    "test/orders-api.test.js",
+    "test/sms.test.js",
+    "test/store.test.js",
+    "test/tariff.test.js",
+    "web/test/order-view.test.js"
+  ],
+  "baselineGreen": 52,
+  "baselineFailing": [
+    "test/order.test.js > createOrder: зона B и опции учитываются в сумме",
+    "test/tariff.test.js > зона B: индексы 19xxxx",
+    "test/tariff.test.js > зона C: прочие шестизначные, включая 15xxxx - 18xxxx и 0xxxxx",
+    "test/tariff.test.js > quote: ставки зон B и C за каждые 0,5 кг"
+  ],
+  "mutants": {
+    "w-max": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > тарифицируемый вес округляется вверх до 0,5 кг",
+        "test/tariff.test.js > границы веса 0,1 и 30 кг допустимы, за ними - WEIGHT_RANGE"
+      ]
+    },
+    "w-min": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > тарифицируемый вес округляется вверх до 0,5 кг",
+        "test/tariff.test.js > границы веса 0,1 и 30 кг допустимы, за ними - WEIGHT_RANGE"
+      ]
+    },
+    "ret-14": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > возврат: на 14-е сутки принимается"
+      ]
+    },
+    "w-nan": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > вес не число - WEIGHT_TYPE"
+      ]
+    },
+    "w-str": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > вес не число - WEIGHT_TYPE",
+        "test/tariff.test.js > quote: ошибки веса и индекса пробрасываются"
+      ]
+    },
+    "pc-5": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > индекс не из шести цифр - POSTCODE"
+      ]
+    },
+    "zone-x": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > срок доставки: неизвестная зона - ZONE"
+      ]
+    },
+    "skip-pack": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > пропуск шага - TRANSITION, заказ не меняется"
+      ]
+    },
+    "cancel-shipped": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > отмена shipped, delivered, cancelled, returned - CANCEL_FORBIDDEN, ничего не трогается"
+      ]
+    },
+    "ret-shipped": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > возврат не из delivered - RETURN_FORBIDDEN, заказ и деньги не меняются"
+      ]
+    },
+    "no-refund-packed": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > отмена paid и packed: возврат totalKopecks и снятие резерва"
+      ]
+    },
+    "no-release-created": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > отмена created: резерв снимается, деньги не возвращаются"
+      ]
+    },
+    "ef": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote: экспресс + хрупкое - надбавка 600 ₽ к базе +50%"
+      ]
+    },
+    "el": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote: при экспрессе скидка лояльности не действует"
+      ]
+    },
+    "fl": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote: скидка лояльности считается после надбавки за хрупкость"
+      ]
+    },
+    "efl": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote: при экспрессе скидка лояльности не действует"
+      ]
+    },
+    "none": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > createOrder: статус created, сумма и зона по тарифу",
+        "test/order.test.js > отмена paid и packed: возврат totalKopecks и снятие резерва",
+        "test/order.test.js > возврат доставленного заказа в окне: деньги возвращаются, статус returned",
+        "test/tariff.test.js > quote: пример из требований, 1,2 кг в зону A - 360 ₽"
+      ]
+    },
+    "exp-ignored": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > срок доставки: таблица стандарт / экспресс по зонам"
+      ]
+    }
+  },
+  "summary": {
+    "total": 18,
+    "killed": 18,
+    "alive": []
+  }
+}

@@ -1,0 +1,41 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..bb02d4d
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,35 @@
++# Ревью MR: Outbox-воркер рассылки уведомлений
++
++## Критичные (critical)
++
++1. **`Program.cs:11`** — секция конфигурации для SMTP не совпадает: `Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"))`, но во всех appsettings*.json секция называется `"Smtp"`, секции `"Mail"` нет нигде. `SmtpOptions` всегда биндится в дефолтные значения (`Host = null`, `Port = 0`, `FromAddress = null`). Отправка почты не работает ни в одном окружении.
++
++2. **`OutboxWorker.ProcessBatchAsync`** — `m.SentAt = now` проставляется и коммитится (`SaveChangesAsync`) до фактической отправки письма. При ошибке отправки в `catch` инкрементируется только `Attempts`, а `SentAt` не откатывается. Следующий запрос (`m.SentAt == null`) больше никогда не выберет это сообщение — вся ретрай-логика (`MaxRetries`, `Attempts`) фактически мертва, неудачные отправки молча теряются.
++
++3. **`OutboxWorker.ExecuteAsync:33`** — `Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)`, при этом `appsettings.json`: `"PollInterval": 500`, а по описанию MR это «раз в полсекунды» (500 мс). Код трактует 500 как секунды → воркер опрашивает outbox раз в ~8.3 минуты вместо 2 раз в секунду.
++
++4. **`ThrottleService.WaitAsync`** — читает `config.GetValue<int>("Throttle:MessagesPerMinute")`, но во всех appsettings ключ — `Throttle:PerMinute`. Для отсутствующего ключа `GetValue<int>` вернёт `0`, и `60_000 / perMinute` бросит `DivideByZeroException` на каждой попытке отправки (перехватывается catch-ом в `OutboxWorker`, письмо реально не уходит ни разу).
++
++5. **`Program.cs`** — `OutboxOptionsValidator : IValidateOptions<OutboxOptions>` нигде не зарегистрирован в DI (`AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` отсутствует) и нет `.ValidateOnStart()`. Валидатор покрыт юнит-тестами, но системой опций никогда не вызывается — некорректный конфиг (например, `MaxBatchSize <= 0`) не отлавливается при старте.
++
++6. **`appsettings.Production.json`** — секреты закоммичены в открытом виде: пароль БД `Kx7!pQ2vR9wz` и ключ SMTP-релея `rl_live_9f3a1c77e2b04d6d` в репозитории. (В Staging для пароля БД используется плейсхолдер `${NOTIFY_DB_PASSWORD}`, но в проекте не подключён provider, разворачивающий `${...}` — если подстановка не делается снаружи, строка подключения будет содержать буквальный текст плейсхолдера.)
++
++## Высокие (high)
++
++7. **`OutboxWorker` конструктор** — используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`. По описанию MR `MaxInFlight` и размер пачки должны меняться на лету правкой appsettings без рестарта. `IOptions<T>.Value` кэшируется один раз на весь жизненный цикл синглтона — перечитывание `options.Value` в цикле (`OutboxWorker.cs:22`) не даёт живого обновления. Нужен `IOptionsMonitor<OutboxOptions>.CurrentValue`.
++
++8. **`OutboxOptionsValidator.Validate`** — нет кросс-полевой проверки `MinBatchSize <= MaxBatchSize` (и нет проверки `MinBatchSize > 0`). `appsettings.Production.json` реально нарушает это: `MinBatchSize: 200 > MaxBatchSize: 100`. Сейчас это тихо ломает адаптивное батчирование (`OutboxWorker.cs:25`, условие `MinBatchSize < MaxBatchSize` всегда false, `_batchSize` замирает на `MaxBatchSize`).
++
++9. **`appsettings.Staging.json` vs `appsettings.Production.json`** — `Outbox:MaxInFlight`: Staging = 20, Production = 5. Staging агрессивнее Production без обоснования рядом — нарушение принятого в команде правила.
++
++10. **`Options/SmtpOptions.cs`** — нет валидации обязательных полей (`Host`, `FromAddress` — non-nullable `string` без значений по умолчанию, без `IValidateOptions<SmtpOptions>`/DataAnnotations). Отсутствие значения из конфига (см. дефект №1) не ловится при старте, падение произойдёт только в рантайме глубоко в MailKit.
++
++## Средние (medium)
++
++11. **`Options/OutboxOptions.cs:5`** — `PollInterval` без единицы измерения в имени. Именно эта неоднозначность (секунды vs миллисекунды) привела к дефекту №3. Переименовать в `PollIntervalMilliseconds`/`PollIntervalSeconds` и согласовать с использованием.
++
++12. **`appsettings.Production.json` / `appsettings.Staging.json`** — дублирование дефолтных значений: `MaxRetries: 5` в обоих env-файлах и `MaxInFlight: 5` в Production совпадают со значением по умолчанию из `appsettings.json`. Env-файл должен нести только отличия от дефолта.
++
++## Низкие (low)
++
++13. **`tests/OutboxOptionsValidatorTests.cs`** — нет теста на инвариант `MinBatchSize <= MaxBatchSize`; тесты вызывают валидатор напрямую и не могли бы поймать проблему №5 (отсутствие регистрации в DI).

@@ -1,0 +1,82 @@
+{
+  "id": "8a488a",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.071311,
+    "durationMs": 9203,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6537,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 929,
+      "output_tokens_details": {
+        "thinking_tokens": 280
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6537,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 929,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6537,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6537
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "В выходе нет утверждений о потере Kind у DateTime.UtcNow.Date или о PlannedLocal, и правок в них тоже нет."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync в выходе не упоминается."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Добавить AsNoTracking в GetInAnalysisForBatchAsync исполнитель не предлагает."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "GetRecentBySiteAsync использует FromSql с правильной параметризацией",
+      "why": "FromSql исполнитель прямо признаёт корректно параметризованным."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "YES",
+      "quote": "`sample.Tags.Clear()` может вызвать InvalidOperationException при SaveChanges",
+      "why": "Корректный Clear() внесён в дефекты с severity MEDIUM, а взамен предложен ExecuteDeleteAsync; обоснование — якобы зависящее от версии EF поведение, хотя связь обязательная и по умолчанию каскадная."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total * 100` даёт 0% вместо корректного процента",
+      "why": "Названы оба дефекта: целочисленное деление и деление на ноль при total == 0."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`",
+      "why": "Пропуск первой страницы при нумерации с 1 назван прямо."
+    }
+  },
+  "stderr": ""
+}

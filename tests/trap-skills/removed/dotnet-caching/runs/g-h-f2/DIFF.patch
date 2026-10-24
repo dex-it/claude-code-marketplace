@@ -1,0 +1,303 @@
+diff --git a/src/Pricing.Api/Contracts/SupplierPricesContracts.cs b/src/Pricing.Api/Contracts/SupplierPricesContracts.cs
+new file mode 100644
+index 0000000..3d32255
+--- /dev/null
++++ b/src/Pricing.Api/Contracts/SupplierPricesContracts.cs
+@@ -0,0 +1,5 @@
++using System.ComponentModel.DataAnnotations;
++
++namespace Pricing.Api.Contracts;
++
++public sealed record SupplierPricesChangedRequest([Required] string SupplierId, IReadOnlyList<string>? Skus);
+diff --git a/src/Pricing.Api/Controllers/SupplierPricesController.cs b/src/Pricing.Api/Controllers/SupplierPricesController.cs
+new file mode 100644
+index 0000000..24a1432
+--- /dev/null
++++ b/src/Pricing.Api/Controllers/SupplierPricesController.cs
+@@ -0,0 +1,27 @@
++using Microsoft.AspNetCore.Mvc;
++using Pricing.Api.Contracts;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Api.Controllers;
++
++[ApiController]
++public sealed class SupplierPricesController(ISupplierPriceCacheInvalidator cache) : ControllerBase
++{
++    /// <summary>Вебхук поставщика: цены изменились. skus == null - перезалит весь прайс.</summary>
++    [HttpPost("api/webhooks/supplier-prices")]
++    [ProducesResponseType(StatusCodes.Status204NoContent)]
++    public IActionResult OnPricesChanged(SupplierPricesChangedRequest request)
++    {
++        cache.Invalidate(request.SupplierId, request.Skus);
++        return NoContent();
++    }
++
++    /// <summary>Служебный сброс кэша цен поставщика (для поддержки).</summary>
++    [HttpDelete("api/suppliers/{supplierId}/price-cache")]
++    [ProducesResponseType(StatusCodes.Status204NoContent)]
++    public IActionResult ResetPriceCache(string supplierId)
++    {
++        cache.Invalidate(supplierId, null);
++        return NoContent();
++    }
++}
+diff --git a/src/Pricing.Application/Abstractions/ISupplierPriceCacheInvalidator.cs b/src/Pricing.Application/Abstractions/ISupplierPriceCacheInvalidator.cs
+new file mode 100644
+index 0000000..e62d254
+--- /dev/null
++++ b/src/Pricing.Application/Abstractions/ISupplierPriceCacheInvalidator.cs
+@@ -0,0 +1,7 @@
++namespace Pricing.Application.Abstractions;
++
++public interface ISupplierPriceCacheInvalidator
++{
++    /// <summary>Сбрасывает кэш цен поставщика; skus == null - весь прайс поставщика.</summary>
++    void Invalidate(string supplierId, IReadOnlyCollection<string>? skus);
++}
+diff --git a/src/Pricing.Infrastructure/InfrastructureModule.cs b/src/Pricing.Infrastructure/InfrastructureModule.cs
+index b906c7f..3cb452c 100644
+--- a/src/Pricing.Infrastructure/InfrastructureModule.cs
++++ b/src/Pricing.Infrastructure/InfrastructureModule.cs
+@@ -1,5 +1,6 @@
+ using Microsoft.Extensions.Configuration;
+ using Microsoft.Extensions.DependencyInjection;
++using Microsoft.Extensions.DependencyInjection.Extensions;
+ using Microsoft.Extensions.Options;
+ using Pricing.Application.Abstractions;
+ using Pricing.Infrastructure.Persistence;
+@@ -16,13 +17,17 @@ public static class InfrastructureModule
+         services.AddScoped<IPromotionRepository, InMemoryPromotionRepository>();
+ 
+         services.Configure<SupplierOptions>(config.GetSection(SupplierOptions.Section));
+-        services.AddHttpClient<ISupplierCatalog, SupplierApiClient>((sp, http) =>
++        services.AddHttpClient<SupplierApiClient>((sp, http) =>
+             {
+                 var o = sp.GetRequiredService<IOptions<SupplierOptions>>().Value;
+                 http.BaseAddress = o.BaseUrl;
+                 http.DefaultRequestHeaders.Add("X-Api-Key", o.ApiKey);
+             })
+             .AddStandardResilienceHandler();
++        services.TryAddSingleton(TimeProvider.System);
++        services.AddSingleton<SupplierPriceCache>();
++        services.AddSingleton<ISupplierPriceCacheInvalidator>(sp => sp.GetRequiredService<SupplierPriceCache>());
++        services.AddTransient<ISupplierCatalog, CachedSupplierCatalog>();
+         return services;
+     }
+ }
+diff --git a/src/Pricing.Infrastructure/Suppliers/CachedSupplierCatalog.cs b/src/Pricing.Infrastructure/Suppliers/CachedSupplierCatalog.cs
+new file mode 100644
+index 0000000..16effad
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Suppliers/CachedSupplierCatalog.cs
+@@ -0,0 +1,9 @@
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Infrastructure.Suppliers;
++
++public sealed class CachedSupplierCatalog(SupplierApiClient inner, SupplierPriceCache cache) : ISupplierCatalog
++{
++    public Task<SupplierPrice?> GetPriceAsync(string supplierId, string sku, CancellationToken ct) =>
++        cache.GetOrFetchAsync(supplierId, sku, token => inner.GetPriceAsync(supplierId, sku, token), ct);
++}
+diff --git a/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs b/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
+index 3620c82..8120526 100644
+--- a/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
++++ b/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
+@@ -5,4 +5,5 @@ public sealed class SupplierOptions
+     public const string Section = "Suppliers";
+     public Uri BaseUrl { get; set; } = new("http://localhost:5100/");
+     public string ApiKey { get; set; } = "";
++    public TimeSpan PriceCacheTtl { get; set; } = TimeSpan.FromMinutes(10);
+ }
+diff --git a/src/Pricing.Infrastructure/Suppliers/SupplierPriceCache.cs b/src/Pricing.Infrastructure/Suppliers/SupplierPriceCache.cs
+new file mode 100644
+index 0000000..200fc2f
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Suppliers/SupplierPriceCache.cs
+@@ -0,0 +1,66 @@
++using System.Collections.Concurrent;
++using Microsoft.Extensions.Options;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Infrastructure.Suppliers;
++
++/// <summary>
++/// Кэш цен поставщика. Одновременные промахи по одному SKU делят один вызов поставщика;
++/// ошибки не кэшируются. Общий вызов не отменяется отказом одного из ожидающих.
++/// </summary>
++public sealed class SupplierPriceCache(IOptions<SupplierOptions> options, TimeProvider time) : ISupplierPriceCacheInvalidator
++{
++    private sealed record Entry(Task<SupplierPrice?> Task, DateTimeOffset ExpiresAt);
++
++    private readonly ConcurrentDictionary<(string SupplierId, string Sku), Entry> _entries = new();
++
++    public Task<SupplierPrice?> GetOrFetchAsync(
++        string supplierId, string sku, Func<CancellationToken, Task<SupplierPrice?>> fetch, CancellationToken ct)
++    {
++        var key = (supplierId, sku);
++        while (true)
++        {
++            var now = time.GetUtcNow();
++            if (_entries.TryGetValue(key, out var existing))
++            {
++                if (existing.ExpiresAt > now) return existing.Task.WaitAsync(ct);
++                _entries.TryRemove(new KeyValuePair<(string SupplierId, string Sku), Entry>(key, existing));
++                continue;
++            }
++
++            var tcs = new TaskCompletionSource<SupplierPrice?>(TaskCreationOptions.RunContinuationsAsynchronously);
++            var entry = new Entry(tcs.Task, now + options.Value.PriceCacheTtl);
++            if (!_entries.TryAdd(key, entry)) continue;
++
++            _ = FetchAsync(key, entry, tcs, fetch);
++            return tcs.Task.WaitAsync(ct);
++        }
++    }
++
++    public void Invalidate(string supplierId, IReadOnlyCollection<string>? skus)
++    {
++        if (skus is null)
++        {
++            foreach (var key in _entries.Keys)
++                if (key.SupplierId == supplierId) _entries.TryRemove(key, out _);
++            return;
++        }
++
++        foreach (var sku in skus) _entries.TryRemove((supplierId, sku), out _);
++    }
++
++    private async Task FetchAsync(
++        (string SupplierId, string Sku) key, Entry entry, TaskCompletionSource<SupplierPrice?> tcs,
++        Func<CancellationToken, Task<SupplierPrice?>> fetch)
++    {
++        try
++        {
++            tcs.SetResult(await fetch(CancellationToken.None));
++        }
++        catch (Exception ex)
++        {
++            _entries.TryRemove(new KeyValuePair<(string SupplierId, string Sku), Entry>(key, entry));
++            tcs.SetException(ex);
++        }
++    }
++}
+diff --git a/tests/Pricing.Tests/Pricing.Tests.csproj b/tests/Pricing.Tests/Pricing.Tests.csproj
+index 476155a..6d1b917 100644
+--- a/tests/Pricing.Tests/Pricing.Tests.csproj
++++ b/tests/Pricing.Tests/Pricing.Tests.csproj
+@@ -13,5 +13,6 @@
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\..\src\Pricing.Application\Pricing.Application.csproj" />
++    <ProjectReference Include="..\..\src\Pricing.Infrastructure\Pricing.Infrastructure.csproj" />
+   </ItemGroup>
+ </Project>
+diff --git a/tests/Pricing.Tests/SupplierPriceCacheTests.cs b/tests/Pricing.Tests/SupplierPriceCacheTests.cs
+new file mode 100644
+index 0000000..6cd32ec
+--- /dev/null
++++ b/tests/Pricing.Tests/SupplierPriceCacheTests.cs
+@@ -0,0 +1,102 @@
++using Microsoft.Extensions.Options;
++using Pricing.Application.Abstractions;
++using Pricing.Infrastructure.Suppliers;
++
++namespace Pricing.Tests;
++
++public sealed class SupplierPriceCacheTests
++{
++    private sealed class ManualTime : TimeProvider
++    {
++        public DateTimeOffset Now { get; set; } = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
++        public override DateTimeOffset GetUtcNow() => Now;
++    }
++
++    private readonly ManualTime _time = new();
++    private readonly SupplierPriceCache _cache;
++    private int _calls;
++
++    public SupplierPriceCacheTests() =>
++        _cache = new SupplierPriceCache(Options.Create(new SupplierOptions()), _time);
++
++    private Task<SupplierPrice?> Fetch(CancellationToken _)
++    {
++        var n = Interlocked.Increment(ref _calls);
++        return Task.FromResult<SupplierPrice?>(new SupplierPrice("A", n, "RUB"));
++    }
++
++    [Fact]
++    public async Task Repeated_calls_return_cached_price()
++    {
++        var first = await _cache.GetOrFetchAsync("s", "A", Fetch, default);
++        var second = await _cache.GetOrFetchAsync("s", "A", Fetch, default);
++
++        Assert.Equal(1m, first!.Price);
++        Assert.Equal(1m, second!.Price);
++    }
++
++    [Fact]
++    public async Task Concurrent_misses_share_one_fetch()
++    {
++        var gate = new TaskCompletionSource();
++        async Task<SupplierPrice?> Slow(CancellationToken ct)
++        {
++            Interlocked.Increment(ref _calls);
++            await gate.Task;
++            return new SupplierPrice("A", 5, "RUB");
++        }
++
++        var tasks = Enumerable.Range(0, 20).Select(_ => _cache.GetOrFetchAsync("s", "A", Slow, default)).ToList();
++        gate.SetResult();
++        var prices = await Task.WhenAll(tasks);
++
++        Assert.Equal(1, _calls);
++        Assert.All(prices, p => Assert.Equal(5m, p!.Price));
++    }
++
++    [Fact]
++    public async Task Price_is_refetched_after_ttl()
++    {
++        await _cache.GetOrFetchAsync("s", "A", Fetch, default);
++        _time.Now += TimeSpan.FromMinutes(10) + TimeSpan.FromSeconds(1);
++
++        var price = await _cache.GetOrFetchAsync("s", "A", Fetch, default);
++
++        Assert.Equal(2m, price!.Price);
++    }
++
++    [Fact]
++    public async Task Failure_is_not_cached()
++    {
++        await Assert.ThrowsAsync<HttpRequestException>(() =>
++            _cache.GetOrFetchAsync("s", "A", _ => throw new HttpRequestException(), default));
++
++        var price = await _cache.GetOrFetchAsync("s", "A", Fetch, default);
++
++        Assert.Equal(1m, price!.Price);
++    }
++
++    [Fact]
++    public async Task Invalidate_skus_drops_only_listed()
++    {
++        await _cache.GetOrFetchAsync("s", "A", Fetch, default);
++        await _cache.GetOrFetchAsync("s", "B", Fetch, default);
++
++        _cache.Invalidate("s", new[] { "A" });
++
++        Assert.Equal(3m, (await _cache.GetOrFetchAsync("s", "A", Fetch, default))!.Price);
++        Assert.Equal(2m, (await _cache.GetOrFetchAsync("s", "B", Fetch, default))!.Price);
++    }
++
++    [Fact]
++    public async Task Invalidate_null_drops_whole_supplier_only()
++    {
++        await _cache.GetOrFetchAsync("s", "A", Fetch, default);
++        await _cache.GetOrFetchAsync("other", "A", Fetch, default);
++
++        _cache.Invalidate("s", null);
++
++        Assert.Equal(3m, (await _cache.GetOrFetchAsync("s", "A", Fetch, default))!.Price);
++        Assert.Equal(2m, (await _cache.GetOrFetchAsync("other", "A", Fetch, default))!.Price);
++    }
++}

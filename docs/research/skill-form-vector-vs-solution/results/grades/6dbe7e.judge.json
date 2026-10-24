@@ -1,0 +1,92 @@
+{
+  "id": "6dbe7e",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.076899,
+    "durationMs": 10078,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6868,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1076,
+      "output_tokens_details": {
+        "thinking_tokens": 339
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6868,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1076,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6868,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6868
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Фильтр по TripRow.OffDay после ToRows() в OffDayTripsAsync в выходе не упомянут."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "может привести к неоптимальному SQL (подзапрос вместо встроенного условия)",
+      "why": "Находка сведена к неоптимальности; падение PostgreSQL из-за ';' в подзапросе не названо, а предложенный SQL сам сохраняет ';'."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "обработка оснащения защищена от дублей",
+      "why": "Дефект Clear() на незагруженной коллекции не найден, код объявлен корректным."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "миграция правильная",
+      "why": "Миграция пропущена как корректная."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Проверка должна использовать CreatedAt вместо InspectedAt",
+      "why": "Найдено другое замечание к StartTripAsync; неуникальный порядок по CreatedAt при SplitQuery не назван."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Условие `p.ValidUntil > today` неверное",
+      "why": "Назван дефект: в последний день допуска водителя не выпускают, предложено >=."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint для замены комплектации машин не защищен авторизацией",
+      "why": "Отсутствие политики на endpoint оснащения названо, хотя метод ошибочно указан как GET."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Permits.Clear() в ReplacePermitsAsync дефектом не назван."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в находках не упоминается."
+    }
+  },
+  "stderr": ""
+}

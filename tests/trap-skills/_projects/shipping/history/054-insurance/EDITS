@@ -1,0 +1,99 @@
+<<<<<<< src/quote.js
+import { billableGrams } from './parcel.js';
+=======
+import { billableGrams } from './parcel.js';
+import { insuranceFee } from './insurance.js';
+>>>>>>>
+<<<<<<< src/quote.js
+export function quote({ weightGrams, zone, express = false, currency = 'EUR' }, tariffs = TARIFFS) {
+=======
+export function quote({ weightGrams, zone, express = false, declaredValue, currency = 'EUR' }, tariffs = TARIFFS) {
+>>>>>>>
+<<<<<<< src/quote.js
+  if (express) price += tariff.express;
+  price = round2(price);
+=======
+  if (express) price += tariff.express;
+  const insurance = declaredValue === undefined ? 0 : insuranceFee(declaredValue, zone);
+  price = round2(price + insurance);
+>>>>>>>
+<<<<<<< src/quote.js
+  return { zone, billableKg: grams / 1000, price, currency };
+=======
+  return { zone, billableKg: grams / 1000, price, insurance, currency };
+>>>>>>>
+<<<<<<< src/request.js
+    note: parseNote(body.note),
+=======
+    note: parseNote(body.note),
+    declaredValue: body.declaredValue,
+>>>>>>>
+<<<<<<< src/shipments.js
+import { deliveryDays } from './delivery.js';
+=======
+import { deliveryDays } from './delivery.js';
+import { insuredAmount } from './insurance.js';
+
+const LIMIT_EUR = 1000; // страховая сумма отправления; выше - только по договору
+>>>>>>>
+<<<<<<< src/shipments.js
+  const parcel = parseParcel(body);
+  const { price, billableKg } = quote(parcel);
+=======
+  const parcel = parseParcel(body);
+  const insured = parcel.declaredValue !== undefined;
+  if (insured && insuredAmount(parcel.declaredValue) > LIMIT_EUR) {
+    throw new HttpError(422, `сумма отправления превышает лимит ${LIMIT_EUR} EUR`);
+  }
+  const { price, billableKg, insurance } = quote(parcel);
+>>>>>>>
+<<<<<<< src/shipments.js
+    note: parcel.note,
+    price,
+=======
+    note: parcel.note,
+    insured,
+    insurance,
+    price,
+>>>>>>>
+<<<<<<< config/tariffs.json
+{
+  "zones": {
+=======
+{
+  "insurance": { "rate": 0.01 },
+  "zones": {
+>>>>>>>
+<<<<<<< docs/api.md
+- `note` - комментарий отправителя для этикетки, строка до 200 символов (только `/shipments`).
+=======
+- `note` - комментарий отправителя для этикетки, строка до 200 символов (только `/shipments`).
+- `declaredValue` - заявленная ценность для страхования: целое число в центах EUR (`20000` - это
+  200,00 EUR); нет поля - без страховки. Страховая сумма не больше 1000 EUR, больше - 422 (только по
+  договору). Зона D не страхуется - 422 (docs/tariffs.md).
+>>>>>>>
+<<<<<<< docs/api.md
+Ответ 200: `{zone, billableKg, price, currency, deliveryDays}`; `billableKg` - расчётный вес
+(docs/tariffs.md), `deliveryDays` - срок в рабочих днях, `"1"` или `"2-3"`.
+=======
+Ответ 200: `{zone, billableKg, price, insurance, currency, deliveryDays}`; `billableKg` - расчётный вес
+(docs/tariffs.md), `insurance` - надбавка за страховку, EUR (входит в `price`), `deliveryDays` - срок в
+рабочих днях, `"1"` или `"2-3"`.
+>>>>>>>
+<<<<<<< docs/api.md
+| 400 | неверный вес, индекс, валюта или комментарий |
+=======
+| 400 | неверный вес, индекс, валюта, комментарий или `declaredValue` |
+| 422 | страхование: сумма больше лимита или зона D |
+>>>>>>>
+<<<<<<< docs/tariffs.md
+## Валюта
+=======
+## Страхование
+
+Надбавка за страховку - `insurance.rate` из `config/tariffs.json` (сейчас 1 %) от страховой суммы;
+страховая сумма - заявленная ценность (`declaredValue`, docs/api.md), не больше 1000 EUR. Зона D не
+страхуется.
+
+## Валюта
+>>>>>>>

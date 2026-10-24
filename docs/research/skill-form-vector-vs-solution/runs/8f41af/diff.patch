@@ -1,0 +1,85 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4153571
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,79 @@
++# Ревью MR !238: результаты
++
++## Критические дефекты
++
++### 1. TripService.cs: OffDayTripsAsync / TripRows.ToRows — нетранслируемое выражение в Select
++**Файл:** TripService.cs, строки 66-79 и 21-34
++**Метод:** `OffDayTripsAsync` и `ToRows()`
++**Проблема:** В методе расширения `ToRows()` вызывается `WorkCalendar.IsWorkingDay(t.StartedAt)` внутри `Select` для `IQueryable<Trip>`:
++
++```csharp
++OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt),
++```
++
++`WorkCalendar.IsWorkingDay()` — это C# метод, который конвертирует UTC в московское время, проверяет день недели и праздничные дни через `HashSet<DateOnly>`. Это не может быть транслировано в SQL. При выполнении `OffDayTripsAsync` запрос упадёт с `InvalidOperationException` (The LINQ expression could not be translated).
++
++**Исправление:** Материализовать данные перед вызовом нетранслируемой функции:
++```csharp
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToListAsync()  // материализация перед Select с нетранслируемой функцией
++    .Select(t => new TripRow { ... OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt) })
++    .Where(r => r.OffDay)
++    .OrderByDescending(r => r.Km)
++    .ToList();
++```
++
++**Severity:** CRITICAL
++
++---
++
++## Дефекты высокой серьёзности
++
++### 2. TripService.cs: StartTripAsync — неправильное сравнение даты истечения допуска
++**Файл:** TripService.cs, строка 111
++**Метод:** `StartTripAsync`
++**Проблема:** Проверка допуска использует `>` вместо `>=`:
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++```
++
++По спецификации в MR.md: "допуск действует по указанную в нём дату **включительно**". Если `ValidUntil = 2026-10-02` (сегодня), то условие `ValidUntil > today` вернёт `false`, и выпуск машины будет отклонен, хотя допуск ещё действует в этот день.
++
++**Исправление:**
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil >= today))
++```
++
++**Severity:** HIGH
++
++---
++
++## Дефекты средней серьёзности
++
++### 3. Program.cs: endpoint PUT /vehicles/{id}/equipment — отсутствует авторизация
++**Файл:** Program.cs, строки 53-57
++**Проблема:** Endpoint для изменения оснащения машины не требует авторизацию:
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});  // ← нет RequireAuthorization
++```
++
++По спецификации это операция механика (комментарий в MR.md), но endpoint доступен для любого аутентифицированного пользователя. Нужна проверка роли.
++
++**Исправление:**
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++}).RequireAuthorization("Mechanic");
++```
++
++**Severity:** MEDIUM

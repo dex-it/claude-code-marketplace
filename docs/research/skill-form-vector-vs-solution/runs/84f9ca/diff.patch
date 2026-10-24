@@ -1,0 +1,125 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..af20ffa
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,88 @@
++namespace Shop.Data;
++
++public class CatalogMaintenance
++{
++    private readonly ShopDbContext _db;
++    public CatalogMaintenance(ShopDbContext db) => _db = db;
++
++    // (a) Bulk price raise for a category, done server-side (no row materialization).
++    public Task<int> RaisePricesAsync(string category, decimal percentage = 0.10m, CancellationToken ct = default) =>
++        _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percentage)), ct);
++
++    // (b) Nightly purge of AuditLogs older than `retention` (default 1 year).
++    // Deletes in small batches (own transaction each) so a ~40M-row purge out of ~50M
++    // doesn't hold one giant transaction/lock or bloat WAL; relies on an index on At.
++    public async Task<long> CleanupOldAuditLogsAsync(
++        TimeSpan? retention = null,
++        int batchSize = 5000,
++        TimeSpan? delayBetweenBatches = null,
++        CancellationToken ct = default)
++    {
++        var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
++        var delay = delayBetweenBatches ?? TimeSpan.FromMilliseconds(200);
++        long totalDeleted = 0;
++
++        while (!ct.IsCancellationRequested)
++        {
++            var deleted = await _db.Database.ExecuteSqlInterpolatedAsync($@"
++                DELETE FROM ""AuditLogs""
++                WHERE ""Id"" IN (
++                    SELECT ""Id"" FROM ""AuditLogs""
++                    WHERE ""At"" < {cutoff}
++                    ORDER BY ""At""
++                    LIMIT {batchSize}
++                )", ct);
++
++            totalDeleted += deleted;
++            if (deleted < batchSize) break;
++            if (delay > TimeSpan.Zero) await Task.Delay(delay, ct);
++        }
++
++        return totalDeleted;
++    }
++
++    // (c) Load requested products in one query, bump Stock, save.
++    public async Task RestockAsync(IEnumerable<(Guid Id, int Add)> updates, CancellationToken ct = default)
++    {
++        var list = updates as ICollection<(Guid Id, int Add)> ?? updates.ToList();
++        var ids = list.Select(u => u.Id).Distinct().ToList();
++
++        var products = await _db.Products
++            .Where(p => ids.Contains(p.Id))
++            .ToDictionaryAsync(p => p.Id, ct);
++
++        foreach (var (id, add) in list)
++        {
++            if (products.TryGetValue(id, out var product))
++                product.Stock += add;
++        }
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (d) Create a new product with a fresh Guid.
++    public async Task<Product> CreateProductAsync(
++        string sku,
++        string category,
++        string warehouse,
++        decimal price,
++        int stock = 0,
++        CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Category = category,
++            Warehouse = warehouse,
++            Price = price,
++            Stock = stock,
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/Model.cs b/Model.cs
+index cc90064..d159e17 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -45,6 +45,7 @@ public class ShopDbContext : DbContext
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+         b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        b.Entity<AuditLog>().HasIndex(a => a.At); // required for the batched cleanup in CatalogMaintenance
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..80ed51c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,13 @@
++## Изменённые/созданные файлы
++
++- **CatalogMaintenance.cs** (новый) — сервис с методами `RaisePricesAsync`, `CleanupOldAuditLogsAsync`, `RestockAsync`, `CreateProductAsync`.
++- **Model.cs** (изменён) — добавлен `HasIndex(a => a.At)` на `AuditLog` (нужна миграция).
++
++## Решения
++
++- Поднятие цен реализовано через `ExecuteUpdateAsync` (bulk UPDATE на сервере) — без загрузки продуктов категории в память.
++- Очистка `AuditLogs` (50 млн строк, ~40 млн под удаление) идёт батчами по 5000 через `DELETE ... WHERE Id IN (SELECT ... ORDER BY At LIMIT n)` с паузой между итерациями — чтобы не держать одну гигантскую транзакцию/лок и не раздувать WAL; для этого добавлен индекс по `At`.
++- `RestockAsync` берёт все нужные продукты одним запросом (`Where(Contains)` + `ToDictionaryAsync`), инкрементирует `Stock` и делает один `SaveChangesAsync`.
++- `CreateProductAsync` создаёт `Product` с `Guid.NewGuid()` и сохраняет.
++
++Сборка и тесты не запускались (по ограничению задачи); миграцию под индекс нужно будет сгенерировать отдельно.

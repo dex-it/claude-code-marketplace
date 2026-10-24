@@ -1,0 +1,66 @@
+{
+  "id": "67b919",
+  "case": "E3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0411514,
+    "durationMs": 4439,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4012,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 431,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4012,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 431,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4012,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4012
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E3-kind": {
+      "verdict": "PASS",
+      "quote": "var cutoff = DateTime.UtcNow.AddYears(-1);",
+      "why": "Граница «старше года» берётся из DateTime.UtcNow (Kind=Utc), тип колонки AuditLog.At в diff не меняется."
+    },
+    "E3-m-update": {
+      "verdict": "NO",
+      "quote": ".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);",
+      "why": "Цены поднимаются одним UPDATE через ExecuteUpdateAsync, без загрузки продуктов и SaveChanges."
+    },
+    "E3-m-batch": {
+      "verdict": "NO",
+      "quote": ".Take(batchSize)\n                .ExecuteDeleteAsync(ct);",
+      "why": "Удаление идёт батчами по 1000 строк в цикле, а не одной операцией."
+    },
+    "E3-m-oneq": {
+      "verdict": "NO",
+      "quote": ".Where(p => ids.Contains(p.Id))\n            .ToDictionaryAsync(p => p.Id, ct);",
+      "why": "Продукты грузятся одним запросом по списку id, а не запросом на каждый id."
+    }
+  },
+  "stderr": ""
+}

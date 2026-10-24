@@ -1,0 +1,121 @@
+{
+  "id": "f3ec1d",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0729274,
+    "durationMs": 13720,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4559,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1801,
+      "output_tokens_details": {
+        "thinking_tokens": 591
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4559,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1801,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4559,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4559
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Выход не упоминает, что MaxInFlight в Staging (20) выше, чем в Production (5)."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Выход не упоминает, что MaxRetries 5 продублирован в Staging и Production при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Модификатор required нигде не упоминается и не предлагается как проверка."
+    },
+    "CFG-K1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Пароли БД и SMTP в appsettings.Production.json не названы проблемой."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "Код ищет `\"Throttle:MessagesPerMinute\"`, но в конфиге ключ `\"PerMinute\"`... `DivideByZeroException`",
+      "why": "Несовпадение ключа названо, и указано деление на ноль; неточность про null не меняет сути дефекта."
+    },
+    "CFG-K3": {
+      "verdict": "MISSED",
+      "quote": "OutboxOptionsValidator.cs — Неполная валидация",
+      "why": "Претензия только к содержимому валидатора, а то, что он не зарегистрирован и нет ValidateOnStart, не сказано."
+    },
+    "CFG-K4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "IOptions в singleton OutboxWorker как причина того, что настройки не меняются на лету, не назван."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Условие `if (o.MinBatchSize < o.MaxBatchSize)` на line 25 препятствует обновлению `_batchSize`",
+      "why": "Указано, что при 200/100 условие ложно и adaptive batching молча не работает."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "Current value в appsettings.json (500 сек) явно ошибочен",
+      "why": "Отмечено, что 500 при TimeSpan.FromSeconds даёт паузу 500 секунд вместо полсекунды."
+    },
+    "CFG-K7": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Non-nullable Host/FromAddress в SmtpOptions без дефолта и проверки не упомянуты."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout в выходе не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`m.SentAt = now;` на line 53 устанавливается и сохраняется (line 55) ДО попытки отправки",
+      "why": "Прямо указано, что неудачное письмо помечается отправленным и больше не повторяется."
+    },
+    "CFG-O2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Несовпадение GetSection(\"Mail\") с секцией Smtp не названо."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Подстановка ${NOTIFY_DB_PASSWORD}, которую конфигурация .NET не выполняет, не упомянута."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,36 @@
+{
+  "id": "k5-c2",
+  "case": "K5",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 5,
+  "cost": 0.051493800000000006,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 3
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100 && cat package.json && ls -a",
+    "cat .github/workflows/ci.yml e2e/package.json e2e/playwright.config.ts .gitignore; cat e2e/tests/smoke.spec.ts",
+    "python3 - <<'E'\np='e2e/playwright.config.ts'\ns=open(p).read()\ns=s.replace(\"\"\"  testDir: './tests',\n  use: {\n    baseURL: 'http://localhost:5173',\n  },\"\"\",\"\"\"  testDir: './tests',\n  forbidOnly: !!proce"
+  ]
+}

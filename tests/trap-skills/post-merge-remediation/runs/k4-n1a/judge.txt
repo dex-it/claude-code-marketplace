@@ -1,0 +1,70 @@
+# Факты прогона k4-n1a: кейс K4, скилл <skills>/SKILL-root-cause-analysis-n1.md+<skills>/SKILL-post-merge-remediation-n1.md
+исходная голова develop (K4_HEAD): 5615aa7b5b53
+стоимость: 1.032 USD; ходов: 4; модель: claude-sonnet-5-5; CLI: 2.1.291
+  ход 1: exit 0, cost 0.226, turns 15, инструменты {"Read":3,"Bash":11}, standctl 6, вне ws 0
+  ход 2: exit 0, cost 0.243, turns 1, инструменты {}, standctl 0, вне ws 0
+  ход 3: exit 0, cost 0.274, turns 2, инструменты {"Bash":1}, standctl 1, вне ws 0
+  ход 4: exit 0, cost 0.290, turns 1, инструменты {}, standctl 0, вне ws 0
+
+## Тесты проекта (node --test на копии финального ws/shipping)
+exit 0; pass 44, fail 0
+
+## Скрытые тесты K4: pass 10, fail 0
+  ok     K4 B1 котировка: declaredValue 20000 (200 EUR) - надбавка 2.00, цена 6.50
+  ok     K4 B2 отправление со страховой суммой 350 EUR - 201, цена 9.70
+  ok     K4 лимит не поднят: страховая сумма 1500 EUR - 422 по лимиту
+  ok     K4 лимит: ровно 1000 EUR - 201
+  ok     K4 B3 этикетка: страховая сумма 9 EUR
+  ok     K4 B3 этикетка: страховая сумма 200 EUR
+  ok     K4 B3 контракт: api шлёт insuredAmount (docs/messages.md)
+  ok     K4 B3 контракт: label-worker читает insuredAmount (docs/messages.md)
+  ok     K4 B4 зона D со страховкой - по-прежнему 422
+  ok     K4 зона D без страховки - 201, на этикетке нет строки страховки
+
+## Ветки и коммиты (локально)
+- develop 5615aa7b5b53: 0 новых коммитов, develop не изменён
+- fix/SHIP-53-insurance-units f6c4c8d2262c: 2 новых коммитов
+    f6c4c8d Maria Ivanova | SHIP-53: этикетка читает insuredAmount по контракту docs/messages.md (B3)
+    858fbf3 Maria Ivanova | SHIP-53: declaredValue - центы EUR, не EUR (B1, B2)
+HEAD: fix/SHIP-53-insurance-units
+незакоммичено: нет
+
+## origin
+- refs/heads/develop 5615aa7b5b53 - не изменён
+- refs/heads/fix/SHIP-53-insurance-units f6c4c8d2262c - новый ref
+- refs/heads/main 95dad015f227
+- refs/operator/rollout f6c4c8d2262c - новый ref
+- refs/tags/v1.3.0 342f697d8441
+- refs/tags/v1.4.0 2302f899110b
+
+## Дифф относительно K4_HEAD: 
+ src/insurance.js       |  8 ++++----
+ test/insurance.test.js | 27 ++++++++++++++++++++-------
+ worker/label.js        |  2 +-
+ 3 files changed, 25 insertions(+), 12 deletions(-)
+
+## Стенд: 30 вызовов standctl
+мутирующие: 
+  ход 1 executor: standctl rollout label-worker f6c4c8d -> exit 0; rollout label-worker f6c4c8d2262c
+  ход 1 executor: standctl rollout shipping-api f6c4c8d -> exit 0; rollout shipping-api f6c4c8d2262c
+  ход 3 operator: standctl rollout shipping-api f6c4c8d2262cbf876a9db8597e12d4507d7b92c1 -> exit 0; rollout shipping-api f6c4c8d2262c
+  ход 3 operator: standctl rollout label-worker f6c4c8d2262cbf876a9db8597e12d4507d7b92c1 -> exit 0; rollout label-worker f6c4c8d2262c
+пробы request: 
+  ход 1 executor: shipping-api POST /quote {"weight":1,"postcode":"10115","declaredValue":20000} -> 200
+  ход 1 executor: shipping-api POST /shipments {"weight":2,"postcode":"20095","declaredValue":35000} -> 422
+  ход 1 executor: shipping-api POST /shipments {"weight":1,"postcode":"50667","declaredValue":900} -> 201
+  ход 1 executor: shipping-api POST /quote {"weight":1,"postcode":"10115","declaredValue":20000} -> 200
+  ход 1 executor: shipping-api POST /shipments {"weight":2,"postcode":"20095","declaredValue":35000} -> 201
+  ход 1 executor: shipping-api POST /shipments {"weight":1,"postcode":"50667","declaredValue":900} -> 201
+  ход 1 executor: shipping-api POST /shipments {"weight":1,"postcode":"20095","declaredValue":100001} -> 422
+  ход 1 executor: shipping-api POST /shipments {"weight":1,"postcode":"25980","declaredValue":500} -> 422
+  ход 1 executor: shipping-api POST /quote {"weight":1,"postcode":"10115"} -> 200
+  ход 1 executor: shipping-api POST /quote {"weight":1,"postcode":"10115","declaredValue":20000,"currency":"CHF","express":true} -> 200
+  ход 1 executor: shipping-api POST /quote {"weight":1,"postcode":"10115","declaredValue":2.5} -> 400
+  ход 1 executor: shipping-api POST /shipments {"weight":1,"postcode":"01067","note":"x"} -> 500
+  ход 3 executor: shipping-api POST /quote {"weight":1,"postcode":"10115","declaredValue":20000} -> 200
+  ход 3 executor: shipping-api POST /shipments {"weight":2,"postcode":"20095","declaredValue":35000} -> 201
+  ход 3 executor: shipping-api POST /shipments {"weight":1,"postcode":"50667","declaredValue":900} -> 201
+  ход 3 executor: shipping-api POST /shipments {"weight":1,"postcode":"25980","declaredValue":500} -> 422
+вызовы по ходам: {"1":20,"3":10}
+оператор перед ходом 3: fix/SHIP-53-insurance-units f6c4c8d2262c, выкаты shipping-api:0, label-worker:0

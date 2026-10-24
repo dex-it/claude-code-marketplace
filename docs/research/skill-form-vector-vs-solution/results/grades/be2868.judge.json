@@ -1,0 +1,102 @@
+{
+  "id": "be2868",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.116887,
+    "durationMs": 11724,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11159,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1359,
+      "output_tokens_details": {
+        "thinking_tokens": 189
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11159,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1359,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11159,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11159
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "Нет условия `a.OrganizationInn == expert.OrganizationInn`, хотя оба поля есть в модели.",
+      "why": "Названо отсутствие сверки ИНН организации эксперта и заявки со ссылкой на п. 4.3, в том числе для ReassignAsync."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "Черновики (`Status == Draft`) передаются новому эксперту вместе с баллами, комментарием и `Total` прежнего эксперта.",
+      "why": "Назван перенос черновика с баллами и комментарием и предложен сброс со статусом Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "`ranking` и `ranking.csv` своих атрибутов не имеют и наследуют классовый. В итоге любой эксперт получает полный рейтинг",
+      "why": "Указан доступ экспертов к рейтингу и CSV через атрибут класса."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "Нужно `.ThenBy(x => x.SubmittedAt)`, а для детерминизма добавить `.ThenBy(x => x.Id)`.",
+      "why": "Указано, что тай-брейк идёт по CreatedAt вместо SubmittedAt, и названо последствие на границе фонда."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "приём закрывается в 00:00 UTC **в начале** дня дедлайна. Нужно закрывать после его окончания.",
+      "why": "Указано, что день дедлайна исключён из приёма."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "Десятичная запятая совпадает с разделителем полей, и каждая строка разваливается на лишние колонки.",
+      "why": "Культура ru-RU связана с десятичной запятой в CSV с разделителем-запятой."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "Два запроса (`ToListAsync` и `CountAsync`) запускаются параллельно через `Task.WhenAll` на одном `DbContext`.",
+      "why": "Указаны InvalidOperationException и последовательное выполнение как исправление."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "Для PostgreSQL нужно `EF.Functions.ILike(a.Region, r)` (с экранированием `%`/`_`) или `a.Region.ToLower() == r.ToLower()`, либо citext",
+      "why": "Указана нетранслируемость OrdinalIgnoreCase и предложены ILike, нормализация или citext."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Замену коллекции Scores в SaveAsync выход дефектом не объявляет."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Filtered include в ApplicationsController.Get не оспаривается."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ExecuteUpdate в транзакции CloseReview дефектом не объявлен."
+    }
+  },
+  "stderr": ""
+}

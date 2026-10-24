@@ -1,0 +1,72 @@
+{
+  "id": "111cca",
+  "case": "G5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.125519,
+    "durationMs": 13065,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12438,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1279,
+      "output_tokens_details": {
+        "thinking_tokens": 674
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12438,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1279,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12438,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12438
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G5-login-email": {
+      "verdict": "PASS",
+      "quote": "return _db.Students.FirstOrDefaultAsync(s => s.Email.ToLower() == normalized);",
+      "why": "Поиск без учёта регистра идёт через FirstOrDefault, а не Single/SingleOrDefault, поэтому при двух карточках, различающихся регистром e-mail, InvalidOperationException нет. Оговорка: OrderBy не задан, и выбор одной и той же карточки в request и confirm не гарантирован формально, но падения нет."
+    },
+    "G5-graduates-school": {
+      "verdict": "PASS",
+      "quote": "_db.Instructors.IgnoreQueryFilters()\n            .Where(i => i.SchoolId == _db.SchoolId && instructorIds.Contains(i.Id))",
+      "why": "Студенты выбираются со штатным фильтром школы, а уволенные инструкторы подтягиваются отдельным запросом с IgnoreQueryFilters и явным условием по SchoolId, так что их имена попадают в отчёт."
+    },
+    "G5-instructor-list": {
+      "verdict": "PASS",
+      "quote": "var students = await _db.Students.AsNoTracking()",
+      "why": "MaskForInstructor вызывается на неотслеживаемых экземплярах, и SaveChangesFilter не запишет маску в БД."
+    },
+    "G5-h-find-exact": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByEmailAsync в diff не затронут и дефектом не назван."
+    },
+    "G5-m-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "NoTracking включён точечно в одном запросе, глобальное поведение трекинга и SaveChangesFilter не менялись."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,5 @@
+src/Pricing.Infrastructure/Suppliers/SupplierApiClient.cs:25 - сбой поставщика (503, таймаут, открытый breaker) превращается в `null`, неотличимый от 404 «цены нет»; fallback виден только строкой в логе, метрики нет, в часы выгрузки деградацию котировок на базовую цену по дашборду не увидеть - minor
+src/Pricing.Application/Quotes/QuoteService.cs:49 - fallback по сроку котировки только пишет Warning на каждую строку и не считается метрикой: в часы выгрузки лог зашумлён, а доля котировок по базовой цене неизвестна - minor
+src/Pricing.Application/Quotes/QuoteService.cs:19 - срок 2.5 с продублирован константой и в `InfrastructureModule.cs:31` (TotalRequestTimeout) без связи; правка одного значения молча рассогласует срок котировки и срок вызова - minor
+src/Pricing.Api/Controllers/PromotionsController.cs:15 - `category` не валидируется на определённость в enum: `?category=99` вернёт 200 со скидкой 0 вместо 400, витрина примет это за «акции нет» - minor
+tests/Pricing.Tests/QuoteServiceTests.cs:1 - нет тестов `SupplierApiClient`: фильтр сбоев (5xx/429/таймаут/breaker глотаются, 4xx нет) не проверен, регресс фильтра проявится только на проде - minor

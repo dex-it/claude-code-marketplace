@@ -1,0 +1,4 @@
+- `src/Bookings.Api/Validation/BookingRules.cs`
+- `Bookings.sln`
+- `tests/Bookings.Api.Tests/Bookings.Api.Tests.csproj` (новый)
+- `tests/Bookings.Api.Tests/BookingRulesDurationTests.cs` (новый)

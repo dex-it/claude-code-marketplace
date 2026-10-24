@@ -1,0 +1,22 @@
+# REPORT
+
+## Симптом
+`/work/reportd/nightly.sh` печатает `Итого USD: 125000.00` и `Итого EUR: 125000.00` (курс 1.0). В логах нет ошибок и предупреждений, код возврата 0.
+
+## Причина
+`bin/fxfetch` берёт курс из `$REPORTD_HOME/conf/fx/<CUR>.rates` (формат `%s/conf/fx/%s.rates`). В каталоге лежит файл `conf/fx/EUR.rate` (без `s`) со значением `0.9231`. Файл `EUR.rates` не найден (ENOENT). `fxfetch` молча подставляет курс 1.0 и завершается с кодом 0. `bin/aggregate` вызывает `fxfetch EUR` через `sh -c` и берёт этот результат. Это расхождение имени файла в конфигурации: `/work/reportd/conf/fx/EUR.rate` вместо `EUR.rates`.
+
+## Улики
+- `ls /work/reportd/conf/fx` показывает только `EUR.rate`. `cat -A` выдаёт `0.9231$`.
+- `strings bin/fxfetch | grep conf` выдаёт `%s/conf/fx/%s.rates`.
+- `strace -f -e trace=execve,openat sh nightly.sh` выдаёт:
+  ```
+  execve("/work/reportd/bin/fxfetch", ["/work/reportd/bin/fxfetch", "EUR"], ...)
+  openat(AT_FDCWD, "/work/reportd/conf/fx/EUR.rates", O_RDONLY) = -1 ENOENT (No such file or directory)
+  ```
+- `REPORTD_HOME=/work/reportd bin/fxfetch EUR` печатает `1.0`, rc=0.
+
+## Что предлагаю
+1. Переименовать `conf/fx/EUR.rate` в `conf/fx/EUR.rates` (или создать ссылку с этим именем). Тогда курс станет 0.9231. Я ничего не менял.
+2. Доработать `fxfetch`, чтобы при отсутствии файла курса он завершался с ошибкой и писал в stderr, а не подставлял 1.0. Либо добавить в `aggregate` проверку, что курс не равен значению по умолчанию.
+3. Добавить в `nightly.sh` предварительную проверку наличия `conf/fx/*.rates`.

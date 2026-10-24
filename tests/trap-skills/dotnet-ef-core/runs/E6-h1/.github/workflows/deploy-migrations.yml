@@ -1,0 +1,74 @@
+name: Deploy database migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Shop.Data/Migrations/**'
+      - 'src/Shop.Data/Model.cs'
+  workflow_dispatch: {}
+
+# EF Core 8 bundles have no built-in migration lock (that lands in EF Core 9), so this
+# group serializes runs of this workflow to stop two migration applies overlapping.
+concurrency:
+  group: production-db-migration
+  cancel-in-progress: false
+
+jobs:
+  build-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore EF Core CLI tool
+        run: dotnet tool restore
+
+      # Catches a model change that never got its own migration before it reaches production.
+      - name: Verify no pending model changes
+        run: >
+          dotnet ef migrations has-pending-model-changes
+          --project src/Shop.Data
+          --startup-project src/Shop.Data
+
+      - name: Build self-contained migration bundle
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+        run: >
+          dotnet ef migrations bundle
+          --project src/Shop.Data
+          --startup-project src/Shop.Data
+          --configuration Release
+          --self-contained
+          --target-runtime linux-x64
+          --output artifacts/efbundle
+          --force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: efbundle
+          path: artifacts/efbundle
+          retention-days: 7
+
+  deploy:
+    needs: build-bundle
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: efbundle
+          path: artifacts
+
+      - name: Apply migrations to production
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+        run: |
+          chmod +x artifacts/efbundle
+          ./artifacts/efbundle --connection "${{ secrets.PRODUCTION_DB_CONNECTION_STRING }}"
+
+  # The application deploy job should declare `needs: deploy` so the schema change
+  # lands before any instance running the new Shop.Data model comes up.

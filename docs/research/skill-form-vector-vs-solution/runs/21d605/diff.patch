@@ -1,0 +1,74 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..f971168
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,56 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (a) Карточка заказа: одна сущность по PK -> Single безопасен, но данные только читаются.
++    // Include двух коллекций в одном запросе даёт декартово произведение Items x Payments,
++    // поэтому используем AsSplitQuery.
++    public Task<Order?> GetOrderCardAsync(Guid id) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.Id == id)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .SingleOrDefaultAsync();
++
++    // (б) У клиента могут быть тысячи заказов - тем более важно не строить декартово
++    // произведение по двум коллекциям в одном Include, поэтому тоже AsSplitQuery + AsNoTracking.
++    public Task<List<Order>> GetOrdersByCustomerAsync(Guid customerId) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .OrderBy(o => o.CreatedAt)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync();
++
++    // (в) SKU уникален только в пределах склада, поэтому когда склад не передан (null),
++    // условие "sku" в домене неоднозначно - Single/SingleOrDefault здесь бросит на нескольких
++    // складах. Берём FirstOrDefault с детерминированной сортировкой по складу.
++    public Task<Product?> GetProductBySkuAsync(string sku, string? warehouse) =>
++        _db.Products
++            .AsNoTracking()
++            .Where(p => p.Sku == sku && (warehouse == null || p.Warehouse == warehouse))
++            .OrderBy(p => p.Warehouse)
++            .FirstOrDefaultAsync();
++
++    // (г) Агрегат считаем на стороне БД, а не после материализации всех заказов клиента.
++    // ShippedAt nullable - фильтруем и отбираем без "!", а null-результат (нет отгруженных
++    // заказов) явно превращаем в исключение, раз возвращаемый тип не nullable.
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId)
++    {
++        var shippedAt = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .Select(o => o.ShippedAt)
++            .MaxAsync();
++
++        return shippedAt
++            ?? throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов.");
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..12081cc
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Создан файл: OrderQueries.cs (класс `OrderQueries` в namespace `Shop.Data`).
++
++Решения:
++- Везде `AsNoTracking()` (это только чтение) и `AsSplitQuery()` там, где в один запрос попадают две коллекции (Items + Payments), чтобы не получить декартово произведение — особенно критично для клиента с тысячами заказов.
++- `GetProductBySkuAsync`: SKU уникален только в рамках склада, а склад может быть `null`, поэтому вместо `Single`/`SingleOrDefault` (который упадёт при нескольких складах) используется `Where` с условием `warehouse == null || p.Warehouse == warehouse` и детерминированный `OrderBy(p => p.Warehouse).FirstOrDefault()`.
++- `GetLastShippedAtAsync`: агрегат (`MaxAsync`) считается на стороне БД по отфильтрованным `ShippedAt != null` заказам, без `!`-приведения; так как метод обязан вернуть не-nullable `DateTime`, отсутствие отгруженных заказов явно превращается в `InvalidOperationException`, а не в скрытый null.

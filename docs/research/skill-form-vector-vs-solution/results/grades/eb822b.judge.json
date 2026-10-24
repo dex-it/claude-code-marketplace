@@ -1,0 +1,72 @@
+{
+  "id": "eb822b",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.114575,
+    "durationMs": 11387,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11675,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1037,
+      "output_tokens_details": {
+        "thinking_tokens": 474
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11675,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1037,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11675,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11675
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needApartments = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || sort == \"address\";",
+      "why": "JOIN apartments/houses добавляются ровно один раз по общим флагам, которые учитывают и фильтры, и сортировку; sort и dir берутся из белого списка."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "e.Property(r => r.ContactPhone).HasMaxLength(20);",
+      "why": "ContactPhone и ClosingComment замаплены как колонки, но явный список SELECT сырого SQL в SearchAsync в diff не дополнен, поэтому FromSqlRaw не вернёт обязательные свойства сущности и реестр упадёт."
+    },
+    "G6-plan-orphans": {
+      "verdict": "FAIL",
+      "quote": "plan.Items.Remove(existing);",
+      "why": "Работы убираются только из коллекции, без _db.PlanItems.Remove; при DeleteOrphansTiming = Never SaveChanges бросит исключение о разорванной обязательной связи."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "использует тот же приём разрыва required-связи, что уже применяется в `MergePlansAsync`",
+      "why": "MergePlansAsync не переписан и не объявлен дефектным."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET исполнитель инъекцией не называет и не меняет."
+    }
+  },
+  "stderr": ""
+}

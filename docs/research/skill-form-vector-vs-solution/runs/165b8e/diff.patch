@@ -1,0 +1,74 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..130ccef
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,48 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    public async Task<Order?> GetOrderByIdAsync(Guid orderId)
++    {
++        return await _db.Orders
++            .Where(o => o.Id == orderId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync();
++    }
++
++    public IQueryable<Order> GetCustomerOrdersQuery(Guid customerId)
++    {
++        return _db.Orders
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsNoTracking();
++    }
++
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse = null)
++    {
++        var query = _db.Products.Where(p => p.Sku == sku);
++
++        if (!string.IsNullOrWhiteSpace(warehouse))
++        {
++            query = query.Where(p => p.Warehouse == warehouse);
++        }
++
++        return await query.FirstOrDefaultAsync();
++    }
++
++    public async Task<DateTime> GetLastShippedOrderDateAsync(Guid customerId)
++    {
++        var lastShippedDate = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt.HasValue)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt)
++            .FirstOrDefaultAsync();
++
++        return lastShippedDate ?? DateTime.MinValue;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..455e599
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,14 @@
++# OrderQueries Service
++
++## Созданные файлы
++- `OrderQueries.cs` - новый сервис с методами запросов к заказам
++
++## Решения
++
++1. **GetOrderByIdAsync** - прямой запрос по Id с Include для Items и Payments, возвращает Order или null.
++
++2. **GetCustomerOrdersQuery** - возвращает IQueryable для всех заказов клиента (с позициями и платежами), позволяет вызывающему коду применить Skip/Take для работы с тысячами заказов без загрузки всех в память.
++
++3. **GetProductBySkuAsync** - поиск продукта по SKU; если warehouse передан (не null), фильтрует по нему; иначе возвращает первый найденный продукт с этим SKU (может быть с любого склада).
++
++4. **GetLastShippedOrderDateAsync** - возвращает DateTime последнего отгруженного заказа (максимальный ShippedAt), или DateTime.MinValue если нет отгруженных заказов.

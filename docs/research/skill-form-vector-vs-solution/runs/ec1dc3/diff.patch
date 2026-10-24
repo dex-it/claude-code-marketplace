@@ -1,0 +1,64 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..ceebadc
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,32 @@
++namespace Shop.Data;
++
++public record OrderReportRow(Guid Id, string CustomerName, decimal Total, int ItemsCount);
++
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public Task<List<OrderReportRow>> GetActiveOrdersAsync(CancellationToken ct = default) =>
++        _orders.Query()
++            .AsNoTracking()
++            .Where(o => o.Status == "active")
++            .Select(o => new OrderReportRow(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync(ct);
++
++    public Task<Dictionary<string, int>> GetActiveOrderCountsByCategoryAsync(CancellationToken ct = default) =>
++        _orders.Query()
++            .AsNoTracking()
++            .Where(o => o.Status == "active")
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.Category, x => x.Count, ct);
++
++    public Task<List<OrderReportRow>> GetOverdueOrdersAsync(DateTime now, CancellationToken ct = default) =>
++        _orders.Query()
++            .AsNoTracking()
++            // Order.IsOverdue раскрыт вручную: метод на entity не транслируется EF в SQL
++            .Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
++            .Select(o => new OrderReportRow(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync(ct);
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..ef34b20 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,7 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Для композиции read-запросов у вызывающей стороны (фильтры/проекции/группировки на сервере).
++    public IQueryable<Order> Query() => _db.Orders;
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d9eef3f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые/созданные файлы:
++- OrderRepository.cs — добавлен метод `Query()`, возвращающий `IQueryable<Order>` для композиции read-запросов (не список), существующие методы не тронуты.
++- OrderReportService.cs (новый) — сервис с тремя read-only методами: `GetActiveOrdersAsync`, `GetActiveOrderCountsByCategoryAsync`, `GetOverdueOrdersAsync`, плюс DTO `OrderReportRow`.
++
++Решения:
++- Все методы строятся на `Query().AsNoTracking()` с проекцией в `Select` (без `Include`) — нет лишних сущностей в Change Tracker и нет N+1 на `Customer.Name`/`Items.Count`.
++- Группировка по категориям сделана через `GroupBy`+`ToDictionaryAsync` — агрегация выполняется в SQL, а не после `ToList`.
++- Правило `Order.IsOverdue` вручную раскрыто в `Where` (`ShippedAt == null && CreatedAt.AddDays(3) < now`), так как вызов метода экземпляра сущности внутри `IQueryable` не транслируется EF Core в SQL.

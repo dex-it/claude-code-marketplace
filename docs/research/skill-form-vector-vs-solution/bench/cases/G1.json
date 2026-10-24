@@ -1,0 +1,30 @@
+{
+  "id": "G1",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "BookQuarter.Library - сервис выдачи книг библиотечной сети из филиалов в нескольких часовых поясах (читатели, выдачи, штрафы); ASP.NET Core 8 minimal API, EF Core 8, Npgsql, PostgreSQL 16",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G1/Models.cs",
+      "to": "Models.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G1/LibraryDbContext.cs",
+      "to": "LibraryDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G1/Fines.cs",
+      "to": "Fines.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G1/LoanService.cs",
+      "to": "LoanService.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G1/Program.cs",
+      "to": "Program.cs"
+    }
+  ],
+  "task": "Задачи по сервису выдачи книг.\n(а) Филиалам нужен список должников для обзвона: читатель, телефон, книга, срок возврата, дни просрочки и штраф - так же, как в списке выдач читателя на кафедре; сначала самые большие штрафы, в конце - общая сумма штрафов по филиалу. Endpoint GET /branches/{id}/debtors.\n(б) Методисту нужен отчёт: число выдач по каждому филиалу за период. Период фронт отчётов присылает в теле запроса двумя моментами времени в ISO 8601 с часовым поясом пользователя, например {\"from\": \"2026-09-01T00:00:00+05:00\", \"to\": \"2026-10-01T00:00:00+05:00\"}. Endpoint POST /reports/loans-by-branch.\n(в) Ставку штрафа за день, льготный период и потолок штрафа вынести в конфигурацию (appsettings, секция Fines)."
+}

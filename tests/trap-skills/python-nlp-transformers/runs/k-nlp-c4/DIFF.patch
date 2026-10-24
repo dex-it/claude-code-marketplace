@@ -1,0 +1,428 @@
+diff --git a/README.md b/README.md
+index cf0804c..8fcf48c 100644
+--- a/README.md
++++ b/README.md
+@@ -10,6 +10,7 @@
+ | `shelfwatch.keras_train` | классификатор категории SKU (Keras, MLP), 10 классов | `data/sku.parquet`, 120 000 строк |
+ | `shelfwatch.baseline` | бейзлайн оттока магазинов (sklearn, XGBoost) | `data/accounts.parquet`, 30 000 строк, отток 5%, срез по месяцам 2024-01..2026-09 |
+ | `shelfwatch.finetune` | тональность отзывов (HF, дообучение BERT) | `data/reviews.parquet`, 8 000 отзывов |
++| `shelfwatch.sentiment_train` | тональность отзывов (rubert-base-cased, `classify`) и сводчик (Qwen2.5-7B QLoRA, адаптер вливается, `summarize`) | `data/reviews.parquet`, `data/summaries.parquet`; веса в `artifacts/sentiment/`, `artifacts/summarizer/` |
+ | `shelfwatch.tune` | подбор гиперпараметров (Optuna) | как у модуля, который тюнится |
+ 
+ Тесты: `pytest`. Задачи - в `docs/tasks/`. Данные в репозиторий не кладутся.
+diff --git a/src/shelfwatch/sentiment_train.py b/src/shelfwatch/sentiment_train.py
+new file mode 100644
+index 0000000..910f78c
+--- /dev/null
++++ b/src/shelfwatch/sentiment_train.py
+@@ -0,0 +1,332 @@
++"""Тональность отзывов (rubert-base-cased) и сводчик отзывов (Qwen2.5-7B-Instruct + LoRA).
++
++Для сервиса разметки на выходе обычные веса transformers: классификатор лежит в
++`artifacts/sentiment/`, сводчик - в `artifacts/summarizer/` с уже влитым адаптером.
++`classify` и `summarize` не импортируют `peft`, там его нет.
++Тяжёлые библиотеки импортируются внутри функций: модуль можно импортировать и тестировать без них.
++"""
++
++import random
++from collections.abc import Iterator, Sequence
++from pathlib import Path
++from typing import Any
++
++from shelfwatch.paths import ARTIFACTS_DIR, DATA_DIR
++
++BERT_NAME = "DeepPavlov/rubert-base-cased"
++QWEN_NAME = "Qwen/Qwen2.5-7B-Instruct"
++SENTIMENT_DIRNAME = "sentiment"
++SUMMARIZER_DIRNAME = "summarizer"
++
++NUM_LABELS = 3
++# У BERT 512 позиций, а отзывы бывают до 600 токенов: хвост придётся отрезать.
++BERT_MAX_LEN = 512
++TRAIN_SPLIT = "train"
++VAL_SPLIT = "val"
++SEED = 42
++
++REVIEW_COL = "review"
++SUMMARY_COL = "summary"
++QWEN_MAX_LEN = 1024
++SUMMARY_MAX_NEW_TOKENS = 128
++SYSTEM_PROMPT = "Кратко перескажи отзыв покупателя одной-двумя фразами."
++
++
++def sentiment_dir() -> Path:
++    # Каталог не создаём: сервис только читает, а artifact() делает mkdir.
++    return ARTIFACTS_DIR / SENTIMENT_DIRNAME
++
++
++def summarizer_dir() -> Path:
++    return ARTIFACTS_DIR / SUMMARIZER_DIRNAME
++
++
++def batched(items: Sequence[Any], size: int) -> Iterator[Sequence[Any]]:
++    if size < 1:
++        raise ValueError("size должен быть >= 1")
++    for start in range(0, len(items), size):
++        yield items[start : start + size]
++
++
++def split_reviews(df: Any) -> tuple[Any, Any]:
++    """Делит отзывы по готовой колонке `split`, без пересечений и без случайного разбиения."""
++    for col in ("text", "label", "split"):
++        if col not in df.columns:
++            raise ValueError(f"в reviews.parquet нет колонки {col!r}")
++    train = df[df["split"] == TRAIN_SPLIT]
++    val = df[df["split"] == VAL_SPLIT]
++    if len(train) == 0 or len(val) == 0:
++        raise ValueError(
++            f"ожидались значения split {TRAIN_SPLIT!r} и {VAL_SPLIT!r}, найдены: {sorted(df['split'].unique())}"
++        )
++    return train, val
++
++
++def build_chat_messages(review: str) -> list[dict[str, str]]:
++    return [
++        {"role": "system", "content": SYSTEM_PROMPT},
++        {"role": "user", "content": review},
++    ]
++
++
++def mask_prompt_labels(prompt_ids: list[int], answer_ids: list[int], max_len: int) -> tuple[list[int], list[int]]:
++    """input_ids и labels: loss только на ответе (на промпте -100); усечение с конца по max_len.
++
++    Промпт целиком не режем: если он не влезает, пример бесполезен, и мы это явно сообщаем.
++    """
++    if len(prompt_ids) >= max_len:
++        raise ValueError("промпт не помещается в max_len, ответу не осталось места")
++    ids = (prompt_ids + answer_ids)[:max_len]
++    labels = ([-100] * len(prompt_ids) + answer_ids)[:max_len]
++    return ids, labels
++
++
++def pad_batch(rows: Sequence[tuple[list[int], list[int]]], pad_id: int) -> dict[str, list[list[int]]]:
++    """Правое дополнение до длины самой длинной строки; labels дополняются -100."""
++    width = max(len(ids) for ids, _ in rows)
++    return {
++        "input_ids": [ids + [pad_id] * (width - len(ids)) for ids, _ in rows],
++        "attention_mask": [[1] * len(ids) + [0] * (width - len(ids)) for ids, _ in rows],
++        "labels": [lab + [-100] * (width - len(lab)) for _, lab in rows],
++    }
++
++
++# ---------------------------------------------------------------- тональность
++
++
++def train_sentiment(
++    epochs: int = 3,
++    batch_size: int = 16,
++    lr: float = 2e-5,
++    out_dir: Path | None = None,
++) -> float:
++    """Дообучает rubert, сохраняет лучшую по macro-F1 эпоху, возвращает её macro-F1 на val."""
++    import pandas as pd
++    import torch
++    from transformers import AutoModelForSequenceClassification, AutoTokenizer
++
++    from shelfwatch.metrics import macro_f1
++
++    out_dir = out_dir or sentiment_dir()
++    random.seed(SEED)
++    torch.manual_seed(SEED)
++
++    train, val = split_reviews(pd.read_parquet(DATA_DIR / "reviews.parquet"))
++    tok = AutoTokenizer.from_pretrained(BERT_NAME)
++    model = AutoModelForSequenceClassification.from_pretrained(BERT_NAME, num_labels=NUM_LABELS)
++    device = "cuda" if torch.cuda.is_available() else "cpu"
++    model.to(device)
++
++    optim = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
++    steps = epochs * ((len(train) + batch_size - 1) // batch_size)
++    sched = torch.optim.lr_scheduler.LambdaLR(
++        optim, lambda s: min((s + 1) / max(1, int(0.1 * steps)), max(0.0, (steps - s) / steps))
++    )
++
++    texts, labels = train["text"].tolist(), train["label"].astype(int).tolist()
++    best = -1.0
++    for _ in range(epochs):
++        model.train()
++        order = list(range(len(texts)))
++        random.shuffle(order)
++        for idx in batched(order, batch_size):
++            enc = tok(
++                [texts[i] for i in idx], truncation=True, max_length=BERT_MAX_LEN, padding=True, return_tensors="pt"
++            ).to(device)
++            y = torch.tensor([labels[i] for i in idx], device=device)
++            loss = model(**enc, labels=y).loss
++            loss.backward()
++            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
++            optim.step()
++            sched.step()
++            optim.zero_grad()
++
++        preds = _predict(model, tok, val["text"].tolist(), batch_size, device)
++        score = macro_f1(val["label"].astype(int).tolist(), preds)
++        if score > best:
++            best = score
++            out_dir.mkdir(parents=True, exist_ok=True)
++            model.save_pretrained(out_dir)
++            tok.save_pretrained(out_dir)
++    return best
++
++
++def _predict(model: Any, tok: Any, texts: Sequence[str], batch_size: int, device: str) -> list[int]:
++    import torch
++
++    model.eval()
++    preds: list[int] = []
++    with torch.inference_mode():
++        for chunk in batched(texts, batch_size):
++            enc = tok(
++                list(chunk), truncation=True, max_length=BERT_MAX_LEN, padding=True, return_tensors="pt"
++            ).to(device)
++            preds.extend(model(**enc).logits.argmax(dim=-1).tolist())
++    return preds
++
++
++_classifier: tuple[Any, Any] | None = None
++
++
++def _load_classifier() -> tuple[Any, Any]:
++    global _classifier
++    if _classifier is None:
++        from transformers import AutoModelForSequenceClassification, AutoTokenizer
++
++        path = str(sentiment_dir())
++        # local_files_only: сервис работает без интернета, ничего не должно ходить на hub.
++        tok = AutoTokenizer.from_pretrained(path, local_files_only=True)
++        model = AutoModelForSequenceClassification.from_pretrained(path, local_files_only=True).to("cpu")
++        model.eval()
++        _classifier = (model, tok)
++    return _classifier
++
++
++def classify(texts: list[str], batch_size: int = 32) -> list[int]:
++    """Классы тональности (0/1/2) для пачки отзывов; порядок сохраняется, CPU, без сети."""
++    if not texts:
++        return []
++    model, tok = _load_classifier()
++    return _predict(model, tok, texts, batch_size, "cpu")
++
++
++# -------------------------------------------------------------------- сводчик
++
++
++def _encode_pair(tok: Any, review: str, summary: str) -> tuple[list[int], list[int]]:
++    prompt = tok.apply_chat_template(build_chat_messages(review), tokenize=False, add_generation_prompt=True)
++    prompt_ids = tok(prompt, add_special_tokens=False)["input_ids"]
++    answer_ids = tok(summary + "<|im_end|>", add_special_tokens=False)["input_ids"]
++    return mask_prompt_labels(prompt_ids, answer_ids, QWEN_MAX_LEN)
++
++
++def train_summarizer(
++    epochs: int = 2,
++    lr: float = 2e-4,
++    micro_batch: int = 1,
++    grad_accum: int = 16,
++    rank: int = 16,
++    out_dir: Path | None = None,
++) -> None:
++    """QLoRA: базовая модель в 4 бита (nf4), обучаются только LoRA-адаптеры (влезает в 24 ГБ).
++
++    После обучения адаптер вливается в веса, сохраняется обычная модель без peft.
++    """
++    import pandas as pd
++    import torch
++    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
++    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
++
++    out_dir = out_dir or summarizer_dir()
++    random.seed(SEED)
++    torch.manual_seed(SEED)
++
++    df = pd.read_parquet(DATA_DIR / "summaries.parquet")
++    for col in (REVIEW_COL, SUMMARY_COL):
++        if col not in df.columns:
++            raise ValueError(f"в summaries.parquet нет колонки {col!r}")
++
++    tok = AutoTokenizer.from_pretrained(QWEN_NAME)
++    rows = [_encode_pair(tok, r, s) for r, s in zip(df[REVIEW_COL], df[SUMMARY_COL])]
++
++    bnb = BitsAndBytesConfig(
++        load_in_4bit=True,
++        bnb_4bit_quant_type="nf4",
++        bnb_4bit_use_double_quant=True,
++        bnb_4bit_compute_dtype=torch.bfloat16,
++    )
++    model = AutoModelForCausalLM.from_pretrained(QWEN_NAME, quantization_config=bnb, device_map={"": 0})
++    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
++    model = get_peft_model(
++        model,
++        LoraConfig(
++            r=rank,
++            lora_alpha=2 * rank,
++            lora_dropout=0.05,
++            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
++            task_type="CAUSAL_LM",
++        ),
++    )
++    params = [p for p in model.parameters() if p.requires_grad]
++    optim = torch.optim.AdamW(params, lr=lr, weight_decay=0.0)
++    total = max(1, epochs * len(rows) // (micro_batch * grad_accum))
++    sched = torch.optim.lr_scheduler.LambdaLR(optim, lambda s: max(0.0, 1 - s / total))
++
++    model.train()
++    step = 0
++    for _ in range(epochs):
++        order = list(range(len(rows)))
++        random.shuffle(order)
++        for idx in batched(order, micro_batch):
++            batch = pad_batch([rows[i] for i in idx], tok.pad_token_id)
++            batch_t = {k: torch.tensor(v, device="cuda") for k, v in batch.items()}
++            (model(**batch_t).loss / grad_accum).backward()
++            step += 1
++            if step % grad_accum == 0:
++                torch.nn.utils.clip_grad_norm_(params, 1.0)
++                optim.step()
++                sched.step()
++                optim.zero_grad()
++
++    adapter_dir = out_dir / "adapter"
++    model.save_pretrained(adapter_dir)
++    del model, optim
++    torch.cuda.empty_cache()
++    _merge_adapter(adapter_dir, out_dir)
++    tok.save_pretrained(out_dir)
++
++
++def _merge_adapter(adapter_dir: Path, out_dir: Path) -> None:
++    """Вливает адаптер в базу в bf16 (в 4-битные веса вливать нельзя) и сохраняет без peft-зависимости."""
++    import torch
++    from peft import PeftModel
++    from transformers import AutoModelForCausalLM
++
++    base = AutoModelForCausalLM.from_pretrained(QWEN_NAME, torch_dtype=torch.bfloat16, device_map="cpu")
++    merged = PeftModel.from_pretrained(base, adapter_dir).merge_and_unload()
++    merged.save_pretrained(out_dir, safe_serialization=True)
++
++
++_summarizer: tuple[Any, Any] | None = None
++
++
++def _load_summarizer() -> tuple[Any, Any]:
++    global _summarizer
++    if _summarizer is None:
++        import torch
++        from transformers import AutoModelForCausalLM, AutoTokenizer
++
++        path = str(summarizer_dir())
++        tok = AutoTokenizer.from_pretrained(path, local_files_only=True, padding_side="left")
++        device = "cuda" if torch.cuda.is_available() else "cpu"
++        model = AutoModelForCausalLM.from_pretrained(
++            path, local_files_only=True, torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32
++        ).to(device)
++        model.eval()
++        _summarizer = (model, tok)
++    return _summarizer
++
++
++def summarize(reviews: list[str], batch_size: int = 4) -> list[str]:
++    """Сводка для каждого отзыва, порядок сохраняется. Использует только transformers (без peft)."""
++    if not reviews:
++        return []
++    import torch
++
++    model, tok = _load_summarizer()
++    out: list[str] = []
++    for chunk in batched(reviews, batch_size):
++        prompts = [
++            tok.apply_chat_template(build_chat_messages(r), tokenize=False, add_generation_prompt=True) for r in chunk
++        ]
++        enc = tok(prompts, return_tensors="pt", padding=True, add_special_tokens=False).to(model.device)
++        with torch.inference_mode():
++            gen = model.generate(**enc, max_new_tokens=SUMMARY_MAX_NEW_TOKENS, do_sample=False)
++        new = gen[:, enc["input_ids"].shape[1] :]
++        out.extend(t.strip() for t in tok.batch_decode(new, skip_special_tokens=True))
++    return out
++
++
++if __name__ == "__main__":
++    print("macro-F1 (val):", train_sentiment())
++    train_summarizer()
+diff --git a/tests/test_sentiment_train.py b/tests/test_sentiment_train.py
+new file mode 100644
+index 0000000..ba4f056
+--- /dev/null
++++ b/tests/test_sentiment_train.py
+@@ -0,0 +1,72 @@
++import pandas as pd
++import pytest
++
++from shelfwatch import sentiment_train as st
++
++
++def test_split_reviews_uses_split_column() -> None:
++    df = pd.DataFrame({"text": list("abcd"), "label": [0, 1, 2, 0], "split": ["train", "train", "val", "train"]})
++    train, val = st.split_reviews(df)
++    assert list(train["text"]) == ["a", "b", "d"]
++    assert list(val["text"]) == ["c"]
++
++
++def test_split_reviews_missing_column() -> None:
++    with pytest.raises(ValueError):
++        st.split_reviews(pd.DataFrame({"text": ["a"], "label": [0]}))
++
++
++def test_split_reviews_unknown_values() -> None:
++    df = pd.DataFrame({"text": ["a"], "label": [0], "split": ["test"]})
++    with pytest.raises(ValueError):
++        st.split_reviews(df)
++
++
++def test_batched_keeps_order_and_tail() -> None:
++    assert [list(b) for b in st.batched([1, 2, 3, 4, 5], 2)] == [[1, 2], [3, 4], [5]]
++
++
++def test_batched_bad_size() -> None:
++    with pytest.raises(ValueError):
++        list(st.batched([1], 0))
++
++
++def test_mask_prompt_labels() -> None:
++    ids, labels = st.mask_prompt_labels([1, 2, 3], [4, 5], max_len=10)
++    assert ids == [1, 2, 3, 4, 5]
++    assert labels == [-100, -100, -100, 4, 5]
++
++
++def test_mask_prompt_labels_truncates_answer_only() -> None:
++    ids, labels = st.mask_prompt_labels([1, 2], [3, 4, 5], max_len=4)
++    assert ids == [1, 2, 3, 4]
++    assert labels == [-100, -100, 3, 4]
++
++
++def test_mask_prompt_labels_prompt_too_long() -> None:
++    with pytest.raises(ValueError):
++        st.mask_prompt_labels([1, 2, 3], [4], max_len=3)
++
++
++def test_pad_batch() -> None:
++    batch = st.pad_batch([([1, 2, 3], [-100, 2, 3]), ([4], [4])], pad_id=0)
++    assert batch["input_ids"] == [[1, 2, 3], [4, 0, 0]]
++    assert batch["attention_mask"] == [[1, 1, 1], [1, 0, 0]]
++    assert batch["labels"] == [[-100, 2, 3], [4, -100, -100]]
++
++
++def test_empty_inputs_do_not_load_models() -> None:
++    assert st.classify([]) == []
++    assert st.summarize([]) == []
++
++
++def test_chat_messages() -> None:
++    msgs = st.build_chat_messages("отзыв")
++    assert msgs[-1] == {"role": "user", "content": "отзыв"}
++
++
++def test_inference_path_does_not_import_peft() -> None:
++    import inspect
++
++    for fn in (st.classify, st.summarize, st._load_classifier, st._load_summarizer):
++        assert "peft" not in inspect.getsource(fn)

@@ -1,0 +1,121 @@
+{
+  "id": "53a7cf",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1197394,
+    "durationMs": 15810,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9948,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1986,
+      "output_tokens_details": {
+        "thinking_tokens": 587
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9948,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1986,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 9948,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9948
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "На стейдже `MaxInFlight: 20`, в проде 5.",
+      "why": "Находка 15 прямо называет, что MaxInFlight в Staging выше, чем в Production."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Нет находки о том, что MaxRetries 5 дублируется в Staging и Production при таком же дефолте; п.17 говорит только о семантике имени."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "пометить их `required`/`[Required]` и валидировать при старте",
+      "why": "required предложен вместе с валидацией при старте, а не вместо неё, и нигде не утверждается, что сам keyword поймает отсутствие значения в конфигурации."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "в коммит попали пароль БД прода (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея",
+      "why": "Секреты БД и SMTP в appsettings.Production.json названы critical-дефектом."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`",
+      "why": "Неверный ключ MessagesPerMinute вместо PerMinute и деление на ноль названы явно."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "`OutboxOptionsValidator` не зарегистрирован, валидации при старте нет.",
+      "why": "Отсутствие регистрации валидатора и ValidateOnStart названо дефектом."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` не даёт менять настройки на лету, а MR этого требует.",
+      "why": "IOptions в singleton-воркере при требовании hot reload названы дефектом, предложен IOptionsMonitor."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "из-за условия `if (o.MinBatchSize < o.MaxBatchSize)` молча отключает адаптивный батчинг",
+      "why": "Тихое отключение adaptive batching при 200/100 в проде названо дефектом."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "воркер опрашивает outbox раз в 500 с (~8,3 мин)",
+      "why": "PollInterval 500 с TimeSpan.FromSeconds названо дефектом."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`SmtpOptions`: non-nullable `Host` и `FromAddress` без значения.",
+      "why": "Non-nullable свойства без дефолта и без проверки названы дефектом."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет; п.18 касается SMTP-подключения на каждое письмо."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout как TimeSpan в выходе не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt` ставится до отправки и при ошибке не сбрасывается.",
+      "why": "Названо, что неудачное письмо больше не выбирается и не повторяется."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "в коде `GetSection(\"Mail\")`, а во всех appsettings секция называется `\"Smtp\"`",
+      "why": "Привязка к несуществующей секции и пустые SmtpOptions названы дефектом."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "конфигурация .NET не раскрывает `${...}`",
+      "why": "Отсутствие подстановки плейсхолдера в Staging названо дефектом."
+    }
+  },
+  "stderr": ""
+}

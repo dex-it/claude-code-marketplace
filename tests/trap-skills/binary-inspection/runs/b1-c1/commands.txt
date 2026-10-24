@@ -1,0 +1,56 @@
+docker exec <ctr> sh -c 'cd /work/vendor && ls -la && file * && echo ---- && nm -D --defined-only -C libcalc.so; echo ----; readelf -d libcalc.so | grep -i needed; echo; readelf -h vendor-tool | grep -i -E "class|machine"; readelf -d vendor-tool | grep -i needed'
+docker exec <ctr> sh -c 'cd /work/vendor && strings -a vendor-tool | head -40; echo ----; objdump -d vendor-tool | head -60; echo ----; which monodis ilspycmd ikdasm; strings -a -e l Legacy.Pricing.dll; strings -a Legacy.Pricing.dll | head -60'
+docker exec <ctr> sh -c 'cd /work/vendor && ilspycmd Legacy.Pricing.dll 2>&1 | head -50; echo ----; objdump -s -j .rodata vendor-tool'
+cat > <lab>/REPORT.md <<'EOF'
+# Симптом
+Подрядчик передал /work/vendor (libcalc.so, vendor-tool, Legacy.Pricing.dll), исходников нет, файлы недоверенные. Нужно понять, что они делают. Файлы только анализировались статически (file, nm, readelf, objdump, strings, ilspycmd). vendor-tool и библиотеки не запускались.
+
+# Ответы
+
+## (1) libcalc.so
+`file`: ELF 64-bit, ARM aarch64, stripped, то есть архитектура совпадает с контейнером.
+
+Экспорт C++ (`nm -D --defined-only -C libcalc.so`):
+```
+0000000000000740 T tariff::Calculator::version()
+00000000000006f0 T tariff::Calculator::surcharge(int, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) const
+0000000000000750 T calc_api_level
+```
+`calc_api_level` — это C-символ без манглинга, а не C++-функция.
+
+Зависимости (`readelf -d libcalc.so | grep NEEDED`): `libstdc++.so.6`. Других NEEDED нет.
+
+## (2) vendor-tool
+`file` и `readelf -h`: ELF 64-bit, **x86-64** (Machine: Advanced Micro Devices X86-64), статически слинкован, stripped. Контейнер aarch64, поэтому здесь он без эмуляции не запустится.
+
+Дизассемблирование `.text` (objdump -d): `write(1, 0x402000, 0x1a)`, затем `exit(0)`. Больше ничего нет, сети и файлов он не касается. В `.rodata` по 0x402000 (`objdump -s -j .rodata`) лежит:
+```
+vendor-tool 2.1 build 884\n
+```
+Печатает `vendor-tool 2.1 build 884`, код возврата 0.
+
+## (3) Legacy.Pricing.Discounts.Apply
+`file`: PE32 .NET-сборка, цель .NET 8. Декомпиляция (`ilspycmd Legacy.Pricing.dll`):
+```csharp
+private const decimal LoyaltyRate = 0.0725m;
+public static decimal Apply(decimal amount, string tier)
+{
+    if (Environment.GetEnvironmentVariable("PRICING_TIER_OVERRIDE") == "ignore-tier")
+        return amount;
+    if (!(tier == "gold"))
+        return amount * 0.9275m;
+    return amount * 0.8550m;
+}
+```
+- Ставка: `LoyaltyRate = 0.0725` (7,25%). Для обычного тарифа множитель 0.9275 (скидка 7,25%). Для `tier == "gold"` множитель 0.8550 (скидка 14,5%). Константа `LoyaltyRate` в коде не используется, множители зашиты литералами.
+- Переменная окружения: `PRICING_TIER_OVERRIDE`. При значении `ignore-tier` скидка не применяется, возвращается `amount` без изменений, независимо от тарифа.
+- Исход: возвращается decimal, то есть сумма после скидки. Побочных эффектов (сеть, файлы, запись) нет.
+
+# Улики
+Команды и фрагменты вывода приведены в ответах выше.
+
+# Что предлагаю
+- vendor-tool не запускать на aarch64 без эмуляции. Если нужен запуск, делать это в изолированной x86-64-среде без сети.
+- Если Apply используется в расчётах, проверить, что `PRICING_TIER_OVERRIDE=ignore-tier` не задан в окружении сервиса, иначе скидки молча отключатся.
+- Уточнить у подрядчика, почему `LoyaltyRate` не используется и множители заданы литералами. Нужны исходники и подтверждение подлинности файлов (подписи, контрольные суммы).
+EOF

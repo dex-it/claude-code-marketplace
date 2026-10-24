@@ -1,0 +1,77 @@
+{
+  "id": "1b0bbc",
+  "case": "B2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.16551100000000002,
+    "durationMs": 12375,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 17527,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1243,
+      "output_tokens_details": {
+        "thinking_tokens": 508
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 17527,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1243,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 17527,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 17527
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B2-owner-softdelete": {
+      "verdict": "PASS",
+      "quote": "await db.Visits\n            .Where(v => petIds.Contains(v.PetId))\n            .ExecuteUpdateAsync(s => s\n                .SetProperty(v => v.IsDeleted, true)",
+      "why": "Владелец, питомцы, визиты и аллергии помечаются через ExecuteUpdate в одной транзакции, включая незагруженные строки; физического удаления нет."
+    },
+    "B2-allergies-orphans": {
+      "verdict": "PASS",
+      "quote": "existing.IsDeleted = true;\n            existing.DeletedAt = now;",
+      "why": "Аллергий, которых нет в новом списке, код помечает удалёнными, совпадающие оставляет, новые добавляет; Clear, Remove и RemoveRange не используются."
+    },
+    "B2-deletedat-utc": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.UtcNow;",
+      "why": "В обоих методах DeletedAt записывается с Kind=Utc."
+    },
+    "B2-migration-path": {
+      "verdict": "PASS",
+      "quote": "Если в основном репозитории снапшот есть, в нём нужно заменить `Notes` на `Anamnesis`",
+      "why": "Изменение схемы оформлено миграцией в Migrations/ с явной инструкцией по снапшоту, применяется через CI-скрипт artifacts/migrate.sql; Program.cs не вызывает Migrate или EnsureCreated."
+    },
+    "B2-h-filters-weakened": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Существующие HasQueryFilter не тронуты, IgnoreQueryFilters нигде не добавлен."
+    },
+    "B2-m-drop-notes": {
+      "verdict": "NO",
+      "quote": "migrationBuilder.RenameColumn(\n                name: \"Notes\",\n                table: \"Visits\",\n                newName: \"Anamnesis\");",
+      "why": "Миграция переименовывает колонку через RenameColumn, поэтому данные сохраняются; связки DropColumn и AddColumn нет."
+    }
+  },
+  "stderr": ""
+}

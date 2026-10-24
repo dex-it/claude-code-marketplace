@@ -1,0 +1,66 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..1c16b62
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,60 @@
++# Ревью MR !4210
++
++## 1. Services/CustomerOrders.cs — `ActivePageAsync`
++**Severity: critical**
++
++```csharp
++.Skip(page * pageSize)
++.Take(pageSize)
++```
++
++MR явно описывает нумерацию страниц с 1 (`// page - номер страницы с 1, как в MR.`). При `page = 1` формула даёт `Skip(pageSize)`, то есть пропускает первую страницу целиком и показывает данные второй страницы под видом первой. Корректная страница 1 (`Skip(0)`) вообще никогда не возвращается вызывающему коду, если он следует контракту "нумерация с 1". Нужно `Skip((page - 1) * pageSize)`.
++
++## 2. Workers/AuditWriter.cs — `WriteAsync` (в связке с `AuditLog.At` в Model.cs)
++**Severity: critical**
++
++```csharp
++_db.AuditLogs.Add(new AuditLog { At = DateTime.UtcNow, Text = text });
++```
++
++Для свойства `AuditLog.At` (тип `DateTime`) в `OnModelCreating` нет явного `HasColumnType`, поэтому по конвенции Npgsql 8 колонка получит тип `timestamp without time zone` (как и явно прописанный `Order.CreatedAt` — что подтверждает, что это дефолт провайдера для `DateTime`). Npgsql, начиная с 6-й версии, при записи `DateTime` с `Kind = Utc` в колонку `timestamp without time zone` бросает исключение (`Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone'`). `DateTime.UtcNow` всегда имеет `Kind = Utc`, поэтому **каждый вызов `WriteAsync` будет падать на `SaveChangesAsync`**, и аудит не будет писаться вовсе. Нужно либо явно замапить колонку на `timestamp with time zone` и хранить `DateTimeOffset`/UTC, либо писать `DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)` под `timestamp without time zone`, согласовав с остальной схемой.
++
++## 3. Services/CustomerOrders.cs — `ActivePageAsync`, фильтр по статусу
++**Severity: high**
++
++```csharp
++.Where(o => o.CustomerId == customerId && o.Status == "Active")
++```
++
++В `Model.cs` значение по умолчанию для `Order.Status` — `"active"` (нижний регистр). PostgreSQL сравнивает строки по умолчанию с учётом регистра, EF Core транслирует `==` в `=` без `ILIKE`/`lower()`. Если реальные заказы создаются со значением `"active"` (как в дефолте модели) и нигде явно не переводятся в `"Active"`, этот фильтр никогда не найдёт ни одной строки и метод всегда будет возвращать пустой список. Нужно свериться с фактическими значениями статуса в коде создания заказа; в идеале — использовать константу/enum вместо строкового литерала, чтобы такие рассинхронизации не проходили ревью.
++
++## 4. Services/CustomerOrders.cs — `ActivePageAsync`, нестабильная сортировка при пагинации
++**Severity: medium**
++
++```csharp
++.OrderByDescending(o => o.CreatedAt)
++.Skip(...).Take(...)
++```
++
++Сортировка только по `CreatedAt` без тай-брейкера (например, `Id`) не гарантирует детерминированный порядок при равных значениях времени (а `timestamp without time zone` вполне может содержать дубликаты при массовом создании заказов). Это может приводить к дублированию или пропуску записей между соседними страницами. Рекомендуется добавить вторичный ключ сортировки, например `.ThenByDescending(o => o.Id)`.
++
++## 5. Workers/AuditWriter.cs — время жизни `ShopDbContext`
++**Severity: medium (требует проверки в вызывающем коде)**
++
++Класс лежит в `Workers/`, что обычно означает использование внутри `IHostedService`/`BackgroundService` — как правило регистрируемого как singleton. `ShopDbContext` обычно scoped; если `AuditWriter` инжектируется напрямую в такой сервис (а не создаётся через `IServiceScopeFactory.CreateScope()` на каждую операцию), это captive dependency: контекст будет жить всё время работы приложения, что при параллельных вызовах `WriteAsync` на одном экземпляре `DbContext` (он не потокобезопасен) приведёт к состоянию гонки/исключениям при конкурентных операциях. Файл, который создаёт и вызывает `AuditWriter`, не входит в этот MR и не был показан — нужно явно проверить регистрацию в DI и место вызова.
++
++## 6. Services/OrderCard.cs — `GetAsync`, загрузка полной сущности `Customer`
++**Severity: low**
++
++```csharp
++.Include(o => o.Customer)
++...
++new OrderCardDto(order.Id, order.Customer.Name, ...)
++```
++
++Из `Customer` реально используется только `Name`, но через `Include` подтягивается вся сущность (со связью `Orders`, которая, впрочем, не запрашивается благодаря явному списку Include — но сама сущность `Customer` целиком материализуется). При небольшом размере `Customer` эффект минимален, но с точки зрения паттерна это лишний JOIN/данные там, где нужно одно поле; лучше было бы включить `Customer.Name` в проекцию вместо `Include`.
++
++## Что проверено и не является дефектом
++- `OrderCard.GetAsync`: `AsNoTracking()` + `Include(Items)/Include(Payments)` + `AsSplitQuery()` — корректное использование split query для двух параллельных коллекций одного уровня, кортежного взрыва нет.
++- `CartLookup.GetAsync`: `ids.Contains(p.Id)` с Npgsql транслируется в `= ANY(@array)` одним параметром, поэтому "тысячи id" не создают проблему с числом параметров; проекция в `CartLine` берёт только нужные поля, `AsNoTracking()` на месте.
++- Отмена (`CancellationToken`) во всех методах прокидывается в `...Async` вызовы корректно.

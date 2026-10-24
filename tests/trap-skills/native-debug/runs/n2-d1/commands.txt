@@ -1,0 +1,7 @@
+docker exec <ctr> sh -c 'pgrep -a stockd; tail -20 /work/logs/stockd.log; ls /work /work/src; cat -n /work/src/deadlock.c'
+docker exec <ctr> sh -c 'for t in /proc/11/task/*; do echo $t $(cat $t/comm) $(cat $t/wchan) $(awk "{print \$3}" $t/stat); done; grep -E "State|Threads" /proc/11/status; which gdb; gdb -p 11 -batch -ex "thread apply all bt" -ex "p inventory_lock" -ex "p ledger_lock" 2>&1 | tail -40; ls -l /work/logs; date'
+docker exec <ctr> sh -c 'for t in /proc/11/task/*; do echo $t; cat $t/syscall; done; cat /proc/sys/kernel/yama/ptrace_scope; grep Cap /proc/self/status; which strace eu-stack pstack perf; strace -f -p 11 -o /dev/stdout 2>&1 | head -5 & sleep 3; kill %1 2>/dev/null; sleep 1; cat /work/logs/stockd.log | wc -l'
+docker exec <ctr> sh -c 'for i in 1 2; do for t in 11 12 13; do echo "tid=$t $(grep -E "^(State|voluntary_ctxt_switches|nonvoluntary)" /proc/11/task/$t/status | tr "\n\t" "  ")"; done; sleep 3; done; cat /proc/11/task/12/stat | cut -d" " -f1-3,14,15; cat /work/logs/stockd.log | sort | uniq -c; ls -l /proc/11/fd; grep -c . /proc/11/maps; ps -L -o pid,tid,stat,wchan:20,pcpu,comm -p 11'
+docker exec -u app <ctr> sh -c 'id; gdb -p 11 -batch -ex "thread apply all bt" 2>&1 | tail -30; cat /proc/11/task/12/syscall /proc/11/task/13/syscall'
+docker exec <ctr> sh -c 'su app -s /bin/sh -c "id; gdb -p 11 -batch -ex \"thread apply all bt\" 2>&1 | tail -30; cat /proc/11/task/12/syscall /proc/11/task/13/syscall" 2>&1'
+[Write] <lab>/REPORT.md

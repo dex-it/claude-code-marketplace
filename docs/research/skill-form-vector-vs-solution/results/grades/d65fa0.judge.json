@@ -1,0 +1,61 @@
+{
+  "id": "d65fa0",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0265634,
+    "durationMs": 4700,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2236,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 412,
+      "output_tokens_details": {
+        "thinking_tokens": 112
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2236,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 412,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2236,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2236
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = customerIds.Distinct().ToList();",
+      "why": "Дубли id убираются через Distinct до разбиения на пачки, поэтому каждый id получает одно письмо, в том числе между пачками."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "var batch = ids.Skip(offset).Take(BatchSize).ToList();",
+      "why": "Запрос режется на пачки по 2000 через Skip/Take в цикле с обоснованием «вместо одного огромного `Contains`» и «много элементов»."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var ids = customerIds.Distinct().ToList();",
+      "why": "customerIds перечисляется ровно один раз, дальше код работает с материализованным списком ids."
+    }
+  },
+  "stderr": ""
+}

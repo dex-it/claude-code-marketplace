@@ -1,0 +1,230 @@
+diff --git a/deploy/k8s/api.yaml b/deploy/k8s/api.yaml
+new file mode 100644
+index 0000000..d9e44be
+--- /dev/null
++++ b/deploy/k8s/api.yaml
+@@ -0,0 +1,136 @@
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: depot-api
++  namespace: depot
++  labels:
++    app: depot-api
++spec:
++  replicas: 3
++  strategy:
++    type: RollingUpdate
++    rollingUpdate:
++      maxSurge: 1
++      maxUnavailable: 0
++  selector:
++    matchLabels:
++      app: depot-api
++  template:
++    metadata:
++      labels:
++        app: depot-api
++    spec:
++      imagePullSecrets:
++        - name: regcred
++      securityContext:
++        runAsNonRoot: true
++        runAsUser: 1654
++        seccompProfile:
++          type: RuntimeDefault
++      topologySpreadConstraints:
++        - maxSkew: 1
++          topologyKey: kubernetes.io/hostname
++          whenUnsatisfiable: ScheduleAnyway
++          labelSelector:
++            matchLabels:
++              app: depot-api
++      terminationGracePeriodSeconds: 30
++      containers:
++        - name: api
++          image: registry.example.com/depot/api:1.4.0
++          ports:
++            - name: http
++              containerPort: 8080
++          env:
++            - name: ASPNETCORE_URLS
++              value: http://+:8080
++          envFrom:
++            - secretRef:
++                name: depot-settings
++          resources:
++            requests:
++              cpu: 100m
++              memory: 384Mi
++            limits:
++              memory: 512Mi
++          # Холодный старт (с миграциями) до 35 с; запас до 120 с.
++          startupProbe:
++            httpGet:
++              path: /health
++              port: http
++            periodSeconds: 5
++            failureThreshold: 24
++          # /health зависит от БД: при её сбое снимаем трафик, но не перезапускаем поды.
++          readinessProbe:
++            httpGet:
++              path: /health
++              port: http
++            periodSeconds: 10
++            timeoutSeconds: 3
++            failureThreshold: 3
++          livenessProbe:
++            tcpSocket:
++              port: http
++            periodSeconds: 20
++            failureThreshold: 3
++          securityContext:
++            allowPrivilegeEscalation: false
++            readOnlyRootFilesystem: true
++            capabilities:
++              drop: ["ALL"]
++          volumeMounts:
++            - name: tmp
++              mountPath: /tmp
++      volumes:
++        - name: tmp
++          emptyDir: {}
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: depot-api
++  namespace: depot
++  labels:
++    app: depot-api
++spec:
++  selector:
++    app: depot-api
++  ports:
++    - name: http
++      port: 80
++      targetPort: http
++---
++# Еженедельный drain нод не должен снимать больше одной реплики разом.
++apiVersion: policy/v1
++kind: PodDisruptionBudget
++metadata:
++  name: depot-api
++  namespace: depot
++spec:
++  minAvailable: 2
++  selector:
++    matchLabels:
++      app: depot-api
++---
++apiVersion: networking.k8s.io/v1
++kind: Ingress
++metadata:
++  name: depot-api
++  namespace: depot
++spec:
++  ingressClassName: nginx
++  tls:
++    - hosts:
++        - depot.example.com
++      secretName: depot-tls
++  rules:
++    - host: depot.example.com
++      http:
++        paths:
++          - path: /
++            pathType: Prefix
++            backend:
++              service:
++                name: depot-api
++                port:
++                  name: http
+diff --git a/deploy/k8s/namespace.yaml b/deploy/k8s/namespace.yaml
+new file mode 100644
+index 0000000..e73613b
+--- /dev/null
++++ b/deploy/k8s/namespace.yaml
+@@ -0,0 +1,4 @@
++apiVersion: v1
++kind: Namespace
++metadata:
++  name: depot
+diff --git a/deploy/k8s/secret.yaml b/deploy/k8s/secret.yaml
+new file mode 100644
+index 0000000..7de1557
+--- /dev/null
++++ b/deploy/k8s/secret.yaml
+@@ -0,0 +1,14 @@
++# Значения stage из docs/stage-values.md (тестовые, не настоящие ключи).
++# Для прода подставить настоящие значения вне репозитория, например:
++#   kubectl -n depot create secret generic depot-settings \
++#     --from-literal=ConnectionStrings__Default=... --from-literal=Auth__ApiKey=... \
++#     --dry-run=client -o yaml | kubectl apply -f -
++apiVersion: v1
++kind: Secret
++metadata:
++  name: depot-settings
++  namespace: depot
++type: Opaque
++stringData:
++  ConnectionStrings__Default: "Host=pg-stage.internal;Database=depot;Username=depot;Password=FAKE-test-only-not-a-key"
++  Auth__ApiKey: "FAKE-test-only-not-a-key-2"
+diff --git a/deploy/k8s/worker.yaml b/deploy/k8s/worker.yaml
+new file mode 100644
+index 0000000..0e09d22
+--- /dev/null
++++ b/deploy/k8s/worker.yaml
+@@ -0,0 +1,52 @@
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: depot-worker
++  namespace: depot
++  labels:
++    app: depot-worker
++spec:
++  # Ровно один экземпляр: два обработают очередь дважды.
++  replicas: 1
++  # Recreate: старый под останавливается до старта нового, параллельно два не работают.
++  strategy:
++    type: Recreate
++  selector:
++    matchLabels:
++      app: depot-worker
++  template:
++    metadata:
++      labels:
++        app: depot-worker
++    spec:
++      imagePullSecrets:
++        - name: regcred
++      securityContext:
++        runAsNonRoot: true
++        runAsUser: 1654
++        seccompProfile:
++          type: RuntimeDefault
++      containers:
++        - name: worker
++          image: registry.example.com/depot/api:1.4.0
++          command: ["dotnet", "Depot.Api.dll", "--worker"]
++          envFrom:
++            - secretRef:
++                name: depot-settings
++          resources:
++            requests:
++              cpu: 50m
++              memory: 384Mi
++            limits:
++              memory: 512Mi
++          securityContext:
++            allowPrivilegeEscalation: false
++            readOnlyRootFilesystem: true
++            capabilities:
++              drop: ["ALL"]
++          volumeMounts:
++            - name: tmp
++              mountPath: /tmp
++      volumes:
++        - name: tmp
++          emptyDir: {}

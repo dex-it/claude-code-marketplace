@@ -1,0 +1,34 @@
+$ kubectl describe pod depot-api-6d9f7c8b5-x2k4q -n depot-stage
+Name:             depot-api-6d9f7c8b5-x2k4q
+Namespace:        depot-stage
+Node:             stage-node-2/10.20.0.12
+Status:           Running
+Containers:
+  api:
+    Image:          registry.example.com/depot/api:1.5.0-rc1
+    Port:           8080/TCP
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Mon, 16 Oct 2026 08:57:31 +0300
+      Finished:     Mon, 16 Oct 2026 08:57:44 +0300
+    Ready:          False
+    Restart Count:  7
+    Limits:
+      cpu:     500m
+      memory:  512Mi
+    Requests:
+      cpu:     100m
+      memory:  256Mi
+    Environment Variables from:
+      depot-secrets  Secret  Optional: false
+Events:
+  Type     Reason     Age                   From               Message
+  ----     ------     ----                  ----               -------
+  Normal   Scheduled  14m                   default-scheduler  Successfully assigned depot-stage/depot-api-6d9f7c8b5-x2k4q to stage-node-2
+  Normal   Pulled     3m (x8 over 14m)      kubelet            Container image "registry.example.com/depot/api:1.5.0-rc1" already present on machine
+  Normal   Created    3m (x8 over 14m)      kubelet            Created container api
+  Normal   Started    3m (x8 over 14m)      kubelet            Started container api
+  Warning  BackOff    90s (x41 over 14m)    kubelet            Back-off restarting failed container api in pod depot-api-6d9f7c8b5-x2k4q_depot-stage

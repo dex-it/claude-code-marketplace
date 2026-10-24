@@ -1,0 +1,102 @@
+{
+  "id": "6a6552",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.139203,
+    "durationMs": 12591,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 13661,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1474,
+      "output_tokens_details": {
+        "thinking_tokens": 338
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13661,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1474,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 13661,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13661
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "Совпадение `OrganizationInn` не проверяется, а ручную проверку координатора MR убрал.",
+      "why": "Названо отсутствие сверки ИНН организации эксперта с ИНН заявки по п. 4.3."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "вместе с назначениями в статусе `Draft` переходят `Scores`, `Comment` и `Total` выбывшего эксперта",
+      "why": "Назван перенос черновых баллов и комментария новому эксперту и предложен сброс в Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "Своего `[Authorize(Roles = Coordinator)]` у `ranking` и `ranking.csv` нет, он есть только у `CloseReview`.",
+      "why": "Указано, что эксперты получают доступ к рейтингу и CSV через атрибут класса."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "порядок при равном балле задаёт `ThenBy(CreatedAt)`, то есть дата создания черновика",
+      "why": "Названа сортировка по CreatedAt вместо SubmittedAt."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "`Score` и `RequestedAmount` форматируются культурой `ru-RU`, заданной в `Program.cs`. Получается `87,35`, и эти поля не экранируются.",
+      "why": "Связаны культура ru-RU, десятичная запятая и разделитель-запятая в CSV."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "условие `utcNow < ReviewDeadline` в 00:00 UTC закрывает приём в начале дня дедлайна",
+      "why": "Указано, что день дедлайна исключён из приёма."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "`ToListAsync` и `CountAsync` запускаются одновременно через `Task.WhenAll` на одном контексте.",
+      "why": "Назван InvalidOperationException EF и предложено последовательное выполнение."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 не транслирует `string.Equals(r, StringComparison.OrdinalIgnoreCase)` в SQL.",
+      "why": "Указан сбой трансляции, предложены ILike и citext."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не утверждает, что старые оценки задвоятся при замене коллекции, и не требует RemoveRange."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка 14 касается избыточной загрузки для эксперта и не объявляет filtered include неподдерживаемым."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка 9 описывает гонку с SaveAsync, а не то, что ExecuteUpdate не сохраняется или не входит в транзакцию."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,81 @@
+{
+  "id": "af1ce5",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.06979540000000001,
+    "durationMs": 8221,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6425,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 898,
+      "output_tokens_details": {
+        "thinking_tokens": 165
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6425,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 898,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6425,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6425
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "В pydantic 1.10 это не так: такое поле необязательное и по умолчанию равно `None`.",
+      "why": "Находка опровергает утверждение комментария для версии проекта и показывает последствие: старый клиент без 422 молча списывает весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "в pydantic 1.10 по умолчанию стоит `Extra.ignore`, то есть лишние поля молча отбрасываются. Комментарий утверждает обратное.",
+      "why": "Утверждение опровергнуто с цепочкой: опечатка, затем None, затем списание всего баланса."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "вызов `write_audit(..., req.dict())`: аудит не фиксирует саму операцию",
+      "why": "req.dict() упомянут только как место вызова, замену на model_dump() выход не требует."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "параллельные запросы читают один и тот же баланс, оба проходят проверку, и списывается больше, чем было",
+      "why": "Гонка без блокировки и двойное списание названы, предложены FOR UPDATE и атомарный UPDATE."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`Decimal(0.1)` строится из float и получается `0.1000000000000000055…`",
+      "why": "Неточная стоимость балла из float названа дефектом, показано последствие."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "При `-1000` проверка `amount > balance` проходит, а `points -= int(-1000/0.1)` добавляет 10000 баллов.",
+      "why": "Начисление баллов через отрицательную сумму названо critical-дефектом."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Ни в ответе, ни в _answer.md не сказано, что member_id берётся из тела запроса без аутентификации (IDOR)."
+    }
+  },
+  "stderr": ""
+}

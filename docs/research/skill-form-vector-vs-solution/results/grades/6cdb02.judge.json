@@ -1,0 +1,112 @@
+{
+  "id": "6cdb02",
+  "case": "BR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.132575,
+    "durationMs": 15326,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12190,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1731,
+      "output_tokens_details": {
+        "thinking_tokens": 340
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12190,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1731,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12190,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12190
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BR-long-stays": {
+      "verdict": "PASS",
+      "quote": "`DaysInWard` — вычисляемое C#-свойство, в модели оно не отображено. EF Core 8 не может перевести `s.DaysInWard > 14` в SQL",
+      "why": "Находка называет нетранслируемое свойство и исключение и предлагает вычислить порог заранее и фильтровать по `s.AdmittedOn < threshold` без загрузки в память."
+    },
+    "BR-box-occupant": {
+      "verdict": "PASS",
+      "quote": "Бокс вмещает до `Capacity` животных (помёт, питомцы одного владельца), поэтому при двух и более пациентах вылетает `InvalidOperationException`",
+      "why": "Находка отмечает, что условие неуникально, и предлагает возвращать список текущих пациентов."
+    },
+    "BR-decommission-filter": {
+      "verdict": "PASS",
+      "quote": "`DischargeAsync`: `Include(s => s.Box).SingleAsync(...)` бросает `InvalidOperationException`",
+      "why": "Находка описывает INNER JOIN с отфильтрованным Box и потерю пациентов в GetWardPatientsAsync и отчёте по занятости, сбой выписки, а также предлагает снять глобальный фильтр или применить IgnoreQueryFilters."
+    },
+    "BR-medplan-clear": {
+      "verdict": "PASS",
+      "quote": "`stay.MedicationOrders.Clear()` разрывает required-связь `MedicationOrder → Stay`, а для неё задан `DeleteBehavior.Restrict`",
+      "why": "Находка называет InvalidOperationException на SaveChanges и предлагает ставить CancelledAt вместо удаления."
+    },
+    "BR-latest-stay-split": {
+      "verdict": "PASS",
+      "quote": "при равных ключах эти запросы могут выбрать другую госпитализацию",
+      "why": "Находка описывает неуникальный AdmittedOn в split-запросах и предлагает ThenByDescending(Id)."
+    },
+    "BR-occupancy-sql": {
+      "verdict": "PASS",
+      "quote": "`sortBy` сверять с белым списком и сортировать через `OrderBy` в LINQ",
+      "why": "Находка называет инъекцию через ward и sortBy и предлагает параметр для значения и белый список для столбца."
+    },
+    "BR-startup-migrate": {
+      "verdict": "PASS",
+      "quote": "в EF Core 8 нет блокировки миграций (она появилась только в EF 9)",
+      "why": "Названы все три довода (нет прав DDL, обход скрипта DBA, гонка реплик) и предложено удалить блок и оставить db-migrate."
+    },
+    "BR-billing": {
+      "verdict": "FOUND",
+      "quote": "Если выписали в день поступления, получается 0 дней и счёт 0 ₽",
+      "why": "Находка указывает на отсутствие +1 по требованию README."
+    },
+    "BR-discharge-auth": {
+      "verdict": "FOUND",
+      "quote": "у эндпоинта `.RequireAuthorization()` без политики, поэтому выписать (и зафиксировать счёт) может любой аутентифицированный пользователь",
+      "why": "Находка указывает, что discharge не закрыт политикой Vet."
+    },
+    "BR-h-box-code": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindBoxByCodeAsync в выходе не упоминается."
+    },
+    "BR-h-history-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetPetHistoryAsync инъекцией не назван."
+    },
+    "BR-m-cascade-fix": {
+      "verdict": "NO",
+      "quote": "Если «починить» её переходом на `Cascade`, назначения начнут удаляться физически",
+      "why": "Исполнитель прямо предостерегает от Cascade и предлагает CancelledAt."
+    },
+    "BR-m-ddl-grant": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Расширять права vet_app исполнитель не предлагает, рекомендует убрать MigrateAsync."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,130 @@
+---
+title: Набор для агентной разработки
+description: Каталог плагинов для Claude Code. Памятки по стекам, специалисты с понятными ролями и команды, которые ведут работу по шагам. Ставится набором под роль или по одному плагину.
+template: splash
+hero:
+  tagline: Каталог плагинов для Claude Code. Знания о стеке, роли, порядок работы и инструменты, а решения остаются за вами.
+  image:
+    light: ../../site/src/generated/brand/dexaikit-banner-light.svg
+    dark: ../../site/src/generated/brand/dexaikit-banner-dark.svg
+    alt: DEX AI KIT
+  actions:
+    - text: Быстрый старт
+      link: start/
+      icon: right-arrow
+    - text: Что такое Claude Code и плагины
+      link: basics/
+      variant: secondary
+    - text: Каталог
+      link: catalog/
+      variant: minimal
+---
+
+import { Card, CardGrid, Steps } from '@astrojs/starlight/components';
+import LinkCard from '@site/components/BaseLinkCard.astro';
+
+## Что это
+
+AI KIT - каталог плагинов для [Claude Code](https://code.claude.com/docs/en/overview). Сам Claude Code умеет читать код, запускать команды и править файлы, но не знает ваш стек, ваш порядок работы и ваши подводные камни. Плагины каталога добавляют это в виде небольших готовых деталей:
+
+- **Памятки по теме или стеку** (skills). Они не пересказывают документацию, а называют то, на что обычно наступают: например, что в Kafka «ядовитое» сообщение нужно уводить в отдельный топик, а не повторять бесконечно.
+- **Специалисты** с узкой ролью: ревьюер, поиск причины бага, архитектор, DevOps. У каждого свой порядок работы и понятный результат.
+- **Команды**, с которых начинается работа. `/dex-self-reviewer:self-review` проверяет вашу ветку перед push, `/dex-mr-reviewer:mr-review` разбирает чужой MR.
+- **Утилиты и моды**: обёртки над `kubectl`, `psql`, `gh`, строка над вводом со статусом вашего PR.
+
+Детали подогнаны друг к другу, но берутся по отдельности. Если не хочется выбирать, берите **бандл**: набор плагинов под роль, который ставит всё нужное сразу.
+
+## Для кого
+
+| Вы | С чего начать |
+|---|---|
+| Разработчик на .NET или TypeScript | Бандл `dotnet-developer` или `ts-fullstack`: код, тесты, ревью своей ветки |
+| Ревьюер или тимлид | Бандл `code-review`: разбор MR или PR с замечаниями в тредах |
+| Аналитик, продакт, архитектор | Бандлы `system-analyst`, `product-manager`, `architect`: требования и дизайн с альтернативами |
+| DevOps, QA | Бандлы `devops`, `qa-engineer`, `cli-tools`: диагностика стенда, кластера, баз и очередей |
+| Автор плагинов | Раздел [Участие](/contributing/): правила, проверки, версии |
+
+Какие бандлы есть и что в них входит, показывает [каталог](/catalog/bundles/).
+
+## Что вы получите
+
+- Проверку ветки до push: Claude реально запустит сборку и тесты и выдаст чеклист правок. Файлы он не меняет, пока вы не скажете «делай».
+- Ревью чужого MR или PR, где находки приходят инлайн-тредами, а в MR ничего не пишется без вашей команды.
+- Поиск причины бага с воспроизводящим тестом и доказательством, а не первым правдоподобным объяснением.
+- Задачу «от цели до PR», если вы готовы отдать её целиком (плагин `dex-auto`). Готовность подтверждает прогон сборки и тестов.
+
+Чего каталог не делает: не заменяет Claude Code и не работает без него, не пушит и не делает merge без явной просьбы, не знает стеки, которых нет в каталоге (кодеры и тестописатели есть для .NET и TypeScript).
+
+## Начать за пять минут
+
+Нужны Claude Code, `git` и `jq` ([подробнее о требованиях](/start/requirements/)).
+
+<Steps>
+
+1. Подключите каталог, один раз:
+
+   ```bash
+   claude plugin marketplace add dex-it/claude-code-marketplace
+   ```
+
+2. Поставьте бандл `code-review` из клона репозитория:
+
+   ```bash
+   git clone https://github.com/dex-it/claude-code-marketplace.git
+   cd claude-code-marketplace
+   ./install-bundle/install-bundle.sh code-review
+   ```
+
+3. В своём проекте откройте `claude` и вызовите команду:
+
+   ```text
+   /dex-self-reviewer:self-review
+   ```
+
+</Steps>
+
+Что будет дальше, описано в [быстром старте](/start/). Сначала посмотреть, что поставится: добавьте `--dry-run`. В PowerShell и на других платформах команды чуть отличаются, они в [Установке](/start/install/).
+
+## Выберите задачу
+
+Для каждой есть бандл и команда, с которой начинается работа.
+
+<CardGrid>
+  <Card title="Проверить ветку перед push" icon="approve-check">
+    Бандл `code-review`, команда `/dex-self-reviewer:self-review`.
+
+    [Как это работает](/scenarios/review-before-push/)
+  </Card>
+  <Card title="Отревьюить чужой MR или PR" icon="pencil">
+    Бандл `code-review`, команда `/dex-mr-reviewer:mr-review`.
+
+    [Как это работает](/scenarios/review-others/)
+  </Card>
+  <Card title="Найти причину бага" icon="magnifier">
+    Бандл `bug-lifecycle`, команда `/dex-debugger:root-cause`.
+
+    [Как это работает](/scenarios/find-bug/)
+  </Card>
+  <Card title="Отдать задачу целиком" icon="rocket">
+    Бандл `auto`, команды `/dex-auto:goal` и `/dex-auto:auto`.
+
+    [Как это работает](/scenarios/auto/)
+  </Card>
+</CardGrid>
+
+Остальные задачи: [Сценарии](/scenarios/).
+
+## Из чего состоит каталог
+
+<CardGrid>
+  <LinkCard title="Skills" description="Короткие памятки по теме или стеку. Подключаются сами, когда тема появляется в работе." href="/catalog/skills/" />
+  <LinkCard title="Специалисты" description="Агенты с узкой ролью: ревьюер, дебаггер, архитектор, DevOps." href="/catalog/specialists/" />
+  <LinkCard title="Команды" description="Слэш-команды, с которых начинается работа и которые ведут порядок шагов." href="/catalog/commands/" />
+  <LinkCard title="Бандлы" description="Готовые наборы плагинов под роль, одной командой." href="/catalog/bundles/" />
+  <LinkCard title="Утилиты" description="Обёртки над gh, kubectl, psql и другими CLI, уведомления." href="/catalog/utilities/" />
+  <LinkCard title="Моды" description="Меняют сам Claude Code: панели, строки над вводом, слежение за PR." href="/catalog/mods/" />
+</CardGrid>
+
+## Если Claude Code знаком не до конца
+
+Раздел [Основы](/basics/) за несколько страниц объясняет, чем skill отличается от специалиста, что такое команда, плагин и маркетплейс, и откуда берутся описания в контексте. Это пересказ официальной документации с ссылками на первоисточник. Как устроен сам каталог, описано в разделе [Как это устроено](/concepts/).

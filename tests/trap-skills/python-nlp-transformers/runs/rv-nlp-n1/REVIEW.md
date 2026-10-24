@@ -1,0 +1,20 @@
+src/shelfwatch/finetune.py:105 - export_summarizer сохраняет только LoRA-адаптер, а сервис разметки без peft и базовую модель берёт по имени: сводчик в сервисе не загрузить, фича не заработает - blocker
+src/shelfwatch/finetune.py:7 - peft импортируется на уровне модуля, а load_for_serving/classify_batch лежат в этом же модуле: в образе без peft (и datasets/bitsandbytes) импорт падает с ImportError, сервис не стартует - blocker
+src/shelfwatch/finetune.py:57 - токенизатор для инференса берётся из базового BERT без [PRODUCT]/[SHOP], а при обучении токенизатор не сохраняется (:52): спец-токены разбиваются на подслова либо id не совпадают с resize_token_embeddings, качество тональности в проде тихо деградирует - blocker
+src/shelfwatch/finetune.py:35 - замораживаются все параметры base_model, включая эмбеддинги, после добавления новых спец-токенов: их эмбеддинги остаются случайными и не учатся, токены [PRODUCT]/[SHOP] бесполезны - major
+src/shelfwatch/finetune.py:42 - дообучение без прогрева (нет warmup_steps/warmup_ratio), при этом 20 эпох (:45) на замороженной базе: нестабильные первые шаги и переобучение head, load_best_model_at_end лишь частично спасает - major
+src/shelfwatch/finetune.py:80 - lr=1e-3 при полном дообучении BERT для NER: веса разрушаются, модель расходится или схлопывается в класс "O" - major
+src/shelfwatch/finetune.py:82 - warmup_steps=0.1 - это 0.1 шага, а не 10%, (нужен warmup_ratio=0.1): прогрева фактически нет, вместе с lr=1e-3 обучение расходится - major
+src/shelfwatch/finetune.py:27 - токенизация по одному тексту в цикле вместо пачки, и без truncation=True max_length игнорируется (только предупреждение): медленная подготовка данных и тексты длиннее 512 ломают модель - major
+src/shelfwatch/finetune.py:58 - модель и токенизатор загружаются с диска при каждом вызове classify_batch: сотни мс на запрос, p95 50 мс на отзыв заведомо не выдержать - major
+src/shelfwatch/finetune.py:59 - padding="max_length" до 512 для каждой пачки на CPU: вычислений в разы больше нужного, p95 50 мс нарушается; нужен padding=True/динамический и меньший max_length - major
+src/shelfwatch/finetune.py:111 - serving-модель BERT-base в float32 на CPU при бюджете 50 мс без квантования (dynamic int8) и без экспорта ONNX: задержка выше бюджета - major
+src/shelfwatch/finetune.py:99 - генерация жадная (do_sample=False) без repetition_penalty/no_repeat_ngram_size: сводки зацикливаются на повторах до лимита токенов - major
+src/shelfwatch/finetune.py:97 - сводка генерируется по одному отзыву в цикле, а не пачкой с padding_side="left": низкая пропускная способность - minor
+src/shelfwatch/finetune.py:99 - max_length=1000 считается вместе с промптом (нужен max_new_tokens), а decode (:100) возвращает промпт вместе со сводкой; промпт "Кратко: ..." без chat-шаблона для Instruct-модели - minor
+src/shelfwatch/finetune.py:66 - tokenizer(words) без is_split_into_words=True: список слов трактуется как пачка текстов, word_ids() даёт индексы по предложениям, метки NER съезжают или падает IndexError - major
+src/shelfwatch/finetune.py:67 - метка слова копируется на все подслова, включая B-* на продолжения: обучение видит несколько "начал" сущности на слово, F1 по сущностям занижается (для продолжений нужен I-* или -100) - minor
+src/shelfwatch/finetune.py:85 - NER Trainer без data_collator (DataCollatorForTokenClassification) и без сохранения модели/токенизатора: батчи разной длины не склеятся, результат обучения теряется - major
+src/shelfwatch/finetune.py:22 - HF_TOKEN захардкожен в коде и передаётся в from_pretrained (:31,:33); даже тестовый, шаблон утечки секрета в репозиторий, а при подмене на реальный попадёт в историю - minor
+src/shelfwatch/finetune.py:89 - 4-bit без bnb_4bit_compute_dtype/quant_type и без prepare_model_for_kbit_training, LoRA только на q_proj с r=4: плохая сходимость QLoRA и слабая адаптация; bitsandbytes ещё и не работает на CPU - minor
+tests/test_finetune.py:4 - тест проверяет только align_labels и тривиальную константу; токенизацию, спец-токены, NER-выравнивание и сервисный путь не покрывает, перечисленные баги пройдут незамеченными - minor

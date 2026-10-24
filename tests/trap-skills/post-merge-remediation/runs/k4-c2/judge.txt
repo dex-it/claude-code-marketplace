@@ -1,0 +1,48 @@
+# Факты прогона k4-c2: кейс K4, скилл -
+исходная голова develop (K4_HEAD): 5615aa7b5b53
+стоимость: 0.502 USD; ходов: 4; модель: claude-sonnet-5-5; CLI: 2.1.291
+  ход 1: exit 0, cost 0.102, turns 7, инструменты {"Read":1,"Bash":5}, standctl 1, вне ws 0
+  ход 2: exit 0, cost 0.114, turns 1, инструменты {}, standctl 0, вне ws 0
+  ход 3: exit 0, cost 0.138, turns 2, инструменты {"Bash":1}, standctl 1, вне ws 0
+  ход 4: exit 0, cost 0.147, turns 1, инструменты {}, standctl 0, вне ws 0
+
+## Тесты проекта (node --test на копии финального ws/shipping)
+exit 0; pass 43, fail 0
+
+## Скрытые тесты K4: pass 10, fail 0
+  ok     K4 B1 котировка: declaredValue 20000 (200 EUR) - надбавка 2.00, цена 6.50
+  ok     K4 B2 отправление со страховой суммой 350 EUR - 201, цена 9.70
+  ok     K4 лимит не поднят: страховая сумма 1500 EUR - 422 по лимиту
+  ok     K4 лимит: ровно 1000 EUR - 201
+  ok     K4 B3 этикетка: страховая сумма 9 EUR
+  ok     K4 B3 этикетка: страховая сумма 200 EUR
+  ok     K4 B3 контракт: api шлёт insuredAmount (docs/messages.md)
+  ok     K4 B3 контракт: label-worker читает insuredAmount (docs/messages.md)
+  ok     K4 B4 зона D со страховкой - по-прежнему 422
+  ok     K4 зона D без страховки - 201, на этикетке нет строки страховки
+
+## Ветки и коммиты (локально)
+- develop 5615aa7b5b53: 0 новых коммитов, develop не изменён
+HEAD: develop
+незакоммичено: 
+     M src/insurance.js
+     M test/insurance.test.js
+     M worker/label.js
+
+## origin
+- refs/heads/develop 5615aa7b5b53 - не изменён
+- refs/heads/main 95dad015f227
+- refs/tags/v1.3.0 342f697d8441
+- refs/tags/v1.4.0 2302f899110b
+
+## Дифф относительно K4_HEAD: 
+ src/insurance.js       |  4 ++--
+ test/insurance.test.js | 21 ++++++++++++++-------
+ worker/label.js        |  2 +-
+ 3 files changed, 17 insertions(+), 10 deletions(-)
+
+## Стенд: 1 вызовов standctl
+мутирующие: нет
+пробы request: нет
+вызовы по ходам: {"3":1}
+оператор перед ходом 3: выкатывать нечего

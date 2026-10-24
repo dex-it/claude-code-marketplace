@@ -1,0 +1,86 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..b9eede0 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,6 +14,7 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }               // сложность комплектации, 1..5
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+@@ -44,7 +45,32 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка остаётся timestamp without time zone; в ней хранится UTC.
++        // Npgsql 6+ не пишет Kind=Utc в timestamp - при записи снимаем Kind, при чтении помечаем Utc.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Order_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Заказы удаляются мягко: каскад в БД не нужен и опасен при физическом удалении.
++        // Зависимые удаляет код явно (см. OrderRepository.ClearItems).
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Restrict);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..52f21d4 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,19 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Связь Order -> Items required с Restrict: Items.Clear() бросил бы в SaveChanges,
++    // поэтому позиции удаляются явно. Возвращает false, если заказ не найден (или удалён).
++    public async Task<bool> ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders
++            .Include(o => o.Items)
++            .FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return false;
++
++        _db.RemoveRange(order.Items);
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++        return true;
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d18bb83
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++Изменённые файлы:
++- `Model.cs` - `Order.Complexity` (int) + check-constraint 1..5; value converter для `CreatedAt`; явные связи Order -> Items / Payments.
++- `OrderRepository.cs` - метод `ClearItems(Guid orderId)`.
++- `_answer.md` - этот ответ.
++
++Решения:
++- Complexity - обычный `int` с `CHECK ("Complexity" BETWEEN 1 AND 5)`, без owned-типа из одного поля. В миграции существующим строкам нужно значение по умолчанию (1..5, согласовать с бизнесом), иначе constraint не встанет. Сборку не запускал, миграцию не создавал.
++- CreatedAt: колонка осталась `timestamp without time zone`. Npgsql 6+ не пишет `Kind=Utc` в такую колонку, поэтому converter при записи снимает Kind (Local сначала переводится в UTC), при чтении помечает `Utc`. В БД лежит UTC, в коде всегда `Kind=Utc`.
++- Items/Payments: required FK с `OnDelete(Restrict)`: при мягком удалении каскад в БД не нужен. `ClearItems` загружает заказ с `Include(Items)`, удаляет позиции явно через `RemoveRange` (голый `Items.Clear()` при Restrict бросил бы исключение в `SaveChanges`) и сохраняет. Если заказ не найден или мягко удалён, возвращает `false`.
++- Замечание (не менял): при `UseLazyLoadingProxies` невиртуальные навигации (`Items`, `Payments`, `Customer.Orders`) не дадут построить модель. Нужно либо `IgnoreNonVirtualNavigations()`, либо сделать их `virtual`.

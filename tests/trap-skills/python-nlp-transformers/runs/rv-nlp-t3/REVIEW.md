@@ -1,0 +1,23 @@
+src/shelfwatch/finetune.py:106 - сохраняется только LoRA-адаптер, а сервис разметки работает без peft и с базовой моделью «по имени»: сводчик в образе не загрузится (нет peft, нет bitsandbytes/GPU для 4 бит), сводки в проде не будет; нужно слить адаптер в веса (merge_and_unload) и сохранять полную модель - blocker
+src/shelfwatch/finetune.py:57 - токенизатор берётся из исходного BERT, а не из обученного: спец-токены [PRODUCT]/[SHOP] не добавлены, режутся на подслова, а модель обучена с другими id и размером словаря; предсказания тональности в проде искажены (при несовпадении размера эмбеддингов - ошибка загрузки) - blocker
+src/shelfwatch/finetune.py:52 - сохраняется только модель, токенизатор с добавленными спец-токенами не сохраняется (tokenizer.save_pretrained отсутствует); воспроизвести инференс нельзя - major
+src/shelfwatch/finetune.py:35 - замораживаются все параметры base_model, включая эмбеддинги; строки новых токенов [PRODUCT]/[SHOP] после resize_token_embeddings остаются случайными и не учатся, смысл новых спец-токенов теряется, обучается только классификатор - major
+src/shelfwatch/finetune.py:59 - padding="max_length" на 512 токенов для каждого отзыва на CPU: каждый отзыв дополняется до 512, задержка в разы выше нужной, p95 ≤ 50 мс не выдерживается; нужен padding=True (динамический) и разумный max_length - blocker
+src/shelfwatch/finetune.py:58 - модель и токенизатор загружаются с диска при каждом вызове classify_batch: сотни мс на вызов, бюджет 50 мс p95 нарушен; нужно загружать один раз - blocker
+src/shelfwatch/finetune.py:111 - модель на CPU в полной точности при заданном бюджете p95 ≤ 50 мс: нет динамического int8-квантования nn.Linear (веса и активации); не уложится в бюджет. torch.ao.quantization.quantize_dynamic в torch 2.14 deprecated - брать актуальный API и учитывать запланированный экспорт в ONNX - major
+src/shelfwatch/finetune.py:111 - torch_dtype в transformers 5 заменён на dtype; будет предупреждение о deprecated, позже поломка - minor
+src/shelfwatch/finetune.py:27 - токенизация по одному тексту в цикле, без truncation=True и padding: медленно, а длинные отзывы дадут тензоры выше 512 и падение модели; токенизировать пачкой одним вызовом - major
+src/shelfwatch/finetune.py:66 - tokenizer(words) без is_split_into_words=True: список слов трактуется как пачка текстов, word_ids() без batch_index падает/метки не совпадают; NER не обучится (ошибка или сломанная разметка) - blocker
+src/shelfwatch/finetune.py:66 - нет truncation: длинные последовательности уйдут за 512 токенов - minor
+src/shelfwatch/finetune.py:70 - align_labels дублирует логику encode_for_ner (66) и нигде не используется в коде, тест проверяет мёртвую функцию, а не реальный путь; ошибка в encode_for_ner тестом не поймана - minor
+src/shelfwatch/finetune.py:80 - learning_rate=1e-3 для полного дообучения BERT в NER: слишком большой, веса разрушаются, качество NER рухнет (расходимость) - major
+src/shelfwatch/finetune.py:42 - дообучение тональности без прогрева (нет warmup_steps) с 3e-5: нестабильные первые шаги; задать warmup_steps (целое или доля из [0, 1)) - major
+src/shelfwatch/finetune.py:45 - num_train_epochs=20 при замороженной базе и без ранней остановки (load_best_model_at_end без метрики и EarlyStoppingCallback): долгое обучение, переобучение классификатора - minor
+src/shelfwatch/finetune.py:22 - токен HF захардкожен в коде и передаётся в from_pretrained (31, 33); значение помечено как тестовое, но шаблон закрепляет секрет в репозитории и истории git; брать из окружения - minor
+src/shelfwatch/finetune.py:89 - QLoRA без bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype и без prepare_model_for_kbit_training: хуже качество и нестабильное обучение 4-битной базы - minor
+src/shelfwatch/finetune.py:91 - LoRA r=4 только на q_proj: ёмкость адаптера мала, сводки будут слабыми; обычно охватывают все линейные проекции внимания/MLP - minor
+src/shelfwatch/finetune.py:99 - жадное декодирование (do_sample=False) без repetition_penalty/no_repeat_ngram_size: сводки зацикливаются на повторах - major
+src/shelfwatch/finetune.py:99 - max_length=1000 считается вместе с промптом, вместо max_new_tokens: длинный отзыв съедает бюджет или даёт слишком длинную генерацию; нет eos/pad - minor
+src/shelfwatch/finetune.py:100 - decode(gen[0]) включает промпт: в «сводку» попадает исходный текст «Кратко: ...», а не только сгенерированное; нужно декодировать gen[0][ids.input_ids.shape[1]:] - major
+src/shelfwatch/finetune.py:97 - генерация по одному отзыву в цикле, без батча: медленно на потоке отзывов - minor
+tests/test_finetune.py:1 - покрыт только align_labels и NER_LABELS[0]; токенизация, encode_for_ner, спец-токены и загрузка для сервиса не тестируются - minor

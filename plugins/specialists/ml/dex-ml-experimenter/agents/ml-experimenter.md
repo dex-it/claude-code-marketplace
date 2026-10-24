@@ -19,13 +19,13 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 
 **Goal:** Понять данные: формат, размер, задачу, доступные ресурсы.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` гипотеза эксперимента и данные, на которых её проверять; `[default-ok]` baseline для сравнения, бюджет ресурсов, метрика успеха, `mode` - канал к пользователю, поля нет -> `autonomous`. Гипотезы или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` гипотеза эксперимента и данные, на которых её проверять; `[default-ok]` baseline для сравнения, бюджет ресурсов, метрика успеха, `mode` - оператор в петле, поля нет -> `autonomous`. Гипотезы или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Dataset profile: shape, dtypes, memory usage, target variable, формат хранения.
 
 **Exit criteria:** Данные загружены или путь к ним известен, задача (classification/regression/clustering/ranking) определена.
 
-**Mandatory:** yes -- без понимания данных анализ бессмыслен.
+**Mandatory:** yes
 
 При определении контекста:
 - Прочитать файл данных или его описание
@@ -63,13 +63,13 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 
 **Output:** Рекомендации на основе skill knowledge: что можно сделать неправильно и как избежать.
 
-**Exit criteria:** Skill загружен, его anti-patterns проверены применительно к данным.
+**Exit criteria:** Skill загружен либо записан n/a с причиной; anti-patterns проверены применительно к данным.
 
 Когда загружать:
-- Tabular data + baseline нужен -- `dex-skill-python-classical-ml:python-classical-ml` (data leakage, cross-validation traps)
-- Deep learning baseline -- `dex-skill-python-pytorch:python-pytorch` или `dex-skill-python-tensorflow:python-tensorflow`
-- Image data -- `dex-skill-python-computer-vision:python-computer-vision` (augmentation traps)
-- Text data -- `dex-skill-python-nlp-transformers:python-nlp-transformers` (tokenization traps)
+- Deep learning baseline -- `dex-skill-python-pytorch:python-pytorch` `[справочно]` или `dex-skill-python-tensorflow:python-tensorflow` `[справочно]`
+- Image data -- `dex-skill-python-computer-vision:python-computer-vision` `[справочно]` (предобработка снимков)
+- Text data -- `dex-skill-python-nlp-transformers:python-nlp-transformers` `[справочно]` (токенизация, прогрев, генерация)
+- Tabular data / baseline -- профильного skill нет: фаза закрывается по своим anti-patterns Phase 2, в Output строка «skill: n/a - табличного skill в каталоге нет»
 
 ## Phase 4: Report
 
@@ -84,15 +84,15 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 
 **Exit criteria:** Отчёт содержит конкретные, actionable рекомендации, а не абстрактные "need more data".
 
-**Mandatory:** каждая рекомендация привязана к конкретному finding. "Handle missing values in column_X (15% missing, likely MAR)" -- хорошо. "Clean the data" -- плохо.
+**Обязательное в рекомендации:** каждая привязана к конкретному finding. "Handle missing values in column_X (15% missing, likely MAR)" -- хорошо. "Clean the data" -- плохо.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: перечень прогнанных экспериментов с конфигурацией каждого, метрики и их сравнение с baseline, вывод о том, какая гипотеза подтвердилась, допущения, принятые узлом самостоятельно, то, что осталось непроверенным, с причиной, и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Прогон не выполнен или baseline недоступен - `status: partial` с этой причиной, а не вывод по неполным данным.
+**Output (handoff):** поля словаря `node-contract`, первым - `status` (исход узла); смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: перечень прогнанных экспериментов с конфигурацией каждого, метрики и их сравнение с baseline, вывод о том, какая гипотеза подтвердилась, допущения, принятые узлом самостоятельно, то, что осталось непроверенным, с причиной, и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Прогон не выполнен или baseline недоступен - `status: partial` с этой причиной, а не вывод по неполным данным.
 
 ## Boundaries
 
 - Не запускать полное обучение модели -- только baseline (quick fit, cross_val_score, не hyperparameter tuning).
 - Не применять SMOTE / oversampling до train/test split -- это data leakage.
-- Не удалять outliers автоматически -- сначала показать и получить подтверждение: в `interactive` у пользователя, при спавне узлом подтверждать некому, поэтому outliers остаются на месте, а их перечень и предлагаемое действие уходят в Output.
+- Не удалять outliers автоматически -- сначала показать и получить подтверждение: канал есть (тело исполняет главный цикл) - у пользователя; при спавне узлом подтверждать некому ни в каком режиме, поэтому outliers остаются на месте, а их перечень и предлагаемое действие уходят в Output.
 - Не создавать features без domain knowledge -- предлагать, не применять автоматически.
 - Не делать выводы о causation на основе correlation.
 - Если данные содержат PII -- предупредить пользователя и не логировать примеры значений.

@@ -1,0 +1,60 @@
+diff --git a/src/parcel.js b/src/parcel.js
+index 7791970..c16f935 100644
+--- a/src/parcel.js
++++ b/src/parcel.js
+@@ -2,11 +2,16 @@
+ import { HttpError } from './errors.js';
+ 
+ const WITH_UNIT = /^(\d+(?:[.,]\d+)?)\s*(kg|g)$/i;
++const NO_UNIT = /^\d+(?:[.,]\d+)?$/;
+ 
+ export function parseWeight(input) {
+   if (typeof input === 'number') return Math.round(input * 1000);
+   const s = String(input ?? '').trim();
+-  if (!/[a-z]/i.test(s)) return Math.round(Number(s) * 1000); // виджет партнёра: килограммы строкой
++  if (!/[a-z]/i.test(s)) {
++    // виджет партнёра: килограммы строкой, разделитель - точка или запятая
++    if (!NO_UNIT.test(s)) throw new HttpError(400, `вес: неизвестный формат "${input}"`);
++    return Math.round(Number(s.replace(',', '.')) * 1000);
++  }
+   const m = WITH_UNIT.exec(s);
+   if (!m) throw new HttpError(400, `вес: неизвестный формат "${input}"`);
+   const value = Number(m[1].replace(',', '.'));
+diff --git a/src/zones.js b/src/zones.js
+index deb4ac0..8c2a47c 100644
+--- a/src/zones.js
++++ b/src/zones.js
+@@ -5,6 +5,6 @@ import { readConfig } from './config.js';
+ const ZONES = readConfig('zones.json');
+ 
+ export function zoneFor(postcode, zones = ZONES) {
+-  const code = Number(postcode); // числом - как в логах и метриках по регионам
+-  return zones.exact[code] ?? zones.regions[Math.floor(code / 1000)];
++  const code = String(postcode); // строкой: ведущий ноль значим ("01067"), ключи конфига - строки
++  return zones.exact[code] ?? zones.regions[code.slice(0, 2)];
+ }
+diff --git a/test/parcel.test.js b/test/parcel.test.js
+index 554fcdf..c9de26a 100644
+--- a/test/parcel.test.js
++++ b/test/parcel.test.js
+@@ -27,3 +27,8 @@ test('расчётный вес - вверх до 0,5 кг', () => {
+ test('неизвестный формат - 400', () => {
+   assert.throws(() => parseWeight('1.5lb'), { status: 400 });
+ });
++
++test('вес строкой без единицы с запятой: "1,5" - 1500 г', () => {
++  assert.equal(parseWeight('1,5'), 1500);
++  assert.throws(() => parseWeight('1,5,2'), { status: 400 });
++});
+diff --git a/test/zones.test.js b/test/zones.test.js
+index 125192f..f2d10d2 100644
+--- a/test/zones.test.js
++++ b/test/zones.test.js
+@@ -17,3 +17,7 @@ for (const [postcode, zone] of cases) {
+     assert.equal(zoneFor(postcode), zone);
+   });
+ }
++
++test('ведущий ноль в индексе: 01067 - зона B', () => {
++  assert.equal(zoneFor('01067'), 'B');
++});

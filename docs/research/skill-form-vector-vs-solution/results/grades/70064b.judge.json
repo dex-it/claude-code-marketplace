@@ -1,0 +1,72 @@
+{
+  "id": "70064b",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.112123,
+    "durationMs": 9287,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11716,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 898,
+      "output_tokens_details": {
+        "thinking_tokens": 375
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11716,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 898,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11716,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11716
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needsApartmentJoin = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || s.Sort == \"address\";",
+      "why": "JOIN apartments и houses добавляются ровно один раз по общим флагам, которые учитывают и фильтры, и sort=address; dir и sort выбираются из whitelist-switch, иначе бросается ArgumentException."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "r.applicant_phone, r.completion_comment",
+      "why": "Новые маппленные колонки добавлены в явный SELECT сырого SQL, и FromSqlRaw получает все свойства сущности."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.Remove(existing);",
+      "why": "Совпавшие по WorkCode позиции обновляются на месте, отсутствующие удаляются явным Remove, новые добавляются; план не очищается целиком."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не переписан, и выход не утверждает, что он падает или теряет переносимые работы; для него добавлен только уникальный индекс."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена как есть и инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

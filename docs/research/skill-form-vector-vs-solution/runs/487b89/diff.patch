@@ -1,0 +1,64 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..9735a14
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,43 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const string Subject = "Shop";
++
++    // Список id приходит из маркетинговой системы: может быть большим и содержать дубли.
++    private const int BatchSize = 5000;
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _email;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender email)
++    {
++        _db = db;
++        _email = email;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        // Один проход по входному IEnumerable + удаление дублей.
++        var ids = customerIds.Distinct().ToArray();
++        var sent = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
++
++        foreach (var batch in ids.Chunk(BatchSize))
++        {
++            // Npgsql передаёт batch одним параметром-массивом (= ANY(@p)); тянем только Email.
++            var emails = await _db.Customers
++                .AsNoTracking()
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => c.Email)
++                .ToListAsync(ct);
++
++            foreach (var email in emails)
++            {
++                if (string.IsNullOrWhiteSpace(email) || !sent.Add(email)) continue;
++                await _email.SendAsync(email, Subject, text, ct);
++            }
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4270054
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Файлы:
++- создан `CustomerNotifier.cs`
++- создан `_answer.md`
++
++Решения:
++- Входной `IEnumerable<Guid>` читается один раз, дубли убираются (`Distinct().ToArray()`). Клиенты загружаются пачками по 5000 одним запросом на пачку, а не отдельным запросом на каждого клиента. `Contains` в Npgsql превращается в `= ANY(@array)`. Из базы читается только `Email` (`AsNoTracking`).
++- Письмо уходит один раз на каждый email: пустые адреса и повторы (без учёта регистра) пропускаются. Неизвестные id тихо игнорируются. Метод асинхронный (`Task`, `CancellationToken`), потому что `IEmailSender.SendAsync` асинхронный.
++- Тема письма взята как константа `"Shop"`, потому что в поручении её нет. Отправка идёт по одному письму. Если письмо не отправилось, исключение прерывает рассылку: повторов и продолжения после ошибки нет.
++- Сборка и тесты не запускались.

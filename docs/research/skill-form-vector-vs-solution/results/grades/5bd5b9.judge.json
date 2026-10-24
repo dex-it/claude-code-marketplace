@@ -1,0 +1,92 @@
+{
+  "id": "5bd5b9",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.110055,
+    "durationMs": 15787,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9495,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1683,
+      "output_tokens_details": {
+        "thinking_tokens": 608
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9495,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1683,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9495,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9495
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "`Select` с нетранслируемым вызовом уже не терминальный, и EF Core на таком запросе выбрасывает исключение",
+      "why": "Механизм назван точно: клиентский WorkCalendar.IsWorkingDay в проекции, поверх неё Where/OrderBy, отчёт FLEET-109 падает при каждом вызове; путь исправления явно не предложен, но дефект найден по существу."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "точка с запятой внутри скобок подзапроса — синтаксическая ошибка PostgreSQL",
+      "why": "Названы ';' в FromSqlRaw, оборачивание в подзапрос при заданном vehicleId и причина, по которой локальная проверка без фильтра прошла."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "если присланный код совпадает со старым, вставка упадёт на уникальном индексе `(vehicle_id, code)`; если коды другие — в таблице будет \"каша\"",
+      "why": "Отсутствие Include(Equipment), пустой Clear(), падение на уникальном индексе и дописывание к старым позициям названы полностью."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "`ALTER TABLE ... ALTER COLUMN TYPE varchar(40)` завершится ошибкой PostgreSQL (\"value too long for type character varying(40)\")",
+      "why": "Отмечено падение миграции на prod из-за длинных значений из MR.md и названа причина: нет очистки или обрезки данных до смены типа."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "сортировка по `CreatedAt` (время приёма сервером) вместо `InspectedAt`",
+      "why": "Найден другой дефект: выбор поля вместо неуникального порядка при SplitQuery, из-за которого замечания берутся от другого осмотра той же пачки; ThenBy(Id) и AsSingleQuery не предложены, а сценарий с синхронизацией в 20:00 внутренне противоречив."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "`ValidUntil > today` должен быть `>=` — противоречит описанию \"действует включительно\"",
+      "why": "Дефект последнего дня допуска назван прямо."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "изменить комплектацию машины ... может любой аутентифицированный пользователь независимо от роли",
+      "why": "Отсутствие ролевой политики на PUT equipment названо."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Permits.Clear() в ReplacePermitsAsync дефектом не объявлен."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync ни как инъекция, ни как ошибка композиции не упомянут."
+    }
+  },
+  "stderr": ""
+}

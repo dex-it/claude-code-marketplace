@@ -1,0 +1,113 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b10fe82
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,107 @@
++# Ревью MR !238: Дефекты
++
++## Критические проблемы
++
++### 1. TripService.cs:111 - Неправильная проверка допуска (CRITICAL)
++
++**Метод**: `StartTripAsync`
++
++**Проблема**: 
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++```
++
++По MR: "допуск действует по указанную в нём дату включительно". Текущая проверка использует `>` вместо `>=`, что отклоняет допуск в его последний день действия.
++
++Пример: если допуск действует до 2026-10-02 (включительно), и today = 2026-10-02, то `ValidUntil > today` вернёт false и водитель не сможет выпуститься на линию в последний день допуска.
++
++**Должно быть**: `p.ValidUntil >= today`
++
++**Severity**: critical - Блокирует выпуск машин в последний день действия допуска водителя
++
++---
++
++### 2. Program.cs:53-57 - Отсутствует авторизация на endpoint (CRITICAL)
++
++**Метод**: `MapPut("/vehicles/{id:int}/equipment")`
++
++**Проблема**: 
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++Endpoint не имеет `.RequireAuthorization()`. Любой, включая неавторизованные пользователи, может менять комплектацию любой машины.
++
++Остальные endpoint'ы правильно защищены (Dispatcher, FleetManager, Mechanic, Hr).
++
++**Должно быть**: `.RequireAuthorization("Mechanic")` или аналогично после Returns.NoContent()
++
++**Severity**: critical - Уязвимость безопасности, неконтролируемый доступ к критичным данным парка
++
++---
++
++### 3. TripService.cs:21-33 - Использование C# метода в Select (CRITICAL)
++
++**Метод**: `ToRows()` extension method, используется в `GetVehicleTripsAsync` и `OffDayTripsAsync`
++
++**Проблема**: 
++```csharp
++public static IQueryable<TripRow> ToRows(this IQueryable<Trip> trips) =>
++    trips.Select(t => new TripRow
++    {
++        ...
++        OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt),
++    });
++```
++
++`WorkCalendar.IsWorkingDay()` это C# метод, не SQL функция. Когда `.ToRows()` вызывается перед `.ToListAsync()` на IQueryable, EF Core попытается перевести Select в SQL и выбросит исключение:
++```
++InvalidOperationException: The LINQ expression 'WorkCalendar.IsWorkingDay(t.StartedAt)' could not be translated
++```
++
++Это произойдёт в:
++- `GetVehicleTripsAsync` (line 62): `.ToRows().ToListAsync()`
++- `OffDayTripsAsync` (line 75): `.ToRows().Where(r => r.OffDay).OrderByDescending(r => r.Km).ToListAsync()`
++
++**Исправление**: Загрузить данные в память перед конвертацией:
++```csharp
++var trips = await _db.Trips...ToListAsync();
++return trips.AsEnumerable().ToRows().ToList();
++```
++
++или использовать `.AsEnumerable()` перед `.ToRows()`
++
++**Severity**: critical - Методы GetVehicleTripsAsync и OffDayTripsAsync не работают и выбросят исключение при вызове
++
++---
++
++## Проблемы с производительностью
++
++### 4. TripService.cs:92-93 - Неэффективное добавление фильтра (HIGH)
++
++**Метод**: `GetOpenWaybillsAsync`
++
++**Проблема**: 
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.* FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++Фильтр по `vehicleId` добавляется ПОСЛЕ `FromSqlRaw`. Это означает, что SQL запрос загружает ВСЕ незакрытые путевые листы из БД, а потом фильтрует их в памяти приложения.
++
++При большом количестве открытых путевых листов это приведёт к передаче множества данных по сети и избыточной работе памяти.
++
++**Исправление**: Поместить фильтр в SQL запрос с параметром или использовать конструктор с условием вместо FromSqlRaw
++
++**Severity**: high - Проблема производительности при масштабировании

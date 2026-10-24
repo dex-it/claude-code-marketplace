@@ -1,0 +1,121 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4926f1c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,115 @@
++# Ревью MR !238
++
++## 1. `VehicleService.cs` — `ReplaceEquipmentAsync` (+ `FindVehicleAsync`) — **critical**
++
++```csharp
++public Task<Vehicle?> FindVehicleAsync(int id) =>
++    _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id);
++...
++public async Task ReplaceEquipmentAsync(int vehicleId, IReadOnlyList<EquipmentDto> items)
++{
++    var vehicle = await FindVehicleAsync(vehicleId) ?? throw new KeyNotFoundException();
++    vehicle.Equipment.Clear();
++    foreach (var item in items.DistinctBy(i => i.Code))
++        vehicle.Equipment.Add(new VehicleEquipment { Code = item.Code, Qty = item.Qty });
++    await _db.SaveChangesAsync();
++}
++```
++
++`FindVehicleAsync` не делает `.Include(v => v.Equipment)`, поэтому `vehicle.Equipment` — это пустая коллекция из инициализатора модели (`= new()`), а не загруженные из БД строки. `Clear()` работает "в пустоту", старые записи `vehicle_equipment` в базе никуда не удаляются. Новые элементы просто добавляются поверх. В результате:
++- комплектация фактически не "заменяется целиком", как того требует FLEET-104, а только пополняется;
++- при повторной присылке комплектации с совпадающими кодами вставка упадёт с нарушением уникального индекса `(vehicle_id, code)` (`DbUpdateException` → 500).
++
++Правильный паттерн уже есть в неизменённом `DriverService.ReplacePermitsAsync`, который делает `.Include(d => d.Permits)` перед `Clear()` — в новом коде этот `Include` просто забыли добавить.
++
++## 2. `TripService.cs` — `OffDayTripsAsync` / `TripRows.ToRows` — **critical**
++
++```csharp
++public static IQueryable<TripRow> ToRows(this IQueryable<Trip> trips) =>
++    trips.Select(t => new TripRow { ..., OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt) });
++...
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToRows()
++    .Where(r => r.OffDay)
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++`WorkCalendar.IsWorkingDay` — обычный статический C#-метод, не переводимый в SQL. EF Core начиная с версии 3.0 допускает клиентское вычисление непереводимых членов только в *финальной* (самой внешней) проекции запроса. Здесь после `.ToRows()` (это `Select`) идут ещё `.Where(r => r.OffDay)` и `.OrderByDescending(...)`, то есть `Select` не финальный — EF Core выбросит `InvalidOperationException` ("could not be translated") в рантайме. Отчёт FLEET-109 (ради которого и добавлено поле `OffDay`) не будет работать вообще.
++
++(Соседний метод `GetVehicleTripsAsync` использует тот же `ToRows()`, но без операторов после него — там `Select` финальный, поэтому он, по всей видимости, не ломается, но становится "случайно рабочим" за счёт клиентского вычисления на каждой строке.)
++
++Не похоже, что это было проверено локально: в MR описано "выпуск на линию... список незакрытых листов", но не тестирование отчёта по выходным.
++
++## 3. `TripService.cs` — `GetOpenWaybillsAsync` — **critical**
++
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.*
++    FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++Raw SQL завершается символом `;`. Когда передан `vehicleId`, EF Core композирует `.Where(...)` поверх `FromSqlRaw`, оборачивая исходный запрос в подзапрос: `SELECT ... FROM ( <raw sql> ) AS t WHERE t.vehicle_id = @id`. Точка с запятой внутри скобок подзапроса — синтаксическая ошибка Postgres, запрос упадёт с исключением именно в том сценарии, который и добавляет этот MR (фильтр по машине, FLEET-112). Без фильтра (vehicleId == null) композиции не происходит, и `;` не мешает — поэтому локальная проверка "по всему парку" (без фильтра) могла пройти, а фильтр — нет.
++
++## 4. `TripService.cs` — `StartTripAsync`, проверка допуска — **high**
++
++```csharp
++var today = WorkCalendar.MoscowDate(DateTime.UtcNow);
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException("Нет действующего допуска к классу машины");
++```
++
++В MR явно сказано: "допуск действует по указанную в нём дату включительно". Условие `ValidUntil > today` исключает последний день действия допуска — off-by-one. В последний день действия допуска диспетчер не сможет выпустить машину, хотя должен. Нужно `ValidUntil >= today`.
++
++## 5. `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs` — **high**
++
++```csharp
++migrationBuilder.AlterColumn<string>(
++    name: "model", table: "vehicles",
++    type: "character varying(40)", maxLength: 40, nullable: false,
++    oldType: "character varying(200)", oldMaxLength: 200);
++```
++
++Сужение `vehicles.model` с 200 до 40 символов без шага очистки/обрезки существующих данных. Само описание задачи FLEET-115 говорит, что длинные названия моделей уже существуют и обрезаются принтером "на середине" — то есть в проде почти наверняка есть строки длиннее 40 символов. `ALTER TABLE ... ALTER COLUMN TYPE character varying(40)` в Postgres упадёт с ошибкой `value too long for type character varying(40)` на первой же такой строке, и выкладка (bundle pipeline) на prod сломается. Нужен предварительный `UPDATE vehicles SET model = substring(model, 1, 40)` (или аналогичная обрезка/нормализация) до `AlterColumn`, либо ручная проверка данных перед релизом.
++
++## 6. `VehicleService.cs` — `GetLastInspectionAsync` — **high**
++
++```csharp
++public Task<Inspection?> GetLastInspectionAsync(int vehicleId) =>
++    _db.Inspections.AsNoTracking().Include(i => i.Defects)
++        .Where(i => i.VehicleId == vehicleId)
++        .OrderByDescending(i => i.CreatedAt)
++        .FirstOrDefaultAsync();
++```
++
++Сортировка идёт по `CreatedAt` (время получения сервером), а не по `InspectedAt` (время реального осмотра на планшете). Комментарий в `SyncInspectionsAsync` прямо говорит, что планшет копит осмотры офлайн и шлёт их пачкой — то есть порядок получения не совпадает с порядком реального осмотра. Более того, `CreatedAt` имеет `HasDefaultValueSql("now()")` и не задаётся явно в коде; все записи, вставленные в рамках одного `SaveChangesAsync` (одна транзакция), получат **одинаковое** значение `now()` в Postgres — то есть при пакетной синхронизации нескольких осмотров одной машины сортировка по `CreatedAt` даёт неопределённый порядок между ними. Это напрямую используется в безопасной проверке `StartTripAsync` ("осмотр не старше 12 часов, без блокирующих замечаний"), поэтому результат проверки может оказаться непредсказуемым. Нужно сортировать по `InspectedAt`.
++
++## 7. `Program.cs` — `PUT /api/vehicles/{id}/equipment` — **medium**
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++В отличие от всех остальных мутирующих эндпоинтов (`.RequireAuthorization("Hr")`, `("Mechanic")`, `("FleetManager")`, `("Dispatcher")`), у этого нет ролевой политики — только общее `RequireAuthorization()` на уровне группы `/api`. Любой аутентифицированный пользователь (например, водитель) может перезаписать комплектацию безопасности машины. Нужна политика, аналогичная `/inspections/sync` (`"Mechanic"`), возможно также `FleetManager`.
++
++## 8. `TripService.cs` — `StartTripAsync` — **medium**
++
++Перед созданием новой поездки нет проверки, что у машины уже нет незакрытого рейса (`FinishedAt == null`). В сочетании с тем, что в этом же MR появляется отдельный отчёт по незакрытым путевым листам (FLEET-112, то есть такая ситуация в проде реально случается), это может привести к тому, что одна машина окажется одновременно "выпущена" в двух незакрытых поездках. Явно в тексте задачи FLEET-107 это не требуется, но стоит уточнить у продуктовой стороны, прежде чем мерджить — это похоже на пропущенное правило, а не на осознанное решение.
++
++---
++
++### Итог
++Блокеры для мерджа: пункты 1–3 (ломают основную функциональность — замену комплектации, отчёт по выходным, фильтр по незакрытым листам) и 5 (риск падения миграции на prod). Пункт 4 — логическая ошибка в бизнес-правиле, тоже надо исправить до релиза. Пункты 6–8 — весомые, но не обязательно блокирующие релиз немедленно, их желательно закрыть до мерджа или сразу после.

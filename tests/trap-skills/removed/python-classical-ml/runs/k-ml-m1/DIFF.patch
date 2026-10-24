@@ -1,0 +1,240 @@
+diff --git a/src/shelfwatch/churn_model.py b/src/shelfwatch/churn_model.py
+new file mode 100644
+index 0000000..33237e7
+--- /dev/null
++++ b/src/shelfwatch/churn_model.py
+@@ -0,0 +1,172 @@
++"""Модель оттока магазинов: выбор между случайным лесом и XGBoost, оценка, прогноз.
++
++Допущение: `churned` в строке среза - отток в месяце, следующем за этим срезом. Поэтому строки
++последнего среза используются только как вход прогноза, а обучаем и оцениваем на предыдущих.
++
++Схема разбиения (по одному магазину несколько срезов, класс редкий - 5%):
++- тест - последние `TEST_SNAPSHOTS` размеченных срезов (как в проде: прошлое -> будущее);
++- остальное делится по магазинам (GroupShuffleSplit) на train / early-stop / valid, чтобы
++  один магазин не попадал сразу в обучение и в валидацию;
++- early-stop нужен только XGBoost, valid - для выбора модели, test - для итоговой цифры.
++"""
++
++from dataclasses import dataclass
++
++import numpy as np
++import pandas as pd
++from sklearn.ensemble import RandomForestClassifier
++from sklearn.metrics import average_precision_score
++from sklearn.model_selection import GroupShuffleSplit
++from xgboost import XGBClassifier
++
++TEST_SNAPSHOTS = 3
++SEED = 0
++MAX_TREES = 1000
++EARLY_STOPPING_ROUNDS = 30
++
++TARGET = "churned"
++GROUP = "store_id"
++TIME = "snapshot"
++PLANS_COL = "plan"
++NUMERIC = ["tenure_months", "n_tickets", "revenue"]
++
++
++@dataclass(frozen=True)
++class ChurnReport:
++    best_model: str
++    test_pr_auc: float  # итоговая цифра для отчёта: PR-AUC выбранной модели на тесте
++    valid_pr_auc: dict[str, float]
++    test_base_rate: float  # PR-AUC случайной модели = доля оттока; нужна для контекста
++
++
++def _features(df: pd.DataFrame, plans: list[str]) -> pd.DataFrame:
++    """Признаки. Пустой n_tickets - магазин не обращался в поддержку: 0 + явный флаг.
++
++    store_id и account_id не берём: идентификаторы (~1200 значений) модель только запомнит.
++    """
++    out = pd.DataFrame(index=df.index)
++    out["tenure_months"] = df["tenure_months"].astype(float)
++    out["revenue"] = df["revenue"].astype(float)
++    out["no_tickets"] = df["n_tickets"].isna().astype(float)
++    out["n_tickets"] = df["n_tickets"].fillna(0).astype(float)
++    for plan in plans:
++        out[f"plan_{plan}"] = (df[PLANS_COL] == plan).astype(float)
++    return out
++
++
++def _plans(df: pd.DataFrame) -> list[str]:
++    return sorted(df[PLANS_COL].dropna().astype(str).unique())
++
++
++def _pos_weight(y: pd.Series) -> float:
++    pos = int(y.sum())
++    if pos == 0 or pos == len(y):
++        raise ValueError("в обучающей выборке должны быть оба класса")
++    return (len(y) - pos) / pos
++
++
++def _make_rf() -> RandomForestClassifier:
++    return RandomForestClassifier(
++        n_estimators=300,
++        min_samples_leaf=5,
++        class_weight="balanced_subsample",
++        n_jobs=-1,
++        random_state=SEED,
++    )
++
++
++def _make_xgb(scale_pos_weight: float, early_stopping: bool) -> XGBClassifier:
++    return XGBClassifier(
++        n_estimators=MAX_TREES,
++        learning_rate=0.05,
++        max_depth=4,
++        scale_pos_weight=scale_pos_weight,
++        eval_metric="aucpr",
++        early_stopping_rounds=EARLY_STOPPING_ROUNDS if early_stopping else None,
++        n_jobs=-1,
++        random_state=SEED,
++    )
++
++
++def _split(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
++    """Разбиение на train / es / valid / test; последний (неразмеченный) срез отброшен."""
++    snapshots = sorted(df[TIME].unique())
++    labelled = snapshots[:-1]
++    if len(labelled) <= TEST_SNAPSHOTS:
++        raise ValueError("мало срезов для временного теста")
++    test = df[df[TIME].isin(labelled[-TEST_SNAPSHOTS:])]
++    past = df[df[TIME].isin(labelled[:-TEST_SNAPSHOTS])].reset_index(drop=True)
++
++    outer = GroupShuffleSplit(n_splits=1, test_size=0.4, random_state=SEED)
++    train_idx, rest_idx = next(outer.split(past, groups=past[GROUP]))
++    rest = past.iloc[rest_idx].reset_index(drop=True)
++    inner = GroupShuffleSplit(n_splits=1, test_size=0.5, random_state=SEED)
++    es_idx, valid_idx = next(inner.split(rest, groups=rest[GROUP]))
++    return {
++        "train": past.iloc[train_idx],
++        "es": rest.iloc[es_idx],
++        "valid": rest.iloc[valid_idx],
++        "test": test,
++    }
++
++
++def evaluate(df: pd.DataFrame) -> ChurnReport:
++    """Выбирает лучшую модель по PR-AUC на valid и считает её PR-AUC на тесте.
++
++    PR-AUC, а не accuracy/ROC-AUC: отток 5%, важна точность поиска редких уходящих магазинов.
++    """
++    parts = _split(df)
++    plans = _plans(df)
++    x = {name: _features(part, plans) for name, part in parts.items()}
++    y = {name: part[TARGET] for name, part in parts.items()}
++
++    models = {
++        "random_forest": _make_rf().fit(x["train"], y["train"]),
++        "xgboost": _make_xgb(_pos_weight(y["train"]), early_stopping=True).fit(
++            x["train"], y["train"], eval_set=[(x["es"], y["es"])], verbose=False
++        ),
++    }
++    valid = {
++        name: float(average_precision_score(y["valid"], m.predict_proba(x["valid"])[:, 1]))
++        for name, m in models.items()
++    }
++    best = max(valid, key=lambda name: valid[name])
++    test_score = float(
++        average_precision_score(y["test"], models[best].predict_proba(x["test"])[:, 1])
++    )
++    return ChurnReport(
++        best_model=best,
++        test_pr_auc=test_score,
++        valid_pr_auc=valid,
++        test_base_rate=float(y["test"].mean()),
++    )
++
++
++def predict_next_month(df: pd.DataFrame) -> pd.Series:
++    """Вероятность оттока по магазинам на месяц после последнего среза (индекс - store_id).
++
++    Модель (тип выбирается через `evaluate`) дообучается на всех размеченных срезах;
++    XGBoost берёт число деревьев с early stopping на отложенных по магазинам 20% данных.
++    """
++    best = evaluate(df).best_model
++    snapshots = sorted(df[TIME].unique())
++    last = df[df[TIME] == snapshots[-1]]
++    labelled = df[df[TIME] != snapshots[-1]].reset_index(drop=True)
++    plans = _plans(df)
++
++    if best == "random_forest":
++        model: RandomForestClassifier | XGBClassifier = _make_rf().fit(
++            _features(labelled, plans), labelled[TARGET]
++        )
++    else:
++        split = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=SEED)
++        fit_idx, es_idx = next(split.split(labelled, groups=labelled[GROUP]))
++        fit, es = labelled.iloc[fit_idx], labelled.iloc[es_idx]
++        model = _make_xgb(_pos_weight(fit[TARGET]), early_stopping=True).fit(
++            _features(fit, plans),
++            fit[TARGET],
++            eval_set=[(_features(es, plans), es[TARGET])],
++            verbose=False,
++        )
++    proba = model.predict_proba(_features(last, plans))[:, 1]
++    return pd.Series(np.asarray(proba), index=pd.Index(last[GROUP].to_numpy(), name=GROUP))
+diff --git a/tests/test_churn_model.py b/tests/test_churn_model.py
+new file mode 100644
+index 0000000..14036e6
+--- /dev/null
++++ b/tests/test_churn_model.py
+@@ -0,0 +1,56 @@
++import numpy as np
++import pandas as pd
++
++from shelfwatch.churn_model import _split, evaluate, predict_next_month
++
++N_STORES = 400
++N_MONTHS = 10
++
++
++def _synthetic() -> pd.DataFrame:
++    rng = np.random.default_rng(1)
++    rows = []
++    for store in range(N_STORES):
++        plan = rng.choice(["basic", "plus", "pro"])
++        risk = rng.random()
++        for month in range(N_MONTHS):
++            tickets = rng.poisson(1 + 6 * risk)
++            rows.append(
++                {
++                    "account_id": store,
++                    "snapshot": pd.Timestamp("2025-01-01") + pd.DateOffset(months=month),
++                    "tenure_months": month + 5,
++                    "plan": plan,
++                    "store_id": store,
++                    "n_tickets": np.nan if tickets == 0 else float(tickets),
++                    "revenue": 1000 * (1 - risk) + rng.normal(0, 50),
++                    "churned": int(rng.random() < 0.02 + 0.2 * risk**3),
++                }
++            )
++    return pd.DataFrame(rows)
++
++
++def test_split_no_store_overlap_and_time_order() -> None:
++    df = _synthetic()
++    parts = _split(df)
++    train_stores = set(parts["train"]["store_id"])
++    assert not train_stores & set(parts["es"]["store_id"])
++    assert not train_stores & set(parts["valid"]["store_id"])
++    assert not set(parts["es"]["store_id"]) & set(parts["valid"]["store_id"])
++    assert parts["test"]["snapshot"].min() > parts["train"]["snapshot"].max()
++    assert df["snapshot"].max() not in set(parts["test"]["snapshot"])
++
++
++def test_evaluate_beats_base_rate() -> None:
++    report = evaluate(_synthetic())
++    assert report.best_model in {"random_forest", "xgboost"}
++    assert set(report.valid_pr_auc) == {"random_forest", "xgboost"}
++    assert report.test_pr_auc > report.test_base_rate
++
++
++def test_predict_next_month_shape_and_range() -> None:
++    df = _synthetic()
++    pred = predict_next_month(df)
++    assert len(pred) == N_STORES
++    assert pred.index.is_unique
++    assert pred.between(0, 1).all()

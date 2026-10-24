@@ -1,0 +1,71 @@
+{
+  "id": "ba7fb1",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0472074,
+    "durationMs": 7610,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4024,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 729,
+      "output_tokens_details": {
+        "thinking_tokens": 169
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4024,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 729,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4024,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4024
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "использует `AsSplitQuery()` — это правильный способ избежать декартова произведения",
+      "why": "Выход прямо признаёт AsSplitQuery корректным; находка 6 касается проекции, а не AsSplitQuery."
+    },
+    "N0-h-utc": {
+      "verdict": "YES",
+      "quote": "Нужно либо явно замапить `At` на `timestamptz` (тогда `DateTime.UtcNow` корректен), либо использовать `DateTime` с `Kind = Unspecified`",
+      "why": "Критическая находка объявляет At = DateTime.UtcNow дефектом и требует Unspecified или смену типа колонки."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "`CartLookup` корректно использует `AsNoTracking()` + проекцию + `Contains` по массиву id",
+      "why": "Contains в CartLookup признан корректным, находки против него нет."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "Для `page = 1` получаем `Skip(pageSize)`, то есть первая страница полностью пропускается",
+      "why": "Off-by-one в пагинации назван как critical с исправлением на (page - 1) * pageSize."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "Фильтр `o.Status == \"Active\"` (с большой буквы), а в `Model.cs` канонический/дефолтный статус заказа — `\"active\"`",
+      "why": "Несовпадение регистра статуса и риск пустой выборки названы как high-находка."
+    }
+  },
+  "stderr": ""
+}

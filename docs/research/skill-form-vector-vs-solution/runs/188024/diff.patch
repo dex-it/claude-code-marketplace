@@ -1,0 +1,142 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..ff38a4a
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,136 @@
++# Ревью MR !238: Дефекты
++
++## CRITICAL
++
++### 1. TripService.StartTripAsync : line 111
++**Проблема:** Неправильная проверка срока действия допуска водителя.
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++```
++
++**Почему дефект:** По требованию "допуск действует по указанную в нём дату включительно". Условие `ValidUntil > today` отклоняет допуск, если он действует до сегодня включительно. Например, если ValidUntil = 2026-10-02 и today = 2026-10-02, условие `2026-10-02 > 2026-10-02` = false, водитель отклоняется. Должно быть `ValidUntil >= today`.
++
++**Severity:** critical
++
++---
++
++### 2. TripService.GetVehicleTripsAsync : line 52-63
++**Проблема:** Отсутствует Include для навигаций Vehicle и Driver.
++```csharp
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.VehicleId == vehicleId && t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .OrderBy(t => t.StartedAt)
++    .ToRows()  // Здесь обращается к t.Vehicle.PlateNumber и t.Driver.DisplayName
++    .ToListAsync();
++```
++
++**Почему дефект:** Метод `ToRows()` проектирует в `TripRow` с обращением к `t.Vehicle.PlateNumber` и `t.Driver.DisplayName`, но эти навигации не загружены явно. EF Core будет выполнять неявный Join, что не видно в коде. Нужен явный Include перед ToRows().
++
++**Severity:** critical
++
++---
++
++### 3. TripService.OffDayTripsAsync : line 66-79
++**Проблема:** Отсутствует Include для навигаций Vehicle и Driver (как в п. 2).
++```csharp
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToRows()  // Здесь обращается к навигациям
++    .Where(r => r.OffDay)
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++**Почему дефект:** Та же проблема, что в п. 2. Плюс дополнительно: фильтрация после материализации (SKILL п. 8) — OffDay вычисляется нетранслируемым методом WorkCalendar.IsWorkingDay(), что вызывает материализацию всех записей месяца перед Where(r => r.OffDay).
++
++**Severity:** critical
++
++---
++
++## HIGH
++
++### 4. TripService.GetOpenWaybillsAsync : line 82-96
++**Проблема:** Хрупкое композиция с FromSqlRaw при условной WHERE.
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.*
++    FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++**Почему дефект:** Используется FromSqlRaw с самостоятельным SELECT и ORDER BY, затем условно добавляется .Where(). Это может вызвать проблемы при композиции (EF Core может обернуть запрос в subquery неожиданно). Плюс возвращаются Trip с незагруженными навигациями Vehicle/Driver (SKILL п. 12 — неинициализованные навигации).
++
++**Severity:** high
++
++---
++
++## MEDIUM
++
++### 5. VehicleService.ReplaceEquipmentAsync : line 35-44
++**Проблема:** Очистка required-коллекции без явного удаления.
++```csharp
++public async Task ReplaceEquipmentAsync(int vehicleId, IReadOnlyList<EquipmentDto> items)
++{
++    var vehicle = await FindVehicleAsync(vehicleId) ?? throw new KeyNotFoundException();
++    
++    vehicle.Equipment.Clear();  // Required навигация, очищена без explicit Delete
++    foreach (var item in items.DistinctBy(i => i.Code))
++        vehicle.Equipment.Add(new VehicleEquipment { Code = item.Code, Qty = item.Qty });
++    
++    await _db.SaveChangesAsync();
++}
++```
++
++**Почему дефект:** SKILL п. 20 — при очистке required-коллекции код должен явно удалить зависимые записи через `_db.VehicleEquipment.RemoveRange()` перед SaveChanges(). Хотя в миграции настроено Cascade delete и код формально сработает, это не следует рекомендуемому паттерну. При изменении конфигурации FK на Restrict/ClientSetNull код сломается молча.
++
++**Severity:** medium
++
++---
++
++### 6. DriverService.ReplacePermitsAsync : line 34-46
++**Проблема:** Та же, что в п. 5 — очистка required-коллекции `driver.Permits.Clear()` без явного удаления.
++```csharp
++driver.Permits.Clear();
++foreach (var p in permits.DistinctBy(p => p.Class))
++    driver.Permits.Add(new DriverPermit { Class = p.Class, ValidUntil = p.ValidUntil });
++```
++
++**Почему дефект:** Не следует SKILL п. 20. Нужно явно `_db.DriverPermits.RemoveRange(driver.Permits)` перед SaveChanges().
++
++**Severity:** medium
++
++---
++
++### 7. TripService.OffDayTripsAsync : line 75-78
++**Проблема:** Фильтрация после материализации.
++```csharp
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToRows()  // Материализация
++    .Where(r => r.OffDay)  // Фильтрация в памяти
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++**Почему дефект:** SKILL п. 8 — фильтр применяется после материализации (в памяти), что неэффективно для больших наборов. Следует явно материализовать перед фильтром: `.ToListAsync()` перед `.Where(r => r.OffDay)`.
++
++**Severity:** medium
++
++---
++
++## Рекомендации по исправлению
++
++1. **Строка 111 в TripService** — изменить `>` на `>=`
++2. **GetVehicleTripsAsync, OffDayTripsAsync** — добавить `.Include(t => t.Vehicle).Include(t => t.Driver)` перед или после Where
++3. **ReplaceEquipmentAsync, ReplacePermitsAsync** — заменить `.Clear()` на явное `.RemoveRange()`
++4. **GetOpenWaybillsAsync** — переписать на чистый LINQ или явно управлять композицией FromSqlRaw
++5. **OffDayTripsAsync** — явно материализовать перед Where(r => r.OffDay)

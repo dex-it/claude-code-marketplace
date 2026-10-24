@@ -1,0 +1,97 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..027cd85
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,91 @@
++# Ревью MR: Notify.Worker (outbox-воркер рассылки)
++
++Все файлы MR новые, поэтому ревью охватывает весь каталог. Код не собирался и не запускался: выводы сделаны по чтению исходников и документированному поведению .NET 8 и Microsoft.Extensions.Options / Configuration.
++
++## Critical
++
++### 1. `appsettings.Production.json`: в репозитории лежат боевые секреты
++- В `ConnectionStrings:Notify` открытым текстом записан пароль прод-БД (`Password=Kx7!pQ2vR9wz`), в `Smtp:Password` — ключ почтового релея (`rl_live_9f3a1c77e2b04d6d`).
++- **Почему это дефект:** секреты попадают в историю git и ко всем, у кого есть доступ к репозиторию. Если их просто удалить из файла, они останутся в истории.
++- **Что сделать:** до мерджа сменить оба секрета. Передавать их через переменные окружения (`ConnectionStrings__Notify`, `Smtp__Password`) или через хранилище секретов. Историю ветки очистить.
++
++### 2. `Program.cs`: `SmtpOptions` привязаны к секции `"Mail"`, а в конфигурации она называется `"Smtp"`
++- `Configure<SmtpOptions>(GetSection("Mail"))` — такой секции нет ни в одном appsettings. Binder молча оставляет значения по умолчанию: `Host = null`, `Port = 0`, `FromAddress = null`.
++- В `SmtpMailSender.SendAsync` вызов `MailboxAddress.Parse(o.FromAddress)` с `null` бросает исключение, поэтому **падает каждая отправка во всех окружениях**.
++- Сопутствующая проблема: `Host` и `FromAddress` — non-nullable `string` без значения по умолчанию и без валидации (при `<Nullable>enable` будет CS8618). Нет ни валидатора, ни `ValidateOnStart`, поэтому ошибка не видна при старте сервиса.
++
++### 3. `ThrottleService.WaitAsync`: ключ `Throttle:MessagesPerMinute` не совпадает с конфигурацией (`Throttle:PerMinute`)
++- `GetValue<int>` для отсутствующего ключа возвращает `0`, и `60_000 / perMinute` бросает `DivideByZeroException` при каждом вызове.
++- Исключение ловит `catch` в `OutboxWorker`, поэтому **ни одно письмо не уходит**, а в лог пишутся одни предупреждения.
++- Лимит нигде не валидируется. Кроме того, это «сырое» чтение `IConfiguration` в обход механизма options.
++
++### 4. `OutboxWorker.ProcessBatchAsync`: сообщение помечается отправленным до отправки
++- Для всей пачки `SentAt = now` ставится и сохраняется (`SaveChangesAsync`) до вызова `SendAsync`. При ошибке увеличивается только `Attempts`, а `SentAt` остаётся заполненным.
++- Выборка берёт только строки с `SentAt == null`, поэтому **неудачное письмо больше никогда не будет повторено и числится отправленным**. Настройка `MaxRetries` и вся логика ретраев не работают. Если процесс упадёт между двумя `SaveChangesAsync`, вся пачка тоже будет потеряна.
++- Выставлять следует только `LockedUntil` (это и есть захват сообщения). `SentAt` нужно ставить после успешной отправки, конкретному сообщению.
++
++## High
++
++### 5. `OutboxWorker.ExecuteAsync`: `PollInterval = 500` интерпретируется как секунды
++- В MR сказано «раз в полсекунды», в appsettings указано `500` (подразумеваются миллисекунды), а код вызывает `TimeSpan.FromSeconds(o.PollInterval)`. Получается пауза **500 с (≈ 8,3 мин)** между опросами.
++- Корень проблемы — имя настройки без единицы измерения. Нужно переименовать в `PollIntervalMs` / `PollIntervalSeconds` или сделать тип `TimeSpan` (`"00:00:00.500"`), как у `LockTimeout`.
++- `PollInterval` не валидируется: при `0` получится «горячий» цикл опроса БД без паузы, а отрицательное значение (кроме -1) вызовет `ArgumentOutOfRangeException` в `Task.Delay`.
++
++### 6. `OutboxWorker` (конструктор) и `SmtpMailSender`: `IOptions<T>`, хотя требуется менять значения на лету
++- В MR заявлено, что `MaxInFlight` и размер пачки меняются правкой appsettings без рестарта. Но `IOptions<T>` — singleton: значение вычисляется один раз и **после перезагрузки файла не меняется**. Нужен `IOptionsMonitor<OutboxOptions>` (`CurrentValue` на каждой итерации). `IOptionsSnapshot` в singleton-сервисе `BackgroundService` использовать нельзя.
++- `_batchSize` инициализируется из `MaxBatchSize` один раз. Когда появится `IOptionsMonitor`, при уменьшении `MaxBatchSize` значение нужно заново ограничивать `Math.Clamp(_batchSize, Min, Max)`. Сейчас при `Min >= Max` ветка адаптации пропускается, и старый `_batchSize` сохраняется.
++- Если переходить на монитор вместе с валидацией, нужно учесть поведение при невалидном значении после reload: `CurrentValue` бросит `OptionsValidationException`, и без обработки воркер упадёт (см. п. 11). Невалидное изменение лучше логировать и оставлять последнее валидное значение.
++
++### 7. `Program.cs` / `OutboxOptionsValidator`: валидатор не зарегистрирован, валидации при старте нет
++- `OutboxOptionsValidator` нигде не регистрируется (`AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` отсутствует). Он **мёртвый код**: тесты проверяют класс, который не участвует в работе приложения.
++- Нет `AddOptions<...>().Bind(...).ValidateOnStart()`. Даже после регистрации ошибка проявится только при первом обращении к `.Value` внутри `ExecuteAsync`, а не при старте. Для `SmtpOptions` валидации нет совсем (см. п. 2).
++
++### 8. `OutboxOptionsValidator.Validate`: не проверяется кросс-полевой инвариант `MinBatchSize <= MaxBatchSize`, и в проде он уже нарушен
++- В `appsettings.Production.json` указано `MinBatchSize: 200`, `MaxBatchSize: 100`. Валидатор это пропускает, а в `ExecuteAsync` условие `o.MinBatchSize < o.MaxBatchSize` ложно, поэтому адаптивный батчинг в проде **молча отключается**. Судя по всему, опечатка в конфиге.
++- Также не проверяются `MinBatchSize > 0` и `PollInterval > 0`. При `MinBatchSize = 0` логика адаптации может уменьшить `_batchSize` до `0`. После этого `Take(0)` → `sent = 0`, `0 < 0/2` ложно → `Math.Min(Max, 0 * 2) = 0`, и воркер **навсегда перестаёт выбирать сообщения**.
++- Тесты это не покрывают: в `Accepts_valid_options` `MinBatchSize = 0` и `PollInterval = 0`, и такой набор считается «валидным».
++
++### 9. `appsettings.Staging.json`: `Password=${NOTIFY_DB_PASSWORD}` не подставляется
++- Конфигурация .NET не раскрывает переменные окружения внутри значений. В Npgsql уйдёт буквальная строка `${NOTIFY_DB_PASSWORD}`, и подключение на staging упадёт с ошибкой аутентификации.
++- Правильно задавать всю строку через переменную окружения `ConnectionStrings__Notify` (или через хранилище секретов), а в json не хранить.
++
++### 10. `OutboxWorker.ProcessBatchAsync`: гонка при нескольких экземплярах воркера
++- Сначала выполняется `SELECT … Take(n)`, потом отдельный `UPDATE LockedUntil`, без блокировки строк и без проверки конкурентности. Два экземпляра (или повторный запуск) могут выбрать одни и те же строки, и письма уйдут дважды.
++- Для outbox на PostgreSQL нужен `SELECT … FOR UPDATE SKIP LOCKED` (через `FromSql`) или атомарный `UPDATE … RETURNING`, либо concurrency token (`xmin`).
++
++### 11. `OutboxWorker.ExecuteAsync`: любое исключение останавливает весь хост
++- Цикл не обёрнут в `try/catch`. Временный сбой БД в `ToListAsync` / `SaveChangesAsync` (а после исправления п. 7 — и `OptionsValidationException`) выбросится из `ExecuteAsync`. В .NET 8 по умолчанию действует `BackgroundServiceExceptionBehavior.StopHost`, то есть процесс остановится.
++- Итерацию нужно оборачивать в `try/catch` с логированием, а `OperationCanceledException` при остановке пропускать.
++
++### 12. `tests/OutboxOptionsValidatorTests.cs` лежит внутри проекта `Notify.Worker.csproj`
++- SDK по умолчанию включает в компиляцию все `**/*.cs`, включая `tests/`. В `Notify.Worker.csproj` нет пакета `xunit`, поэтому `using Xunit;` и `[Fact]` не скомпилируются, и **сборка сервиса сломается**.
++- Тесты нужно вынести в отдельный тестовый проект или исключить через `<Compile Remove="tests/**" />`.
++
++## Medium
++
++### 13. `ThrottleService.WaitAsync`: троттлинг не глобальный
++- Каждая задача просто ждёт `60000 / perMinute` мс, общего ограничителя нет. При `MaxInFlight = N` фактическая скорость примерно в N раз больше `PerMinute`: в проде до 5×1200, на staging до 20×600. Лимит релея не соблюдается.
++- Нужен общий rate limiter, например `System.Threading.RateLimiting.TokenBucketRateLimiter` / `FixedWindowRateLimiter`, как singleton.
++
++### 14. `appsettings.Staging.json`: staging настроен агрессивнее production
++- На staging `MaxInFlight: 20`, в проде `5`. Staging не отражает прод-нагрузку и может упереться в лимиты stage-SMTP. Параметры staging должны совпадать с продом или быть мягче.
++
++### 15. `appsettings.Staging.json`: значения по умолчанию наследуются из dev-конфига
++- На staging не заданы `Smtp:FromAddress`, `UserName` и `Password`. Наследуется `noreply@localhost`, и на порту 587 отправка идёт без аутентификации. Не заданы также `Throttle` и `Outbox:PollInterval`/`BatchSize`.
++- Каждое env-файл должен явно задавать значения, критичные для окружения.
++
++### 16. `OutboxWorker.ProcessBatchAsync`: отмена при остановке считается неудачной попыткой
++- `catch (Exception)` ловит и `OperationCanceledException` из `throttle.WaitAsync` / `SendAsync` при штатной остановке и увеличивает `Attempts`. Кроме того, после отмены `SaveChangesAsync(ct)` тоже будет отменён, и состояние не сохранится.
++- `OperationCanceledException` нужно отфильтровать (`catch when (!ct.IsCancellationRequested)`).
++
++### 17. `OutboxOptionsValidator.Validate`: `MaxRetries = 0` проходит валидацию
++- Условие выборки `Attempts < 0` никогда не выполняется, и воркер ничего не отправляет. Нужно требовать `MaxRetries >= 1`.
++
++## Low
++
++### 18. `SmtpMailSender.SendAsync`: новое SMTP-соединение на каждое письмо
++- На каждое письмо выполняется Connect, TLS и Auth, что дорого и может упереться в лимиты релея по числу соединений. Лучше переиспользовать соединение в пределах пачки или держать пул.
++- Шифрование явно не задано. `SecureSocketOptions.Auto` на 587 использует StartTLS только если сервер его предлагает. Для прода стоит требовать `SecureSocketOptions.StartTls`.
++
++### 19. `appsettings.json`: учётные данные dev-БД в базовом файле
++- `Password=notify` в базовом файле используется как fallback во всех окружениях. Лучше вынести в User Secrets или переменные окружения dev-среды.

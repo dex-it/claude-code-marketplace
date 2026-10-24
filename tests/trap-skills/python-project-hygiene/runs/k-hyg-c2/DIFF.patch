@@ -1,0 +1,89 @@
+diff --git a/.gitignore b/.gitignore
+index 84812bb..f6664d4 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,3 +3,7 @@ __pycache__/
+ artifacts/
+ data/
+ .coverage
++.cache/
++.ruff_cache/
++.mypy_cache/
++.pytest_cache/
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+new file mode 100644
+index 0000000..dc022cc
+--- /dev/null
++++ b/.gitlab-ci.yml
+@@ -0,0 +1,43 @@
++image: ghcr.io/astral-sh/uv:python3.12-bookworm
++
++stages:
++  - quality
++
++variables:
++  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
++
++default:
++  cache:
++    key: uv-$CI_COMMIT_REF_SLUG
++    paths:
++      - .cache/uv
++
++.quality:
++  stage: quality
++  rules:
++    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
++    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
++
++ruff-check:
++  extends: .quality
++  script:
++    - uv sync --only-group dev
++    - uv run --no-sync ruff check src tests
++
++ruff-format:
++  extends: .quality
++  script:
++    - uv sync --only-group dev
++    - uv run --no-sync ruff format --check src tests
++
++mypy:
++  extends: .quality
++  script:
++    - uv sync --group dev
++    - uv run --no-sync mypy
++
++pytest:
++  extends: .quality
++  script:
++    - uv sync --group dev
++    - uv run --no-sync pytest
+diff --git a/pyproject.toml b/pyproject.toml
+index f5a748c..1033306 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -37,3 +37,23 @@ build-backend = "setuptools.build_meta"
+ 
+ [tool.setuptools.packages.find]
+ where = ["src"]
++
++[tool.ruff]
++line-length = 100
++target-version = "py312"
++src = ["src", "tests"]
++
++[tool.ruff.lint]
++select = ["E", "F", "W", "I", "B", "UP"]
++
++[tool.mypy]
++python_version = "3.12"
++files = ["src", "tests"]
++mypy_path = "src"
++explicit_package_bases = true
++strict = true
++
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++pythonpath = ["src"]
++addopts = "-ra --strict-markers --strict-config"

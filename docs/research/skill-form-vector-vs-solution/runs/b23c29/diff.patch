@@ -1,0 +1,373 @@
+diff --git a/FineOptions.cs b/FineOptions.cs
+new file mode 100644
+index 0000000..cdc519d
+--- /dev/null
++++ b/FineOptions.cs
+@@ -0,0 +1,12 @@
++namespace BookQuarter.Library;
++
++// Секция "Fines" в appsettings.json.
++public class FineOptions
++{
++    public const string SectionName = "Fines";
++
++    // Штраф за один день просрочки, руб.
++    public decimal PerDay { get; set; }
++
++    public decimal ForDays(int overdueDays) => overdueDays > 0 ? overdueDays * PerDay : 0m;
++}
+diff --git a/LoanService.cs b/LoanService.cs
+index a8df46b..f5dec32 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -1,4 +1,5 @@
+ using Microsoft.EntityFrameworkCore;
++using Microsoft.Extensions.Options;
+ 
+ namespace BookQuarter.Library;
+ 
+@@ -9,12 +10,16 @@ public record LoanLineDto(int LoanId, string Title, DateOnly DueDate, int Overdu
+ 
+ public class LoanService
+ {
+-    private const decimal FinePerDay = 10m;
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
++    private readonly FineOptions _fines;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, IOptions<FineOptions> fines)
++    {
++        _db = db;
++        _fines = fines.Value;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -44,7 +49,7 @@ public class LoanService
+         if (loan.ReturnedAt != null)
+             return;
+ 
+-        loan.Reader.FineBalance += loan.OverdueDays * FinePerDay;
++        loan.Reader.FineBalance += _fines.ForDays(loan.OverdueDays);
+         loan.ReturnedAt = DateTime.UtcNow;
+         await _db.SaveChangesAsync();
+     }
+@@ -53,6 +58,7 @@ public class LoanService
+     public async Task<ReaderCardDto?> GetReaderCardAsync(string cardNumber)
+     {
+         var reader = await _db.Readers
++            .AsNoTracking()
+             .Include(r => r.Loans.Where(l => l.ReturnedAt == null))
+                 .ThenInclude(l => l.Book)
+             .SingleOrDefaultAsync(r => r.CardNumber == cardNumber);
+@@ -60,13 +66,11 @@ public class LoanService
+         if (reader is null)
+             return null;
+ 
+-        reader.MaskContacts();
+-
+         return new ReaderCardDto(
+             reader.CardNumber,
+             reader.FullName,
+-            reader.Phone,
+-            reader.Email,
++            ReaderExtensions.MaskPhone(reader.Phone),
++            ReaderExtensions.MaskEmail(reader.Email),
+             reader.FineBalance,
+             reader.Loans
+                 .Select(l => new LoanLineDto(l.Id, l.Book.Title, l.DueDate, l.OverdueDays))
+diff --git a/Program.cs b/Program.cs
+index 8fd0ed0..15390d8 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -1,3 +1,4 @@
++using System.Globalization;
+ using BookQuarter.Library;
+ using Microsoft.EntityFrameworkCore;
+ 
+@@ -5,7 +6,12 @@ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++builder.Services.AddOptions<FineOptions>()
++    .Bind(builder.Configuration.GetSection(FineOptions.SectionName))
++    .Validate(f => f.PerDay > 0, "Fines:PerDay должен быть больше нуля")
++    .ValidateOnStart();
+ builder.Services.AddScoped<LoanService>();
++builder.Services.AddScoped<ReportService>();
+ 
+ var app = builder.Build();
+ 
+@@ -21,6 +27,34 @@ app.MapPost("/loans/{id:int}/return", async (int id, LoanService s) =>
+ app.MapGet("/readers/{card}", async (string card, LoanService s) =>
+     await s.GetReaderCardAsync(card) is { } dto ? Results.Ok(dto) : Results.NotFound());
+ 
++app.MapGet("/branches/{id:int}/overdue", async (int id, ReportService s) =>
++    await s.GetOverdueAsync(id) is { } list ? Results.Ok(list) : Results.NotFound());
++
++app.MapGet("/exports/debtors.csv", async (HttpRequest req, ReportService s) =>
++{
++    var user = req.Headers["X-User"].ToString().Trim();
++    if (string.IsNullOrEmpty(user))
++        return Results.Problem("Не указан заголовок X-User", statusCode: StatusCodes.Status400BadRequest);
++
++    var export = await s.ExportDebtorsCsvAsync(user);
++    return Results.File(export.Content, "text/csv; charset=utf-8",
++        $"debtors-{DateTime.UtcNow:yyyy-MM-dd}.csv");
++});
++
++app.MapGet("/reports/loans", async (string? from, string? to, ReportService s) =>
++{
++    if (!TryParseDate(from, out var f) || !TryParseDate(to, out var t))
++        return Results.Problem("Параметры from и to обязательны, формат yyyy-MM-dd",
++            statusCode: StatusCodes.Status400BadRequest);
++    if (f > t)
++        return Results.Problem("Дата from позже даты to", statusCode: StatusCodes.Status400BadRequest);
++
++    return Results.Ok(await s.GetLoansByBranchAsync(f, t));
++});
++
+ app.Run();
+ 
++static bool TryParseDate(string? value, out DateOnly date) =>
++    DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
++
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
+diff --git a/ReaderExtensions.cs b/ReaderExtensions.cs
+index c2637b8..4349e77 100644
+--- a/ReaderExtensions.cs
++++ b/ReaderExtensions.cs
+@@ -4,17 +4,27 @@ public static class ReaderExtensions
+ {
+     // Маскирование контактов для показа вне абонементского отдела:
+     // +7 912 345-67-89 -> ***6789, ivanov@mail.ru -> i***@mail.ru
++    // Внимание: меняет сам объект. Для отслеживаемых EF-сущностей используйте
++    // MaskPhone/MaskEmail, иначе маска уйдёт в БД при ближайшем SaveChanges.
+     public static Reader MaskContacts(this Reader reader)
+     {
+-        var digits = new string(reader.Phone.Where(char.IsDigit).ToArray());
+-        reader.Phone = digits.Length >= 4 ? "***" + digits[^4..] : "***";
++        reader.Phone = MaskPhone(reader.Phone);
++        reader.Email = MaskEmail(reader.Email);
++        return reader;
++    }
+ 
+-        if (!string.IsNullOrEmpty(reader.Email))
+-        {
+-            var at = reader.Email.IndexOf('@');
+-            reader.Email = at > 0 ? reader.Email[0] + "***" + reader.Email[at..] : "***";
+-        }
++    public static string MaskPhone(string? phone)
++    {
++        var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
++        return digits.Length >= 4 ? "***" + digits[^4..] : "***";
++    }
+ 
+-        return reader;
++    public static string? MaskEmail(string? email)
++    {
++        if (string.IsNullOrEmpty(email))
++            return email;
++
++        var at = email.IndexOf('@');
++        return at > 0 ? email[0] + "***" + email[at..] : "***";
+     }
+ }
+diff --git a/ReportService.cs b/ReportService.cs
+new file mode 100644
+index 0000000..336c0c5
+--- /dev/null
++++ b/ReportService.cs
+@@ -0,0 +1,154 @@
++using System.Globalization;
++using System.Text;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.Extensions.Options;
++
++namespace BookQuarter.Library;
++
++public record OverdueLoanDto(int LoanId, string ReaderName, string CardNumber, string Phone,
++    string BookTitle, DateOnly DueDate, int OverdueDays);
++
++public record BranchLoansDto(int BranchId, string BranchName, int LoansCount);
++
++public record CsvExport(byte[] Content, int Rows);
++
++public class ReportService
++{
++    private readonly LibraryDbContext _db;
++    private readonly FineOptions _fines;
++
++    public ReportService(LibraryDbContext db, IOptions<FineOptions> fines)
++    {
++        _db = db;
++        _fines = fines.Value;
++    }
++
++    // Loan.IsOverdue/OverdueDays — вычисляемые свойства, EF их в SQL не переведёт,
++    // поэтому фильтр по сроку пишем явно, а дни считаем уже в памяти.
++    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
++
++    // (а) Просроченные выдачи филиала для обзвона. Телефон полный — список для сотрудников филиала.
++    public async Task<IReadOnlyList<OverdueLoanDto>?> GetOverdueAsync(int branchId)
++    {
++        if (!await _db.Branches.AnyAsync(b => b.Id == branchId))
++            return null;
++
++        var today = Today;
++        var rows = await _db.Loans
++            .AsNoTracking()
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)
++            .OrderBy(l => l.DueDate)        // самый ранний срок = больше всего дней просрочки
++            .ThenBy(l => l.Reader.FullName)
++            .Select(l => new
++            {
++                l.Id,
++                l.Reader.FullName,
++                l.Reader.CardNumber,
++                l.Reader.Phone,
++                l.Book.Title,
++                l.DueDate,
++            })
++            .ToListAsync();
++
++        return rows
++            .Select(r => new OverdueLoanDto(r.Id, r.FullName, r.CardNumber, r.Phone, r.Title,
++                r.DueDate, today.DayNumber - r.DueDate.DayNumber))
++            .ToList();
++    }
++
++    // (б) CSV по должникам всей сети для коллекторского агентства + запись в ExportLog.
++    public async Task<CsvExport> ExportDebtorsCsvAsync(string exportedBy)
++    {
++        var today = Today;
++        var loans = await _db.Loans
++            .AsNoTracking()   // контакты маскируем; сущности не должны попасть в трекер
++            .Where(l => l.ReturnedAt == null && l.DueDate < today)
++            .Select(l => new
++            {
++                l.ReaderId,
++                l.Reader.FullName,
++                l.Reader.CardNumber,
++                l.Reader.Phone,
++                l.Reader.Email,
++                l.DueDate,
++            })
++            .ToListAsync();
++
++        var debtors = loans
++            .GroupBy(l => l.ReaderId)
++            .Select(g =>
++            {
++                var r = g.First();
++                var fine = g.Sum(l => _fines.ForDays(today.DayNumber - l.DueDate.DayNumber));
++                return new
++                {
++                    r.FullName,
++                    r.CardNumber,
++                    Phone = ReaderExtensions.MaskPhone(r.Phone),
++                    Email = ReaderExtensions.MaskEmail(r.Email),
++                    Fine = fine,
++                };
++            })
++            .OrderBy(d => d.FullName)
++            .ThenBy(d => d.CardNumber)
++            .ToList();
++
++        var sb = new StringBuilder();
++        sb.Append("FullName,CardNumber,Phone,Email,Fine\r\n");
++        foreach (var d in debtors)
++        {
++            sb.Append(Csv(d.FullName)).Append(',')
++              .Append(Csv(d.CardNumber)).Append(',')
++              .Append(Csv(d.Phone)).Append(',')
++              .Append(Csv(d.Email)).Append(',')
++              .Append(d.Fine.ToString("0.00", CultureInfo.InvariantCulture))
++              .Append("\r\n");
++        }
++
++        _db.ExportLogs.Add(new ExportLog
++        {
++            Target = "debtors.csv",
++            ExportedBy = exportedBy,
++            ExportedAt = DateTime.UtcNow,
++            Rows = debtors.Count,
++        });
++        await _db.SaveChangesAsync();
++
++        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
++        return new CsvExport(bytes, debtors.Count);
++    }
++
++    // (в) Число выдач по филиалам за период [from; to] включительно (даты по UTC, как и IssuedAt).
++    public async Task<IReadOnlyList<BranchLoansDto>> GetLoansByBranchAsync(DateOnly from, DateOnly to)
++    {
++        var start = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
++        var endExclusive = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
++
++        var counts = await _db.Loans
++            .Where(l => l.IssuedAt >= start && l.IssuedAt < endExclusive)
++            .GroupBy(l => l.BranchId)
++            .Select(g => new { BranchId = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
++
++        var branches = await _db.Branches.AsNoTracking().OrderBy(b => b.Name).ToListAsync();
++
++        // Филиалы без выдач тоже показываем — с нулём.
++        return branches
++            .Select(b => new BranchLoansDto(b.Id, b.Name, counts.GetValueOrDefault(b.Id)))
++            .ToList();
++    }
++
++    // RFC 4180 + защита от формул при открытии в Excel.
++    private static string Csv(string? value)
++    {
++        if (string.IsNullOrEmpty(value))
++            return "";
++
++        if (value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
++            value = "'" + value;
++
++        return value.IndexOfAny([',', '"', '\r', '\n']) >= 0
++            ? "\"" + value.Replace("\"", "\"\"") + "\""
++            : value;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..dd6303b
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++**Файлы**
++- Создан `ReportService.cs`: просроченные выдачи (а), CSV по должникам с записью в ExportLog (б), отчёт по выдачам (в).
++- Создан `FineOptions.cs`: ставка штрафа, читается из секции `Fines`.
++- Создан `appsettings.json`: `Fines:PerDay = 10`.
++- Изменён `Program.cs`: добавлены три endpoint'а. Опции штрафа подключаются с проверкой при старте `PerDay > 0`. Проверяются `X-User` и даты отчёта, при ошибке — 400.
++- Изменён `LoanService.cs`: ставка штрафа берётся из конфигурации. Карточка читателя читается через `AsNoTracking` и маскируется без изменения сущности.
++- Изменён `ReaderExtensions.cs`: добавлены отдельные функции `MaskPhone` и `MaskEmail`, которые не меняют объект. `MaskContacts` теперь вызывает их.
++
++**Решения**
++- `MaskContacts` изменял отслеживаемую EF-сущность. Выгрузка вызывает `SaveChanges`, чтобы записать ExportLog, и маски могли бы перезаписать настоящие телефоны и e-mail в БД. Поэтому маскирую отдельными функциями на данных, прочитанных без отслеживания.
++- `IsOverdue` и `OverdueDays` вычисляются в C# и не переводятся в SQL. Поэтому фильтр `ReturnedAt == null && DueDate < today` написан явно, а дни считаются после загрузки. Сумма в CSV — это штраф по ещё не возвращённым просроченным выдачам: дни × ставка из конфига. `FineBalance` в неё не входит.
++- В отчёт (в) попадают выдачи с `from 00:00` до `to+1 00:00` по UTC, то есть дата «по» включается целиком. Филиалы без выдач тоже выводятся, с нулём. Список (а) строится по филиалу выдачи (`Loan.BranchId`), а не по домашнему филиалу читателя. Телефон там полный, потому что список нужен для обзвона. Сборку и тесты не запускал.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..8406f11
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,12 @@
++{
++  "Logging": {
++    "LogLevel": {
++      "Default": "Information",
++      "Microsoft.AspNetCore": "Warning"
++    }
++  },
++  "AllowedHosts": "*",
++  "Fines": {
++    "PerDay": 10
++  }
++}

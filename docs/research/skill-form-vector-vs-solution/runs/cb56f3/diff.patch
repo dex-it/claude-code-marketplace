@@ -1,0 +1,83 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3916096
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,77 @@
++# Code Review MR !238 - Находки (Defects Found)
++
++## Дефект 1: CRITICAL
++**Файл:** TripService.cs  
++**Метод:** StartTripAsync  
++**Строка:** 111
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++```
++
++**Что не так:** Оператор сравнения `>` неправильный. По требованию FLEET-107: "допуск действует по указанную в нём дату включительно" — допуск должен быть действителен также на дату ValidUntil. Текущий код отклоняет допуск если ValidUntil равна сегодня (потому что 10 > 10 = false).
++
++**Почему это дефект:** Нарушение бизнес-требования. Допуск, действующий до сегодня, должен быть пригодным для выпуска машины на линию сегодня, но код его отклоняет.
++
++**Severity:** CRITICAL
++
++---
++
++## Дефект 2: CRITICAL
++**Файл:** TripService.cs  
++**Метод:** OffDayTripsAsync  
++**Строка:** 76
++
++```csharp
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToRows()
++    .Where(r => r.OffDay)
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++**Что не так:** После `.ToRows()` LINQ пытается перевести фильтр `.Where(r => r.OffDay)` в SQL. Но свойство `OffDay` вычисляется через `WorkCalendar.IsWorkingDay(t.StartedAt)`, которую EF Core не может транслировать в SQL.
++
++**Почему это дефект:** Запрос упадёт с ошибкой "The LINQ expression [...] could not be translated" при выполнении endpoint'а `/trips/off-days`. Функционал FLEET-109 будет полностью сломан.
++
++**Severity:** CRITICAL
++
++---
++
++## Дефект 3: HIGH
++**Файл:** Program.cs  
++**Метод:** (endpoint configuration, строки 53-57)  
++**Строка:** 53-57
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++**Что не так:** Endpoint не имеет проверки авторизации (missing `.RequireAuthorization()`).
++
++**Почему это дефект:** По требованию FLEET-104 "Механик присылает актуальную комплектацию машины" — операция должна быть ограничена ролью mechanic. Без авторизации любой аутентифицированный пользователь может менять комплектацию машин. Сравните с аналогичным endpoint'ом `/inspections/sync` (строка 60), где авторизация есть.
++
++**Severity:** HIGH
++
++---
++
++## Дефект 4: HIGH
++**Файл:** VehicleService.cs  
++**Метод:** GetLastInspectionAsync  
++**Строка:** 72
++
++```csharp
++.OrderByDescending(i => i.CreatedAt)
++```
++
++**Что не так:** Логическое противоречие между сортировкой и проверкой. Функция сортирует осмотры по `CreatedAt` (когда синхронизировано с сервера), но требование FLEET-107 проверяет `InspectedAt < now - 12 hours` (время фактического осмотра).
++
++**Почему это дефект:** Если механик работал offline и синхронизировал пачку старых осмотров одним пакетом, код выберет осмотр по времени синхронизации (который может быть свежим), но проверит время проведения (которое может быть старым). Это создаёт ложное срабатывание: машина будет выпущена на основе осмотра, проведённого часы/дни назад, если он только что синхронизирован. Требование "не старше 12 часов" относится к времени проведения осмотра (InspectedAt), не к синхронизации (CreatedAt).
++
++**Severity:** HIGH

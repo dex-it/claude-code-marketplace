@@ -1,0 +1,61 @@
+{
+  "id": "640494",
+  "case": "E6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0537874,
+    "durationMs": 3931,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5954,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 286,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5954,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 286,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5954,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5954
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E6-prod": {
+      "verdict": "FAIL",
+      "quote": "dotnet tool run dotnet-ef database update",
+      "why": "Production-джоба migrate-database применяет миграции через dotnet ef database update, а не через idempotent-скрипт с ревью или migrations bundle."
+    },
+    "E6-m-data": {
+      "verdict": "NO",
+      "quote": "INSERT INTO \"OrderCategories\" (\"OrderId\", \"CategoryId\")",
+      "why": "Миграция через migrationBuilder.Sql бэкфиллит Categories и OrderCategories из Order.Category."
+    },
+    "E6-m-drop": {
+      "verdict": "NO",
+      "quote": "Order.Category itself is left untouched here",
+      "why": "В Up нет DropColumn, колонка Order.Category остаётся в модели и в БД."
+    }
+  },
+  "stderr": ""
+}

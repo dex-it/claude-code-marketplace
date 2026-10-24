@@ -6,20 +6,38 @@
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.6.0"
   },
   "scripts": {
-    "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all && node tools/validate-bundle.js all",
+    "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all && node tools/validate-bundle.js all && node tools/validate-node-contract.js all && node tools/validate-readme.js all && node tools/validate-rules-documented.js all && node tools/validate-terminology.js all && node tools/sync-terminology.js --check && node tools/sync-tracks.js --check && npm run typecheck:mods",
+    "test": "node tools/test-rules.js all",
+    "readme:check": "node tools/validate-readme.js all",
+    "test:tools": "bash tests/tools/agent-visibility.test.sh && bash tests/tools/node-contract-cli.test.sh && bash tests/tools/tree-plain.test.sh && bash tests/tools/sync-tracks.test.sh && bash tests/tools/command-skills.test.sh && bash tests/tools/sync-plugins.test.sh && bash tests/tools/run-claude-secret.test.sh && bash tests/tools/auto-nodes-run.test.sh && bash tests/tools/runners-isolation.test.sh",
     "validate:agents": "node tools/validate-agent.js",
     "validate:skills": "node tools/validate-skill.js",
     "validate:commands": "node tools/validate-command.js",
-    "validate:bundles": "node tools/validate-bundle.js"
+    "validate:bundles": "node tools/validate-bundle.js",
+    "validate:node-contract": "node tools/validate-node-contract.js",
+    "validate:terminology": "node tools/validate-terminology.js",
+    "sync:marketplace": "node tools/sync-marketplace.js",
+    "sync:terminology": "node tools/sync-terminology.js",
+    "sync:tracks": "node tools/sync-tracks.js",
+    "test:activation": "node tools/run-activation.js",
+    "test:activation:agents": "node tools/run-activation.js --agents --model haiku",
+    "metrics:propagation": "node tools/propagation-cost.js",
+    "metrics:run": "node tools/run-telemetry.js",
+    "test:hooks": "bash tests/hooks/ledger.test.sh && bash tests/hooks/finish.test.sh && bash tests/hooks/verify.test.sh",
+    "test:tracks": "node tests/tracks/run.mjs",
+    "typecheck:mods": "tsc -p mods && tsc -p mods/tsconfig.tests.json",
+    "test:mods": "node --experimental-strip-types --test \"mods/*/tests/*.test.ts\""
   },
   "devDependencies": {
+    "@types/node": "^22.20.2",
     "gray-matter": "^4.0.3",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
+    "typescript": "^5.9.3",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0"
   }

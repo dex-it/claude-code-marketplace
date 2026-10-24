@@ -1,0 +1,40 @@
+{
+  "id": "k3-c3",
+  "case": "K3",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 14,
+  "cost": 0.10939080000000001,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 5,
+    "Bash": 5,
+    "Write": 1,
+    "Edit": 2
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; git ls-files api | grep -v node_modules; cat package.json api/package.json | grep -n '\"test\\|vitest'",
+    "cd <run>; npm run typecheck 2>&1 | tail -15; npm test 2>&1 | tail -25",
+    "cd <run>/api; npx tsc --noEmit | head",
+    "cd <run>/api; sed -i \"s/import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';/import { afterEach, beforeEach, descri",
+    "cd <run>; npm run typecheck 2>&1 | grep -i error; npm test 2>&1 | grep -E \"Tests|fail\"; git status --short"
+  ]
+}

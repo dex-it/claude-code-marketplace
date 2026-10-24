@@ -1,0 +1,179 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..e5a8a8d
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,126 @@
++name: CI
++
++on:
++  pull_request:
++  push:
++    branches: [main]
++
++permissions:
++  contents: read
++
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
++
++env:
++  DOTNET_NOLOGO: true
++  DOTNET_CLI_TELEMETRY_OPTOUT: true
++  IMAGE: registry.example.com/depot/api
++
++# Версии actions закреплены тегами: SHA без доступа к сети не определить (см. замечания к DPT-20).
++jobs:
++  test:
++    name: test (${{ matrix.name }})
++    runs-on: ${{ matrix.os }}
++    timeout-minutes: 30
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - name: ubuntu
++            os: ubuntu-latest
++            filter: ''
++          - name: windows-contracts
++            os: windows-latest
++            filter: Category=Contracts
++    steps:
++      - uses: actions/checkout@v4 # TODO: закрепить SHA
++      - uses: actions/setup-dotnet@v4 # TODO: закрепить SHA
++        with:
++          global-json-file: global.json
++      - name: Restore (по лок-файлам)
++        run: dotnet restore Depot.sln --locked-mode
++      - name: Build
++        run: dotnet build Depot.sln -c Release --no-restore
++      - name: Test
++        run: >
++          dotnet test Depot.sln -c Release --no-build
++          --filter "${{ matrix.filter }}"
++          --logger "trx;LogFileName=results.trx"
++          --collect:"XPlat Code Coverage"
++          --results-directory TestResults
++      - uses: actions/upload-artifact@v4 # TODO: закрепить SHA
++        if: ${{ !cancelled() }}
++        with:
++          name: test-results-${{ matrix.name }}
++          path: TestResults/
++          retention-days: 14
++
++  vulnerabilities:
++    name: dependency audit
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++    steps:
++      - uses: actions/checkout@v4 # TODO: закрепить SHA
++      - uses: actions/setup-dotnet@v4 # TODO: закрепить SHA
++        with:
++          global-json-file: global.json
++      - run: dotnet restore Depot.sln --locked-mode
++      - name: Audit
++        shell: bash
++        run: |
++          dotnet list Depot.sln package --vulnerable --include-transitive 2>&1 | tee audit.txt
++          if grep -q "has the following vulnerable packages" audit.txt; then
++            echo "::error::Найдены уязвимые зависимости"
++            exit 1
++          fi
++
++  format:
++    name: format (report only)
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++    steps:
++      - uses: actions/checkout@v4 # TODO: закрепить SHA
++      - uses: actions/setup-dotnet@v4 # TODO: закрепить SHA
++        with:
++          global-json-file: global.json
++      - run: dotnet restore Depot.sln --locked-mode
++      - name: dotnet format
++        # Отчёт, не гейт: 300+ замечаний чиним постепенно
++        continue-on-error: true
++        run: dotnet format Depot.sln --no-restore --verify-no-changes --verbosity diagnostic --report format-report
++      - uses: actions/upload-artifact@v4 # TODO: закрепить SHA
++        if: ${{ !cancelled() }}
++        with:
++          name: format-report
++          path: format-report/
++          if-no-files-found: ignore
++          retention-days: 14
++
++  license-check:
++    needs: test
++    permissions:
++      contents: read
++    uses: ci-shared/.github/.github/workflows/license-check.yml@v2
++
++  image:
++    name: image and deploy to stage
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    needs: [test, vulnerabilities, license-check]
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    steps:
++      - uses: actions/checkout@v4 # TODO: закрепить SHA
++      - name: Registry login
++        env:
++          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
++          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
++        run: echo "$REGISTRY_PASSWORD" | docker login registry.example.com -u "$REGISTRY_USER" --password-stdin
++      - name: Build and push
++        run: |
++          docker build -t "$IMAGE:$GITHUB_SHA" .
++          docker push "$IMAGE:$GITHUB_SHA"
++      - name: Trigger stage deploy
++        env:
++          GH_TOKEN: ${{ secrets.DEPOT_INFRA_DISPATCH_TOKEN }}
++        run: gh workflow run deploy.yml --repo dex/depot-infra
+diff --git a/.github/workflows/size-label.yml b/.github/workflows/size-label.yml
+new file mode 100644
+index 0000000..a5e53e0
+--- /dev/null
++++ b/.github/workflows/size-label.yml
+@@ -0,0 +1,30 @@
++name: PR size label
++
++# pull_request_target: у PR из форков обычный токен только для чтения.
++# Код PR не checkout-им и не исполняем, берём только числа из события.
++on:
++  pull_request_target:
++    types: [opened, synchronize, reopened]
++
++permissions:
++  pull-requests: write
++
++jobs:
++  label:
++    runs-on: ubuntu-latest
++    timeout-minutes: 5
++    steps:
++      - name: Set size label
++        env:
++          GH_TOKEN: ${{ github.token }}
++          PR: ${{ github.event.pull_request.number }}
++          CHANGED: ${{ github.event.pull_request.additions + github.event.pull_request.deletions }}
++        run: |
++          if [ "$CHANGED" -le 50 ]; then size=S
++          elif [ "$CHANGED" -le 250 ]; then size=M
++          else size=L; fi
++          for l in S M L; do
++            [ "$l" = "$size" ] || gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --remove-label "size/$l" || true
++          done
++          gh label create "size/$size" --repo "$GITHUB_REPOSITORY" --force || true
++          gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --add-label "size/$size"
+diff --git a/Directory.Build.props b/Directory.Build.props
+index 16cc93e..a58840e 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -5,5 +5,6 @@
+     <ImplicitUsings>enable</ImplicitUsings>
+     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+     <Version>1.4.0</Version>
++    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+   </PropertyGroup>
+ </Project>

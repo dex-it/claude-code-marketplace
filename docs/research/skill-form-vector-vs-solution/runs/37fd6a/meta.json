@@ -1,0 +1,98 @@
+{
+  "id": "37fd6a",
+  "exitCode": 0,
+  "started": "2026-09-29T09:26:27.612Z",
+  "finished": "2026-09-29T09:27:34.262Z",
+  "wallMs": 66650,
+  "init": {
+    "model": "claude-haiku-4-5",
+    "skills": [],
+    "plugins": [
+      {
+        "name": "agents-md",
+        "path": "builtin",
+        "source": "agents-md@builtin"
+      },
+      {
+        "name": "telemetry",
+        "path": "builtin",
+        "source": "telemetry@builtin"
+      }
+    ],
+    "tools": [
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "mcpServers": [],
+    "cwd": "/Users/anonymous/.cache/research/runs/37fd6a/work",
+    "claudeCodeVersion": "2.1.284"
+  },
+  "toolCalls": {
+    "Read": 15,
+    "Glob": 1,
+    "Write": 1
+  },
+  "webCalls": 0,
+  "skillCalls": [],
+  "readPaths": [
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/MR.md",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/Program.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/OutboxWorker.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/Options/OutboxOptions.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/ThrottleService.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/Options/OutboxOptionsValidator.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/Options/SmtpOptions.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/SmtpMailSender.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/IMailSender.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/appsettings.json",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/NotifyDbContext.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/tests/OutboxOptionsValidatorTests.cs",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/appsettings.Staging.json",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/appsettings.Production.json",
+    "/Users/anonymous/.cache/research/runs/37fd6a/work/Notify.Worker.csproj"
+  ],
+  "usage": {
+    "input_tokens": 65,
+    "cache_creation_input_tokens": 13140,
+    "cache_read_input_tokens": 89067,
+    "output_tokens": 7072,
+    "output_tokens_details": {
+      "thinking_tokens": 2999
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 13140,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 8,
+        "output_tokens": 317,
+        "cache_read_input_tokens": 15245,
+        "cache_creation_input_tokens": 5050,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 5050
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "costUsd": 0.0706117,
+  "durationMs": 65546,
+  "numTurns": 18,
+  "isError": false,
+  "stderr": "",
+  "resultSubtype": "success"
+}

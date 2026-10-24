@@ -1,0 +1,72 @@
+{
+  "id": "e48abd",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.114875,
+    "durationMs": 13611,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11795,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1004,
+      "output_tokens_details": {
+        "thinking_tokens": 456
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11795,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1004,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11795,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11795
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needsHouseJoin = !string.IsNullOrWhiteSpace(s.District) || sortKey == \"address\";",
+      "why": "JOIN apartments/houses добавляются один раз по общим флагам, которые учитывают и фильтры, и sort=address; столбец и направление берутся из белого списка SortColumns и ASC/DESC."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at",
+      "why": "Phone и CompletionComment замаплены в ServiceRequest, а явный список колонок FromSqlRaw в SearchAsync не дополнен, поэтому реестр падает: EF не находит колонок для новых свойств."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.RemoveRange(toRemove);",
+      "why": "Совпавшие по WorkCode работы обновляются на месте, выбывшие удаляются явным RemoveRange, новые добавляются, так что история остающихся работ сохраняется."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не переписан и не объявлен дефектным; упомянут только как опора для уникального индекса."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET не названа инъекцией и не изменена."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,22 @@
+{
+  "id": "B1",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "VetClinic.Reception - бэкенд регистратуры ветклиники «Лапа». ASP.NET Core 8, EF Core 8.0.x, Npgsql.EntityFrameworkCore.PostgreSQL 8.0.x, PostgreSQL 16.",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B1/Domain.cs",
+      "to": "Domain.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B1/ClinicDbContext.cs",
+      "to": "ClinicDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B1/OwnerService.cs",
+      "to": "OwnerService.cs"
+    }
+  ],
+  "task": "Задачи по регистратуре, нужно сделать все три:\n\n(а) Ночной отчёт для SMS-рассылки по программе для возрастных питомцев. В отчёт попадают питомцы, которые по правилу клиники считаются возрастными (Pet.IsSenior), у которых последняя прививка от бешенства (VaccineCodes.Rabies) была больше 12 месяцев назад или её не было вовсе, и только если владелец дал согласие на SMS. В строке отчёта: кличка, вид, ФИО владельца, телефон владельца. В базе около 250 тыс. питомцев и 1,5 млн записей о прививках; отчёт ничего не меняет в данных, только формирует список. Сделай новый ReminderReportService с методом, возвращающим строки отчёта.\n\n(б) Регистратура: поиск клиента по номеру телефона. Регистратор вводит номер в любом формате, экран показывает клиента и список его питомцев (кличка, вид, возраст). Добавь метод в OwnerService рядом с FindByEmailAsync.\n\n(в) Отказ от SMS: клиент звонит и просит больше не присылать сообщения. Нужен метод в OwnerService, который по Id владельца снимает согласие на SMS и фиксирует момент изменения в SmsConsentChangedAt.\n\nПокажи новые и изменённые файлы целиком."
+}

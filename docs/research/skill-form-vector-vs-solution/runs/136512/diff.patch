@@ -1,0 +1,132 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e302175
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,126 @@
++# Ревью MR !238
++
++## 1. `TripService.cs` — `GetOpenWaybillsAsync`
++**Severity: critical**
++
++Сырой SQL в `FromSqlRaw` заканчивается точкой с запятой:
++
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.*
++    FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++При композиции LINQ-оператора (`.Where`) поверх `FromSqlRaw` EF Core оборачивает исходный SQL как подзапрос: `SELECT ... FROM (<rawSql>) AS t WHERE t.vehicle_id = @id`. Точка с запятой внутри скобок — синтаксическая ошибка Postgres (`syntax error at or near ";"`). То есть именно фильтр по машине (сама суть FLEET-112: «список... с фильтром по машине») ломает запрос целиком. В MR отмечено, что проверяли «список незакрытых листов по всему парку» — то есть ровно ветку без фильтра, где бага не видно.
++
++Дополнительно (той же строкой, severity medium, отдельно от падения): `ORDER BY` находится внутри подзапроса без `LIMIT`, а внешний запрос не имеет своего `ORDER BY` — Postgres не гарантирует сохранение порядка из подзапроса в результате внешнего запроса. Даже после удаления `;` сортировка при фильтрации по `vehicleId` не гарантирована и может молча пропасть.
++
++## 2. `VehicleService.cs` — `ReplaceEquipmentAsync` (через `FindVehicleAsync`)
++**Severity: critical**
++
++```csharp
++public Task<Vehicle?> FindVehicleAsync(int id) =>
++    _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id);
++...
++public async Task ReplaceEquipmentAsync(int vehicleId, IReadOnlyList<EquipmentDto> items)
++{
++    var vehicle = await FindVehicleAsync(vehicleId) ?? throw new KeyNotFoundException();
++    vehicle.Equipment.Clear();
++    foreach (var item in items.DistinctBy(i => i.Code))
++        vehicle.Equipment.Add(new VehicleEquipment { Code = item.Code, Qty = item.Qty });
++    await _db.SaveChangesAsync();
++}
++```
++
++`FindVehicleAsync` не делает `.Include(v => v.Equipment)`, поэтому `vehicle.Equipment` остаётся пустой коллекцией по умолчанию (`= new()`), а не загруженной из БД. `Clear()` чистит пустой список — ничего не удаляет. В итоге старая комплектация в БД не трогается, а новая просто добавляется поверх: при совпадении кода сработает unique-индекс `(vehicle_id, code)` и упадёт исключение, а при несовпадении — старые записи останутся висеть, и «замена целиком» (FLEET-104: «механик присылает актуальную комплектацию машины целиком — заменяем на присланную») фактически не происходит.
++
++Правильный паттерн есть рядом в этом же релизе — `DriverService.ReplacePermitsAsync` корректно делает `.Include(d => d.Permits)` перед `Clear()`. В `VehicleService` этот шаг пропущен.
++
++## 3. `TripService.cs` — `TripRows.ToRows()` (используется в `GetVehicleTripsAsync` и новом `OffDayTripsAsync`)
++**Severity: critical**
++
++```csharp
++public static IQueryable<TripRow> ToRows(this IQueryable<Trip> trips) =>
++    trips.Select(t => new TripRow
++    {
++        ...
++        OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt),
++    });
++```
++
++`WorkCalendar.IsWorkingDay` конвертирует время в московское (`TimeZoneInfo.ConvertTimeFromUtc`) и проверяет `HashSet<DateOnly>` праздников — это обычный C#-метод, не транслируемый в SQL и не размеченный как `DbFunction`. EF Core не сможет перевести вызов этого метода внутри `Select` над `IQueryable<Trip>` в SQL и бросит исключение времени выполнения («could not be translated») для любого запроса, использующего `ToRows()`.
++
++Это не только ломает новый `OffDayTripsAsync` (FLEET-109), но и существующий, ранее рабочий `GetVehicleTripsAsync` — потому что оба используют общий `ToRows()`, в который добавили `OffDay`. Регрессия в коде, который не входит в список «новых» методов MR, но полностью перестаёт работать из-за общего расширения.
++
++## 4. `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs` — `Up`
++**Severity: critical**
++
++```csharp
++migrationBuilder.AlterColumn<string>(
++    name: "model",
++    table: "vehicles",
++    type: "character varying(40)",
++    ...
++    oldType: "character varying(200)",
++    oldMaxLength: 200);
++```
++
++Сужение `varchar(200)` до `varchar(40)` выполняется прямым `ALTER COLUMN` без проверки/усечения существующих данных. Сам MR объясняет мотивацию задачи: «длинные названия моделей принтер обрезал на середине» — то есть в проде уже есть значения `model` длиннее 40 символов. При применении такой `ALTER COLUMN TYPE` Postgres бросит ошибку `value too long for type character varying(40)` для любой строки, не влезающей в новую длину, и миграция на проде не применится (или применится частично и с ошибкой в середине bundle). Локальная проверка «миграция применена на dev-базе» не показательна, если на dev нет длинных значений. Нужно либо предварительно обрезать/проверить данные отдельным шагом, либо развести схемную миграцию и работу с историческими данными.
++
++## 5. `TripService.cs` — `StartTripAsync`
++**Severity: high**
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException("Нет действующего допуска к классу машины");
++```
++
++По описанию FLEET-107 допуск «действует по указанную в нём дату включительно». Сравнение `p.ValidUntil > today` исключает последний день действия допуска: в день, когда `ValidUntil == today`, водителю ошибочно откажут в выпуске на линию. Нужно `>=`.
++
++## 6. `VehicleService.cs` — `GetLastInspectionAsync`
++**Severity: high**
++
++```csharp
++public Task<Inspection?> GetLastInspectionAsync(int vehicleId) =>
++    _db.Inspections
++        .AsNoTracking()
++        .Include(i => i.Defects)
++        .Where(i => i.VehicleId == vehicleId)
++        .OrderByDescending(i => i.CreatedAt)
++        .FirstOrDefaultAsync();
++```
++
++«Последний» осмотр выбирается по `CreatedAt` (время приёма сервером), а не по `InspectedAt` (фактическое время осмотра на планшете). По описанию MR планшет копит осмотры офлайн и шлёт их пачкой при появлении сети — несколько осмотров из одной пачки могут получить очень близкий или одинаковый `CreatedAt` (один `now()` на транзакцию в Postgres), но разный, не по порядку идущий `InspectedAt`. В `StartTripAsync` проверка свежести (`inspection.InspectedAt < UtcNow.AddHours(-12)`) использует именно `InspectedAt` выбранной записи — если выбрана не фактически последняя по времени осмотра запись, машину либо ошибочно не выпустят (хотя был более свежий осмотр), либо, что хуже, выпустят по факту устаревшего осмотра, если тот случайно оказался «последним» по `CreatedAt`. Для безопасностного чек-пойнта (FLEET-107) сортировать нужно по `InspectedAt`.
++
++## 7. `Program.cs` — `PUT /api/vehicles/{id}/equipment`
++**Severity: high**
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++В отличие от всех остальных мутирующих эндпоинтов (`/drivers/{id}/name` — `Hr`, `/drivers/{id}/permits` — `Hr`, `/vehicles/{id}/decommission` — `FleetManager`, `/inspections/sync` — `Mechanic`, `/trips/start` — `Dispatcher`), этот эндпоинт ограничен только групповым `RequireAuthorization()` без конкретной роли — то есть любой аутентифицированный пользователь (например, водитель или HR) может переписать комплектацию любой машины. Нарушение принципа наименьших привилегий, нужна политика вроде `"Mechanic"`.
++
++## 8. `VehicleService.cs` / `DriverService.cs` — `DistinctBy` при замене коллекций
++**Severity: low**
++
++```csharp
++foreach (var item in items.DistinctBy(i => i.Code))
++    vehicle.Equipment.Add(...);
++...
++foreach (var p in permits.DistinctBy(p => p.Class))
++    driver.Permits.Add(...);
++```
++
++Дубликаты кода оснащения / класса допуска во входных данных молча отбрасываются (остаётся первый по порядку элемент), без ошибки или лога. Если источник данных (планшет механика, выгрузка HR) пришлёт противоречивые дубликаты (например, разное `Qty` для одного кода), это тихо скроет проблему на стороне источника. Не блокирует MR, но стоит хотя бы залогировать/обсудить ожидаемое поведение.

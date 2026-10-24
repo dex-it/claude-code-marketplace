@@ -1,0 +1,7 @@
+Изменённые файлы:
+- `Models.cs` — у `Member` добавлены `FreezeStartedAt`/`FreezeUntil` (UTC) и метод `IsFrozenAt(DateTime)`.
+- `ScheduleService.cs` — добавлены `MemberFrozenException`, `QualitySessionDto`, методы `FreezeMemberAsync`, `UnfreezeMemberAsync`, `GetRandomQualitySessionAsync`; в `EnrollAsync` добавлена проверка заморозки на момент старта занятия (бросает `MemberFrozenException`).
+- `TurnstileWorker.cs` — перед поиском записи на занятие проверяется `member.IsFrozenAt(pass.PassedAt)`: если заморожен, запись остаётся «Booked», а в `Note` пишется «абонемент заморожен».
+- `Program.cs` — эндпоинты `POST/DELETE /members/{id}/freeze`, `GET /quality/random-session`; `/sessions/{id}/enroll` перехватывает `MemberFrozenException` и возвращает 409; добавлен record `FreezeRequest`.
+
+Решения: заморозка хранится как пара дат прямо на `Member` (не отдельной сущностью); проверка в турникете делается по времени самого прохода, а не по времени обработки батча, т.к. воркер обрабатывает с задержкой; «тайный гость» выбирает случайную сессию из окна `[now, now+7d]` на каждый вызов, без кэширования на неделю. Миграций в проекте нет вовсе, поэтому не создавал — то же самое записано в `_answer.md`.

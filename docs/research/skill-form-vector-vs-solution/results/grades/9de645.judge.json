@@ -1,0 +1,81 @@
+{
+  "id": "9de645",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0627594,
+    "durationMs": 7653,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5603,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 875,
+      "output_tokens_details": {
+        "thinking_tokens": 166
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5603,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 875,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5603,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5603
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "Комментарий утверждает, что `Optional[Decimal]` без значения по умолчанию делает поле обязательным и старые клиенты получат 422. В pydantic 1.10 это не так.",
+      "why": "Находка 1 опровергает утверждение для pydantic 1.10: поле необязательно, дефолт None, старый клиент молча теряет весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "В pydantic 1.10 по умолчанию `extra = Extra.ignore` (документация `model_config`): поле с опечаткой молча отбрасывается.",
+      "why": "Находка 9 опровергает комментарий и связывает опечатку в имени поля со списанием всего баланса."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не требует заменить req.dict() на model_dump(); req.dict() упомянут только как источник неполного аудита."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "гонка read-modify-write, возможно двойное списание",
+      "why": "Находка 5 называет чтение без блокировки и абсолютный UPDATE, которые приводят к двойному списанию."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`POINT_VALUE = 0.1` и `Decimal(POINT_VALUE)`: неверная арифметика из-за float",
+      "why": "Находка 3 описывает неточную стоимость балла из-за Decimal от float 0.1."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "нет проверки знака и нуля у суммы, отрицательная сумма начисляет баллы",
+      "why": "Находка 2 прямо называет этот дефект."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Выход не упоминает, что member_id берётся из тела запроса без аутентификации (IDOR)."
+    }
+  },
+  "stderr": ""
+}

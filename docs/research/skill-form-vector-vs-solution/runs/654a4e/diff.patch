@@ -1,0 +1,103 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..c4d7e3f
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,84 @@
++namespace Shop.Data;
++
++// Регистрировать как Scoped. Если вызывается из BackgroundService/Timer —
++// резолвить через IServiceScopeFactory.CreateScope() на каждый запуск, не инжектить напрямую.
++public class CatalogMaintenance
++{
++    private const int AuditLogBatchSize = 5000;
++    private static readonly TimeSpan AuditLogBatchDelay = TimeSpan.FromMilliseconds(200);
++    private static readonly TimeSpan AuditLogRetention = TimeSpan.FromDays(365);
++
++    private readonly ShopDbContext _db;
++    public CatalogMaintenance(ShopDbContext db) => _db = db;
++
++    // (а) +10% к цене всем продуктам категории — один SQL UPDATE, без загрузки сущностей
++    public Task<int> RaisePricesAsync(string category, CancellationToken ct = default) =>
++        _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);
++
++    // (б) ночная очистка AuditLogs старше года — батчами, чтобы не держать одну
++    // транзакцию на ~40 млн строк (блокировка таблицы, раздувание WAL)
++    public async Task<long> PurgeOldAuditLogsAsync(CancellationToken ct = default)
++    {
++        var cutoff = DateTime.UtcNow - AuditLogRetention;
++        long totalDeleted = 0;
++        int deletedInBatch;
++        do
++        {
++            deletedInBatch = await _db.AuditLogs
++                .Where(a => a.At < cutoff)
++                .OrderBy(a => a.Id)
++                .Take(AuditLogBatchSize)
++                .ExecuteDeleteAsync(ct);
++            totalDeleted += deletedInBatch;
++
++            if (deletedInBatch == AuditLogBatchSize)
++                await Task.Delay(AuditLogBatchDelay, ct);
++        } while (deletedInBatch == AuditLogBatchSize);
++
++        return totalDeleted;
++    }
++
++    // (в) загрузить продукты одним запросом и увеличить Stock; Change Tracker сам
++    // пометит изменённые сущности — UpdateRange здесь не нужен
++    public async Task RestockAsync(IEnumerable<(Guid id, int add)> items, CancellationToken ct = default)
++    {
++        var deltas = items.ToDictionary(x => x.id, x => x.add);
++        if (deltas.Count == 0) return;
++
++        var ids = deltas.Keys.ToList();
++        var products = await _db.Products
++            .Where(p => ids.Contains(p.Id))
++            .ToListAsync(ct);
++
++        foreach (var product in products)
++            product.Stock += deltas[product.Id];
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (г) создать продукт с новым Guid; Add() вместо AddAsync() — id генерируется на клиенте, HiLo не используется
++    public async Task<Product> CreateProductAsync(
++        string sku,
++        string category,
++        decimal price,
++        int stock,
++        string warehouse = "",
++        CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Category = category,
++            Price = price,
++            Stock = stock,
++            Warehouse = warehouse,
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e08c19b
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Создан файл: CatalogMaintenance.cs
++
++Решения:
++- (а) и (б) сделаны через `ExecuteUpdateAsync`/`ExecuteDeleteAsync`, а не цикл `SaveChanges`; очистка AuditLogs — батчами по 5000 с `Take`/`OrderBy(Id)` и `Task.Delay` между батчами, чтобы не держать одну транзакцию на ~40 млн строк (блокировка таблицы, раздувание WAL), согласно правилам SKILL.md.
++- (в) Restock грузит все нужные продукты одним запросом (`Where(id => ids.Contains)`), меняет Stock в памяти и делает один `SaveChangesAsync` — без `UpdateRange` (сущности уже tracked).
++- (г) CreateProduct создаёт Guid на клиенте и использует `Add()` вместо `AddAsync()` (HiLo не используется).
++- Сервис рассчитан на Scoped-регистрацию; если вызывается из BackgroundService/таймера — резолвить через `IServiceScopeFactory.CreateScope()`, не инжектить DbContext в Singleton напрямую.

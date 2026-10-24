@@ -1,0 +1,52 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..f6834bd
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,46 @@
++# Ревью MR !4210: карточка заказа, выгрузка корзины и аудит для админки
++
++## 1. Workers/AuditWriter.cs — `WriteAsync`
++**Severity: critical**
++
++```csharp
++_db.AuditLogs.Add(new AuditLog { At = DateTime.UtcNow, Text = text });
++```
++
++`AuditLog.At` — обычный `DateTime`, для него в `OnModelCreating` нет явного `HasColumnType`. По конвенции Npgsql/EFCore.PG 6+ такая колонка мапится в `timestamp without time zone`, а провайдер начиная с версии 6 **запрещает записывать `DateTime` с `Kind=Utc`** в `timestamp` — бросает исключение на `SaveChangesAsync`. `DateTime.UtcNow` имеет `Kind=Utc`, значит каждый вызов `WriteAsync` будет падать в рантайме (или после первого деплоя на окружении, где это не покрыто тестами в UTC-таймзоне разработчика — там `Kind` тоже неверный, просто конвертер может маскировать проблему иначе). Соседняя сущность `Order.CreatedAt` в этом же контексте явно сконфигурирована с `HasColumnType("timestamp without time zone")`, что подтверждает: тип колонки по умолчанию для `DateTime` в проекте — `timestamp`, а не `timestamptz`.
++
++Функция аудита полностью неработоспособна в текущем виде.
++
++Исправление: либо сконфигурировать колонку как `timestamptz` (тогда `Kind=Utc` пишется без проблем), либо на запись нормализовать `Kind` под тип `timestamp` (`DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)`), как описано в правилах команды по timestamp/Kind.
++
++## 2. Services/CustomerOrders.cs — `ActivePageAsync`
++**Severity: high**
++
++```csharp
++// page - номер страницы с 1, как в MR.
++.Skip(page * pageSize)
++.Take(pageSize)
++```
++
++Комментарий и контракт MR говорят, что нумерация страниц начинается с 1, но формула `Skip(page * pageSize)` рассчитана на нумерацию с 0. При `page = 1` (первая страница по контракту) метод пропускает `pageSize` записей и отдаёт то, что должно быть на странице 2; сама первая страница результатов клиенту никогда не возвращается. Классический off-by-one.
++
++Исправление: `Skip((page - 1) * pageSize)`.
++
++## 3. Workers/AuditWriter.cs — DbContext lifetime (риск, требует подтверждения)
++**Severity: medium**
++
++`AuditWriter` лежит в каталоге `Workers/` и получает `ShopDbContext` (Scoped) напрямую через конструктор. В DI-регистрации/точке вызова эта диагностика не видна в рамках диффа MR, но по названию и расположению класс выглядит как компонент, который может резолвиться из `BackgroundService`/hosted service (обычно Singleton-lifetime). Если `AuditWriter` создаётся один раз на весь lifetime приложения или инжектится напрямую в singleton-воркер без `IServiceScopeFactory.CreateScope()`, это захват Scoped `DbContext` в Singleton — Change Tracker растёт бесконечно, возможны stale-данные и `ObjectDisposedException`/конкурентный доступ, поскольку `DbContext` не потокобезопасен.
++
++Нужно явно проверить (не входит в изменённые файлы), как и откуда резолвится `AuditWriter`: если через `AddScoped`/`AddTransient` и вызывается из уже-scoped запроса — проблемы нет; если он используется из фонового сервиса — нужен `IServiceScopeFactory`.
++
++## 4. Services/CustomerOrders.cs — нестабильная сортировка при пагинации
++**Severity: low**
++
++`OrderByDescending(o => o.CreatedAt)` без вторичного ключа сортировки (например, `Id`). При совпадающих `CreatedAt` (возможно при массовых операциях/импортах) `Skip`/`Take` между запросами могут давать недетерминированный порядок — записи могут повторяться на соседних страницах или пропадать между ними. Стоит добавить `.ThenByDescending(o => o.Id)` для стабильной сортировки.
++
++---
++
++## Не являются дефектами (проверено отдельно)
++- `Services/OrderCard.cs GetAsync`: `AsSplitQuery()` при двух sibling-коллекциях (`Items`, `Payments`) на одной сущности — оправдано (иначе cartesian explosion Items × Payments), это не тот случай "AsSplitQuery для single entity", который запрещён правилами.
++- `Services/CartLookup.cs GetAsync`: `Where(p => ids.Contains(p.Id))` с тысячами id — Npgsql транслирует `Contains` над массивом в `= ANY(@p)` одним параметром, проблем с ростом SQL/лимитом параметров нет; `AsNoTracking` + проекция на месте.
++- `Workers/AuditWriter.cs`: используется `Add()`, а не `AddAsync()` — соответствует правилу (нет HiLo).

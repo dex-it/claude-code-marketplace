@@ -1,0 +1,81 @@
+{
+  "id": "ba23b5",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.060223399999999996,
+    "durationMs": 8155,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5226,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 899,
+      "output_tokens_details": {
+        "thinking_tokens": 128
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5226,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 899,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5226,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5226
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "В v1 `Optional[X]` без значения по умолчанию получает неявный `default=None` и **не** становится обязательным. Комментарий неверен",
+      "why": "Находка прямо опровергает утверждение комментария для pydantic 1.10 и указывает последствие: старый клиент без 422 молча списывает весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "В v1 по умолчанию действует `Extra.ignore`: опечатка вроде `confirm_amout` молча игнорируется",
+      "why": "Находка опровергает утверждение про отказ от лишних полей и описывает цепочку: опечатка, затем None, затем списание всего баланса."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход нигде не требует заменить req.dict() на model_dump(); req.dict() упомянут только в контексте содержимого аудита."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Блокировок нет (`SELECT ... FOR UPDATE`), атомарного `SET points = points - :x WHERE points >= :x` тоже нет",
+      "why": "Находка называет чтение и UPDATE без блокировки и двойное списание при параллельных запросах."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`POINT_VALUE = 0.1` — это float, и `Decimal(0.1)` = `0.1000000000000000055511151231…`",
+      "why": "Находка называет неточную стоимость балла из-за Decimal от float."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "При `confirm_amount = -1000` проверка `amount > balance` проходит, а `member.points -= int(-1000 / 0.1)` **прибавляет** 10000 баллов",
+      "why": "Находка описывает начисление баллов при отрицательном confirm_amount."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Ни одна из 11 находок не говорит, что member_id берётся из тела запроса без аутентификации (IDOR)."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,73 @@
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+new file mode 100644
+index 0000000..4c81948
+--- /dev/null
++++ b/.gitlab-ci.yml
+@@ -0,0 +1,33 @@
++default:
++  image: python:3.12-slim
++  before_script:
++    - pip install uv
++    - uv sync --only-group dev
++
++stages:
++  - quality
++
++ruff-check:
++  stage: quality
++  script:
++    - uv run ruff check src tests
++
++ruff-format:
++  stage: quality
++  script:
++    - uv run ruff format --check src tests
++
++mypy:
++  stage: quality
++  script:
++    - uv run mypy
++
++pytest:
++  stage: quality
++  script:
++    - uv run pytest
++
++pip-audit:
++  stage: quality
++  script:
++    - uv run pip-audit .
+diff --git a/pyproject.toml b/pyproject.toml
+index f5a748c..ec06f7e 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -37,3 +37,29 @@ build-backend = "setuptools.build_meta"
+ 
+ [tool.setuptools.packages.find]
+ where = ["src"]
++
++[tool.ruff]
++line-length = 88
++target-version = "py312"
++src = ["src", "tests"]
++
++[tool.ruff.lint]
++# W и COM/ISC/Q не выбираем: они пересекаются с `ruff format`
++select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
++
++[tool.mypy]
++python_version = "3.12"
++files = ["src", "tests"]
++mypy_path = "src"
++strict = true
++warn_unreachable = true
++
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++pythonpath = ["src"]
++addopts = "--cov=shelfwatch --cov-report=term-missing --cov-fail-under=60"
++filterwarnings = ["error"]
++
++[tool.coverage.run]
++branch = true
++source = ["shelfwatch"]

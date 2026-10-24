@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: depot-api
+  namespace: depot
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [depot.example.com]
+      secretName: depot-tls
+  rules:
+    - host: depot.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: depot-api
+                port:
+                  number: 80

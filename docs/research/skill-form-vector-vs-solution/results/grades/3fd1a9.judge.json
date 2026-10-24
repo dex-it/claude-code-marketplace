@@ -1,0 +1,61 @@
+{
+  "id": "3fd1a9",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0277634,
+    "durationMs": 4723,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2336,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 432,
+      "output_tokens_details": {
+        "thinking_tokens": 125
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2336,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 432,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2336,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2336
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var uniqueIds = new HashSet<Guid>(customerIds);",
+      "why": "Дедупликация через HashSet выполняется до разбиения на пачки, поэтому повторённый id даёт одно письмо даже между пачками."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "// Batching для больших списков (SKILL: Contains ограничен ~2100 параметров)",
+      "why": "Запрос режется через Chunk(500) в цикле с обоснованием лимитом параметров и деградацией плана на большом IN."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var uniqueIds = new HashSet<Guid>(customerIds);",
+      "why": "customerIds перечисляется один раз при построении HashSet, дальше используется только uniqueIds."
+    }
+  },
+  "stderr": ""
+}

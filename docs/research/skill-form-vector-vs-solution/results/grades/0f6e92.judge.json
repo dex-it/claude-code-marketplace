@@ -1,0 +1,66 @@
+{
+  "id": "0f6e92",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0344634,
+    "durationMs": 5811,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2771,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 593,
+      "output_tokens_details": {
+        "thinking_tokens": 130
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2771,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 593,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2771,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2771
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "FAIL",
+      "quote": "return await query.FirstOrDefaultAsync();",
+      "why": "При warehouse == null и нескольких продуктах с этим SKU метод молча возвращает первый попавшийся склад, без ошибки неоднозначности и без обязательного склада."
+    },
+    "E2-h-split": {
+      "verdict": "NO",
+      "quote": ".Include(o => o.Payments)\n            .AsSplitQuery()\n            .FirstOrDefaultAsync();",
+      "why": "Карточка одного заказа грузит Items и Payments с AsSplitQuery, одного JOIN без split нет."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId)\n            .Include(o => o.Items)\n            .Include(o => o.Payments)\n            .AsSplitQuery()",
+      "why": "Выгрузка заказов клиента с двумя коллекциями идёт с AsSplitQuery, поэтому декартова произведения нет."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt.HasValue)",
+      "why": ".Value применяется только после фильтра ShippedAt.HasValue, так что обращения к null нет."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,59 @@
+diff --git a/api/test/reservation.test.ts b/api/test/reservation.test.ts
+new file mode 100644
+index 0000000..03405fa
+--- /dev/null
++++ b/api/test/reservation.test.ts
+@@ -0,0 +1,53 @@
++import { describe, expect, it, vi } from 'vitest';
++import { inventory, TemporaryInventoryError } from '../src/clients/inventory.js';
++import { holdUntil, isHoldExpired, ReservationFailedError, reserveWithRetry } from '../src/services/reservation.js';
++
++vi.mock('../src/clients/inventory.js', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('../src/clients/inventory.js')>();
++  return { ...actual, inventory: { reserve: vi.fn() } };
++});
++
++const items = [{ productId: 'p-mug', title: 'Кружка', quantity: 1, priceKopecks: 129000 }];
++
++describe('reserveWithRetry', () => {
++  it('reserves on the first attempt', async () => {
++    vi.mocked(inventory.reserve).mockResolvedValueOnce({ reservationId: 'r-1' });
++    const result = await reserveWithRetry('ord-1', items);
++    expect(result.reservationId).toBe('r-1');
++    expect(inventory.reserve).toHaveBeenCalledTimes(1);
++  });
++
++  it('retries after a temporary failure', async () => {
++    vi.mocked(inventory.reserve)
++      .mockRejectedValueOnce(new TemporaryInventoryError('503'))
++      .mockResolvedValueOnce({ reservationId: 'r-2' });
++    const result = await reserveWithRetry('ord-1', items);
++    expect(result).toEqual({ reservationId: 'r-2', attempts: 2 });
++  });
++
++  it('throws when all attempts fail', async () => {
++    vi.mocked(inventory.reserve).mockRejectedValue(new TemporaryInventoryError('503'));
++    try {
++      await reserveWithRetry('ord-1', items);
++    } catch (err) {
++      expect(err).toBeInstanceOf(ReservationFailedError);
++    }
++  });
++
++  it('does not retry other errors', async () => {
++    vi.mocked(inventory.reserve).mockRejectedValue(new Error('400'));
++    try {
++      await reserveWithRetry('ord-1', items);
++    } catch (err) {
++      expect(err).toBeInstanceOf(Error);
++    }
++  });
++});
++
++describe('isHoldExpired', () => {
++  it('works', () => {
++    const now = Date.now();
++    expect(isHoldExpired(holdUntil(now), now)).toBe(false);
++    expect(isHoldExpired(holdUntil(now), now + 60 * 60 * 1000)).toBe(true);
++  });
++});

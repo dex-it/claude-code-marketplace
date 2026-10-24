@@ -1,0 +1,41 @@
+---
+name: fixture-agent
+description: >-
+  Эталонный валидный агент песочницы - держит базу нулевых находок для раннера правил.
+  Триггеры - фикстура агента, база песочницы, прогон правила валидатора, регрессия валидатора.
+  Соседом объявлен `dex-nowhere-frontmatter` - имя видно только во frontmatter;
+  загрузка `dex-skill-nowhere-fm:x` тоже стоит только во frontmatter.
+tools: Read, Write, Grep, Glob, Skill
+model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
+---
+
+# Fixture Agent
+
+Агент существует ради базы фикстур: содержание вторично, контракт фаз первичен.
+
+## Phase 1: Intake
+
+**Goal:** Принять вход песочницы и назвать, чего в нём нет.
+
+**Input (handoff):** `[blocking]` предмет прогона; `[default-ok]` режим (дефолт `autonomous`).
+
+**Exit criteria:** Предмет назван, нехватка входа зафиксирована списком либо список пуст. Дважды названный неизвестный плагин (`dex-nowhere-dup` и `dex-nowhere-dup:x`) даёт одну находку.
+
+## Phase 2: Report
+
+**Goal:** Отдать результат вызывающему.
+
+**Output (handoff):** `status` (`complete`/`blocked`/`partial`), перечень находок, допущения.
+
+**Exit criteria:** Output содержит `status` и перечень находок; пустой перечень назван явно.
+
+## Соседи
+
+Расследованием одного инцидента ведает `dex-nowhere-specialist`; здесь - пачка уже найденных.
+Подробнее про базу песочницы - `dex-fixture-specialist`, префикс-шаблон `dex-skill-` именем не считается.
+
+Загрузка через плагин, которого нет: `dex-nowhere-loaded:fixture`; через плагин песочницы: `dex-fixture-specialist:fixture-oracle`.
+
+Скилл-плагин, которого нет: `dex-skill-nowhere-loaded:fixture` - его судит `skill-reference-unknown`, здесь правило молчит.

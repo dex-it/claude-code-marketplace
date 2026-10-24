@@ -1,0 +1,106 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..29c0705
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,73 @@
++namespace Shop.Data;
++
++public class CatalogMaintenance
++{
++    private const int AuditLogPurgeBatchSize = 5_000;
++
++    private readonly ShopDbContext _db;
++    public CatalogMaintenance(ShopDbContext db) => _db = db;
++
++    // (a) raise prices by 10% for all products in a category - single server-side UPDATE, no entity loading/tracking
++    public Task<int> RaisePricesAsync(string category, CancellationToken ct = default) =>
++        _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);
++
++    // (b) nightly purge of AuditLogs older than a year. Deletes in small batches (ordered by the PK) instead of
++    // one giant statement, since ~40M of ~50M rows are due for deletion: a single DELETE would hold a long-running
++    // transaction, bloat WAL and block autovacuum/replicas. Each batch is its own implicit transaction, so the job
++    // is safely resumable if interrupted. Requires an index on AuditLog.At (see ShopDbContext.OnModelCreating).
++    public async Task<long> PurgeOldAuditLogsAsync(DateTime now, CancellationToken ct = default)
++    {
++        var cutoff = now.AddYears(-1);
++        long totalDeleted = 0;
++        int deleted;
++        do
++        {
++            deleted = await _db.AuditLogs
++                .Where(a => a.At < cutoff)
++                .OrderBy(a => a.Id)
++                .Take(AuditLogPurgeBatchSize)
++                .ExecuteDeleteAsync(ct);
++            totalDeleted += deleted;
++            if (deleted == AuditLogPurgeBatchSize)
++                await Task.Delay(TimeSpan.FromMilliseconds(50), ct); // brief pause between batches to ease lock/replication pressure
++        } while (deleted == AuditLogPurgeBatchSize);
++
++        return totalDeleted;
++    }
++
++    // (c) load products and bump Stock, then save
++    public async Task RestockAsync(IEnumerable<(Guid id, int add)> updates, CancellationToken ct = default)
++    {
++        var addByProductId = updates
++            .GroupBy(u => u.id)
++            .ToDictionary(g => g.Key, g => g.Sum(u => u.add));
++
++        var products = await _db.Products
++            .Where(p => addByProductId.Keys.Contains(p.Id))
++            .ToListAsync(ct);
++
++        foreach (var product in products)
++            product.Stock += addByProductId[product.Id];
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (d) create a product with a new Guid
++    public async Task<Product> CreateProductAsync(string sku, string warehouse, string category, decimal price, int stock = 0, CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Warehouse = warehouse,
++            Category = category,
++            Price = price,
++            Stock = stock,
++        };
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/Model.cs b/Model.cs
+index cc90064..43ce080 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -45,6 +45,7 @@ public class ShopDbContext : DbContext
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+         b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        b.Entity<AuditLog>().HasIndex(a => a.At); // needed so batched purge by age doesn't seq-scan a ~50M row table
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..c268d83
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++## Изменённые/созданные файлы
++- `CatalogMaintenance.cs` — новый сервис: `RaisePricesAsync`, `PurgeOldAuditLogsAsync`, `RestockAsync`, `CreateProductAsync`.
++- `Model.cs` — добавлен индекс `HasIndex(a => a.At)` на `AuditLog` в `OnModelCreating`.
++
++## Решения
++- Поднятие цен и очистка логов сделаны через `ExecuteUpdateAsync`/`ExecuteDeleteAsync` (EF Core 8) — без загрузки сущностей и трекинга, одним SQL-запросом на партию; подтверждено доками MS Learn (ExecuteUpdate/ExecuteDelete выполняются немедленно, каждый вызов — своя неявная транзакция, батчинг нескольких вызовов невозможен).
++- Очистка `AuditLogs` (40 млн из 50 млн строк) сделана батчами по 5000 через `OrderBy(Id).Take(n).ExecuteDeleteAsync()` в цикле с небольшой паузой между итерациями — иначе один DELETE на 40 млн строк держит долгую транзакцию, раздувает WAL и блокирует autovacuum/реплики. Npgsql-провайдер транслирует `OrderBy+Take` для `ExecuteDelete` в подзапрос по PK, так что паттерн рабочий; для приемлемой скорости фильтрации по дате добавлен индекс на `AuditLog.At`. Запуск по расписанию (cron/Hangfire) — вне этого репозитория, тут только сам метод.
++- `RestockAsync` группирует входные `(id, add)` на случай дублей id и суммирует, затем одним запросом подгружает продукты (`Contains` по ключам) и сохраняет через обычный `SaveChangesAsync`, как и требовалось ("загрузить и увеличить").
++- `CreateProductAsync` генерирует `Guid.NewGuid()` на стороне приложения (клиентский Id), т.к. `Product.Id` не помечен как identity/generated в модели.

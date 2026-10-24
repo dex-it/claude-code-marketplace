@@ -1,0 +1,18 @@
+src/shelfwatch/segment.py:27 - 4 пулинга требуют стороны, кратной 16; на 100x100 (как в tests/test_segment.py:7) размеры 12→6→12 не совпадают со скипом 25, torch.cat падает с RuntimeError, тест красный, на 640x480 работает только случайно (480/16=30 ок), на произвольных размерах падает - blocker
+src/shelfwatch/segment.py:35 - CrossEntropyLoss без весов и без Dice при 3% пустых пикселей: сеть выучит «всё не пусто», пиксельная точность высокая, а пустые места не находятся - major
+src/shelfwatch/vision_data.py:49 - валидация идёт с train_tf (флипы, поворот, ColorJitter): метрики на val случайные и занижены, выбор модели по ним ненадёжен; нужен детерминированный Resize+Normalize - major
+src/shelfwatch/vision_data.py:43 - cv2.imread даёт BGR, в ToPILImage он трактуется как RGB: каналы перепутаны относительно ImageNet-весов, качество дообучения падает; в embed_shelf (:76) конвертация есть, то есть признаки и классификатор в разных цветовых пространствах - major
+src/shelfwatch/vision_data.py:60 - AdamW с lr=1e-3 на всех весах предобученного ResNet-50 при 600 снимках: предобученные признаки разрушаются, переобучение, нестабильная сходимость; нужен lr ~1e-4..1e-5 для backbone или заморозка - major
+src/shelfwatch/vision_data.py:24 - RandomVerticalFlip и RandomRotation(180): перевёрнутые полки не встречаются в проде, товары вверх ногами - лишний сдвиг распределения train/test, снижение качества - minor
+src/shelfwatch/vision_data.py:26 - ColorJitter без hue ок, но цвет упаковки может быть признаком класса «misplaced»; оценить на val - minor
+src/shelfwatch/vision_data.py:77 - в embed_shelf нет T.Normalize(IMAGENET_MEAN, IMAGENET_STD): ResNet получает данные вне ожидаемого распределения, вектора хуже, поиск похожих полок даёт нерелевантные результаты - major
+src/shelfwatch/vision_data.py:73 - модель с весами загружается заново на каждый вызов embed_shelf: индексация тысяч снимков будет в разы медленнее; вынести из функции - minor
+src/shelfwatch/vision_data.py:83 - os.system с f-строкой из path и backup_dir без экранирования: пробелы в пути ломают копирование, специальные символы дают инъекцию команд; использовать shutil.copy - major
+src/shelfwatch/detect.py:28 - albumentations без bbox_params: HorizontalFlip отражает картинку, а боксы остаются прежними, разметка рассинхронизируется с изображением, детектор обучается на неверных целях - blocker
+src/shelfwatch/detect.py:22 - боксы читаются как нормированные cx,cy,w,h (YOLO), но не переводятся в xyxy в пикселях, как требует Faster R-CNN; обучение на неверных координатах не сойдётся - major
+src/shelfwatch/detect.py:36 - write_yolo_label пишет пиксели с .1f, а YOLO и load_sample ждут нормированные [0,1]: файлы нечитаемы для YOLO-инструментов, при обратном чтении боксы за пределами кадра - major
+src/shelfwatch/detect.py:39 - num_classes не используется: голова остаётся COCO на 91 класс (нет FastRCNNPredictor), детектор предскажет COCO-классы вместо товаров - major
+src/shelfwatch/detect.py:52 - NMS с iou_threshold=0.9 почти ничего не подавляет: на выходе дубли одного товара, завышенное число объектов и FP; также NMS не по классам (нужен batched_nms) - major
+src/shelfwatch/detect.py:53 - postprocess возвращает только боксы без scores и labels: для метрики и вывода уверенность теряется - minor
+src/shelfwatch/detect.py:69 - «AP» считается как precision*recall при одном пороге conf=0.5, без сортировки по score и интегрирования по PR-кривой: это не AP/mAP, значения несопоставимы с литературой и не отражают качество при других порогах - major
+src/shelfwatch/detect.py:64 - FN, отсеянные порогом conf, учитываются только через n_gt, а hit считается вне функции (IoU-порог не задан), метрика зависит от неописанного сопоставления - minor

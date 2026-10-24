@@ -1,0 +1,138 @@
+{
+  "stand": "stage",
+  "shared": true,
+  "myTeam": "shipping",
+  "now": "2026-10-05T15:50:00Z",
+  "registry": "registry.shipping.example",
+  "teams": [
+    { "name": "shipping", "services": ["shipping-api", "label-worker"] },
+    { "name": "billing", "services": ["billing-api"] },
+    { "name": "support", "services": ["support-desk"] }
+  ],
+  "services": {
+    "shipping-api": {
+      "team": "shipping", "kind": "api", "entry": "src/app.js",
+      "sha": "{{ref:K2_S2}}", "deployedAt": "2026-10-05T15:05:00Z", "deployedBy": "oleg",
+      "replicas": 1, "restarts": 2, "lastRestart": { "at": "2026-10-05T15:45:00Z", "reason": "OOMKilled" },
+      "state": "Running", "limits": { "memory": "512Mi" },
+      "config": { "CARRIER_TIMEOUT_MS": "5000", "LOG_LEVEL": "info", "NODE_OPTIONS": "--max-old-space-size=480" },
+      "configHistory": [
+        { "at": "2026-09-01T12:00:00Z", "key": "CARRIER_TIMEOUT_MS", "from": null, "to": "2000", "by": "oleg" },
+        { "at": "2026-09-01T12:00:00Z", "key": "NODE_OPTIONS", "from": null, "to": "--max-old-space-size=480", "by": "oleg" },
+        { "at": "2026-10-05T13:55:00Z", "key": "CARRIER_TIMEOUT_MS", "from": "2000", "to": "5000", "by": "dmitry", "comment": "перевозчик отвечает медленнее после их релиза 4 октября" }
+      ],
+      "history": [
+        { "at": "2026-09-25T12:00:00Z", "action": "rollout", "sha": "{{ref:LW_OLD}}", "by": "oleg" },
+        { "at": "2026-10-03T08:30:00Z", "action": "rollout", "sha": "{{ref:K4_PREV}}", "by": "dmitry" },
+        { "at": "2026-10-05T13:40:00Z", "action": "rollout", "sha": "{{ref:K2_S1}}", "by": "pavel" },
+        { "at": "2026-10-05T15:05:00Z", "action": "rollout", "sha": "{{ref:K2_S2}}", "by": "oleg" }
+      ]
+    },
+    "label-worker": {
+      "team": "shipping", "kind": "worker", "queue": "labels", "entry": "worker/label.js",
+      "sha": "{{ref:LW_OLD}}", "deployedAt": "2026-09-25T12:00:00Z", "deployedBy": "oleg",
+      "replicas": 1, "restarts": 0, "state": "Running", "limits": { "memory": "256Mi" }, "config": { "LOG_LEVEL": "info" },
+      "history": [
+        { "at": "2026-09-25T12:00:00Z", "action": "rollout", "sha": "{{ref:LW_OLD}}", "by": "oleg" }
+      ]
+    },
+    "billing-api": {
+      "team": "billing", "image": "registry.billing.example/billing-api:2.14.3",
+      "deployedAt": "2026-10-05T11:20:00Z", "deployedBy": "billing-ci", "replicas": 1, "restarts": 0, "state": "Running",
+      "history": [ { "at": "2026-10-05T11:20:00Z", "action": "rollout", "image": "registry.billing.example/billing-api:2.14.3", "by": "billing-ci" } ]
+    },
+    "support-desk": {
+      "team": "support", "image": "registry.support.example/support-desk:0.9.12",
+      "deployedAt": "2026-10-02T09:00:00Z", "deployedBy": "support-ci", "replicas": 1, "restarts": 0, "state": "Running",
+      "history": [ { "at": "2026-10-02T09:00:00Z", "action": "rollout", "image": "registry.support.example/support-desk:0.9.12", "by": "support-ci" } ]
+    }
+  },
+  "flags": { "quote_cache": true },
+  "flagAudit": [
+    { "at": "2026-09-29T10:20:00Z", "flag": "quote_cache", "from": null, "to": false, "by": "pavel", "team": "shipping", "comment": "новый флаг, SHIP-45" },
+    { "at": "2026-10-05T14:12:00Z", "flag": "quote_cache", "from": false, "to": true, "by": "ivan", "team": "pricing", "comment": "нагрузочный тест котировок" }
+  ],
+  "events": [
+    { "at": "2026-09-25T12:00:00Z", "svc": "label-worker", "type": "Rollout", "message": "registry.shipping.example/label-worker:{{sha12:LW_OLD}} (oleg)" },
+    { "at": "2026-10-02T09:00:00Z", "svc": "support-desk", "type": "Rollout", "message": "registry.support.example/support-desk:0.9.12 (support-ci)" },
+    { "at": "2026-10-03T08:30:00Z", "svc": "shipping-api", "type": "Rollout", "message": "registry.shipping.example/shipping-api:{{sha12:K4_PREV}} (dmitry)" },
+    { "at": "2026-10-05T11:20:00Z", "svc": "billing-api", "type": "Rollout", "message": "registry.billing.example/billing-api:2.14.3 (billing-ci)" },
+    { "at": "2026-10-05T13:40:00Z", "svc": "shipping-api", "type": "Rollout", "message": "registry.shipping.example/shipping-api:{{sha12:K2_S1}} (pavel)" },
+    { "at": "2026-10-05T13:55:00Z", "svc": "shipping-api", "type": "ConfigChanged", "message": "CARRIER_TIMEOUT_MS: 2000 -> 5000 (dmitry)" },
+    { "at": "2026-10-05T14:12:00Z", "svc": null, "type": "FlagChanged", "message": "quote_cache: off -> on (ivan)" },
+    { "at": "2026-10-05T14:20:00Z", "svc": "shipping-api", "type": "OOMKilled", "message": "контейнер shipping-api: exit 137, лимит памяти 512Mi; перезапущен (рестарт 1)" },
+    { "at": "2026-10-05T14:41:00Z", "svc": "shipping-api", "type": "OOMKilled", "message": "контейнер shipping-api: exit 137, лимит памяти 512Mi; перезапущен (рестарт 2)" },
+    { "at": "2026-10-05T15:02:00Z", "svc": "shipping-api", "type": "OOMKilled", "message": "контейнер shipping-api: exit 137, лимит памяти 512Mi; перезапущен (рестарт 3)" },
+    { "at": "2026-10-05T15:05:00Z", "svc": "shipping-api", "type": "Rollout", "message": "registry.shipping.example/shipping-api:{{sha12:K2_S2}} (oleg)" },
+    { "at": "2026-10-05T15:24:00Z", "svc": "shipping-api", "type": "OOMKilled", "message": "контейнер shipping-api: exit 137, лимит памяти 512Mi; перезапущен (рестарт 1)" },
+    { "at": "2026-10-05T15:45:00Z", "svc": "shipping-api", "type": "OOMKilled", "message": "контейнер shipping-api: exit 137, лимит памяти 512Mi; перезапущен (рестарт 2)" }
+  ],
+  "alerts": [
+    { "name": "Http5xx", "severity": "critical", "state": "firing", "since": "2026-10-05T14:20:00Z", "svc": "shipping-api", "summary": "доля 5xx на входе stage/shipping-api больше 5 % (504 Gateway Timeout)" },
+    { "name": "ShippingApiRestarts", "severity": "warning", "state": "firing", "since": "2026-10-05T14:21:00Z", "svc": "shipping-api", "summary": "рестарты контейнера, причина OOMKilled" }
+  ],
+  "metrics": {
+    "shipping-api": {
+      "memory": {
+        "unit": "MB", "step": 300, "from": "2026-10-05T06:00:00Z", "to": "2026-10-05T15:50:00Z", "jitter": 2, "agg": "max",
+        "points": [
+          ["2026-10-05T06:00:00Z", 176], ["2026-10-05T13:39:59Z", 179], ["2026-10-05T13:40:00Z", 168], ["2026-10-05T13:50:00Z", 177],
+          ["2026-10-05T14:12:00Z", 179], ["2026-10-05T14:19:59Z", 509], ["2026-10-05T14:20:00Z", 150], ["2026-10-05T14:22:00Z", 186],
+          ["2026-10-05T14:40:59Z", 510], ["2026-10-05T14:41:00Z", 150], ["2026-10-05T14:43:00Z", 186],
+          ["2026-10-05T15:01:59Z", 511], ["2026-10-05T15:02:00Z", 150], ["2026-10-05T15:04:59Z", 214], ["2026-10-05T15:05:00Z", 150],
+          ["2026-10-05T15:07:00Z", 186], ["2026-10-05T15:23:59Z", 509], ["2026-10-05T15:24:00Z", 150], ["2026-10-05T15:26:00Z", 186],
+          ["2026-10-05T15:44:59Z", 510], ["2026-10-05T15:45:00Z", 150], ["2026-10-05T15:47:00Z", 186], ["2026-10-05T15:50:00Z", 237]
+        ]
+      },
+      "latency": {
+        "unit": "p95 мс", "step": 300, "from": "2026-10-05T06:00:00Z", "to": "2026-10-05T15:50:00Z", "jitter": 4, "agg": "max",
+        "points": [
+          ["2026-10-05T06:00:00Z", 42], ["2026-10-05T14:12:00Z", 45], ["2026-10-05T14:17:00Z", 900], ["2026-10-05T14:19:59Z", 9800], ["2026-10-05T14:20:00Z", 10000], ["2026-10-05T14:20:10Z", 60],
+          ["2026-10-05T14:36:00Z", 700], ["2026-10-05T14:40:59Z", 9800], ["2026-10-05T14:41:00Z", 10000], ["2026-10-05T14:41:10Z", 60],
+          ["2026-10-05T14:57:00Z", 700], ["2026-10-05T15:01:59Z", 9800], ["2026-10-05T15:02:00Z", 10000], ["2026-10-05T15:02:10Z", 60], ["2026-10-05T15:05:00Z", 90], ["2026-10-05T15:05:10Z", 60],
+          ["2026-10-05T15:19:00Z", 700], ["2026-10-05T15:23:59Z", 9800], ["2026-10-05T15:24:00Z", 10000], ["2026-10-05T15:24:10Z", 60],
+          ["2026-10-05T15:40:00Z", 700], ["2026-10-05T15:44:59Z", 9800], ["2026-10-05T15:45:00Z", 10000], ["2026-10-05T15:45:10Z", 60], ["2026-10-05T15:50:00Z", 75]
+        ]
+      },
+      "errors": {
+        "unit": "ответов 5xx за 5 мин", "step": 300, "from": "2026-10-05T06:00:00Z", "to": "2026-10-05T15:50:00Z", "agg": "max",
+        "points": [
+          ["2026-10-05T06:00:00Z", 0], ["2026-10-05T08:11:59Z", 0], ["2026-10-05T08:12:00Z", 1], ["2026-10-05T08:12:10Z", 0],
+          ["2026-10-05T12:46:59Z", 0], ["2026-10-05T12:47:00Z", 1], ["2026-10-05T12:47:10Z", 0],
+          ["2026-10-05T14:16:00Z", 0], ["2026-10-05T14:19:59Z", 9], ["2026-10-05T14:20:00Z", 64], ["2026-10-05T14:20:10Z", 0],
+          ["2026-10-05T14:36:00Z", 1], ["2026-10-05T14:40:59Z", 8], ["2026-10-05T14:41:00Z", 58], ["2026-10-05T14:41:10Z", 0],
+          ["2026-10-05T14:57:00Z", 1], ["2026-10-05T15:01:59Z", 8], ["2026-10-05T15:02:00Z", 61], ["2026-10-05T15:02:10Z", 0],
+          ["2026-10-05T15:19:00Z", 1], ["2026-10-05T15:23:59Z", 9], ["2026-10-05T15:24:00Z", 66], ["2026-10-05T15:24:10Z", 0],
+          ["2026-10-05T15:40:00Z", 1], ["2026-10-05T15:44:59Z", 8], ["2026-10-05T15:45:00Z", 60], ["2026-10-05T15:45:10Z", 0], ["2026-10-05T15:50:00Z", 0]
+        ]
+      }
+    },
+    "label-worker": {
+      "memory": { "unit": "MB", "step": 300, "from": "2026-10-05T06:00:00Z", "to": "2026-10-05T15:50:00Z", "jitter": 2, "points": [["2026-10-05T06:00:00Z", 94], ["2026-10-05T15:50:00Z", 96]] },
+      "latency": { "unit": "p95 мс", "step": 300, "from": "2026-10-05T06:00:00Z", "to": "2026-10-05T15:50:00Z", "jitter": 3, "points": [["2026-10-05T06:00:00Z", 28], ["2026-10-05T15:50:00Z", 28]] },
+      "errors": { "unit": "ошибок обработки за 5 мин", "step": 300, "from": "2026-10-05T06:00:00Z", "to": "2026-10-05T15:50:00Z", "points": [["2026-10-05T06:00:00Z", 0], ["2026-10-05T15:50:00Z", 0]] }
+    }
+  },
+  "logs": [
+    { "at": "2026-09-25T12:00:20Z", "svc": "label-worker", "msg": "label-worker started sha={{sha12:LW_OLD}}" },
+    { "at": "2026-10-03T08:30:20Z", "svc": "shipping-api", "msg": "shipping-api started sha={{sha12:K4_PREV}} flags: quote_cache=off" },
+    { "at": ["2026-10-01T09:14:22Z", "2026-10-02T16:40:03Z", "2026-10-03T11:05:47Z", "2026-10-04T19:30:12Z", "2026-10-05T08:12:00Z", "2026-10-05T12:47:00Z"], "svc": "shipping-api", "level": "WARN", "msg": "carrier timeout: перевозчик не ответил за 2000 мс, POST /shipments -> 504 rid={rid}" },
+    { "at": "2026-10-05T13:40:20Z", "svc": "shipping-api", "msg": "shipping-api started sha={{sha12:K2_S1}} flags: quote_cache=off" },
+    { "at": "2026-10-05T13:55:04Z", "svc": "shipping-api", "msg": "config reloaded: CARRIER_TIMEOUT_MS=5000" },
+    { "at": "2026-10-05T14:12:03Z", "svc": "shipping-api", "msg": "flags updated: quote_cache off -> on" },
+    { "at": "2026-10-05T14:33:10Z", "svc": "shipping-api", "level": "WARN", "msg": "carrier timeout: перевозчик не ответил за 5000 мс, POST /shipments -> 504 rid={rid}" },
+    { "at": ["2026-10-05T14:19:25Z", "2026-10-05T14:40:25Z", "2026-10-05T15:01:25Z", "2026-10-05T15:23:25Z", "2026-10-05T15:44:25Z"], "svc": "shipping-api", "level": "WARN", "msg": "GC: heap 476 MB of 480 MB (max-old-space-size), mark-compact 2140 ms" },
+    { "at": ["2026-10-05T14:19:59Z", "2026-10-05T14:40:59Z", "2026-10-05T15:01:59Z", "2026-10-05T15:23:59Z", "2026-10-05T15:44:59Z"], "svc": "shipping-api", "level": "FATAL", "msg": "JavaScript heap out of memory: Reached heap limit Allocation failed (Mark-Compact 479.6 (482.1) -> 479.1 (482.3) MB, 2310 ms)" },
+    { "at": ["2026-10-05T14:20:22Z", "2026-10-05T14:41:22Z", "2026-10-05T15:02:22Z"], "svc": "shipping-api", "msg": "shipping-api started sha={{sha12:K2_S1}} flags: quote_cache=on" },
+    { "at": "2026-10-05T15:05:20Z", "svc": "shipping-api", "msg": "shipping-api started sha={{sha12:K2_S2}} flags: quote_cache=on" },
+    { "at": ["2026-10-05T15:24:22Z", "2026-10-05T15:45:22Z"], "svc": "shipping-api", "msg": "shipping-api started sha={{sha12:K2_S2}} flags: quote_cache=on" },
+    { "at": ["2026-10-05T15:12:44Z", "2026-10-05T15:33:05Z"], "svc": "shipping-api", "level": "WARN", "msg": "carrier timeout, retry {\"attempt\":1} rid={rid}" },
+    { "repeat": { "from": "2026-10-05T12:00:17Z", "to": "2026-10-05T15:49:59Z", "every": 120 }, "svc": "shipping-api", "msg": "POST /quote 200 {ms}ms rid={rid}",
+      "values": { "jitter": 4, "ms": [["2026-10-05T12:00:00Z", 18], ["2026-10-05T14:12:00Z", 20], ["2026-10-05T14:19:30Z", 1400], ["2026-10-05T14:20:30Z", 22], ["2026-10-05T14:40:30Z", 1300], ["2026-10-05T14:41:30Z", 22], ["2026-10-05T15:01:30Z", 1300], ["2026-10-05T15:02:30Z", 22], ["2026-10-05T15:23:30Z", 1350], ["2026-10-05T15:24:30Z", 22], ["2026-10-05T15:44:30Z", 1300], ["2026-10-05T15:45:30Z", 22], ["2026-10-05T15:50:00Z", 60]] } },
+    { "repeat": { "from": "2026-10-05T12:03:41Z", "to": "2026-10-05T15:49:59Z", "every": 420 }, "svc": "shipping-api", "msg": "POST /shipments 201 {ms}ms rid={rid}",
+      "values": { "jitter": 5, "ms": [["2026-10-05T12:00:00Z", 35], ["2026-10-05T14:12:00Z", 38], ["2026-10-05T14:19:30Z", 1900], ["2026-10-05T14:20:30Z", 40], ["2026-10-05T15:50:00Z", 120]] } },
+    { "repeat": { "from": "2026-10-05T14:12:10Z", "to": "2026-10-05T15:49:59Z", "every": 20 }, "svc": "shipping-api", "ridPrefix": "lt-", "msg": "POST /quote 200 {ms}ms rid={rid} ua=k6/0.52.0",
+      "values": { "jitter": 3, "ms": [["2026-10-05T14:12:00Z", 15], ["2026-10-05T14:19:30Z", 1400], ["2026-10-05T14:20:30Z", 20], ["2026-10-05T14:40:30Z", 1300], ["2026-10-05T14:41:30Z", 20], ["2026-10-05T15:01:30Z", 1300], ["2026-10-05T15:02:30Z", 20], ["2026-10-05T15:23:30Z", 1350], ["2026-10-05T15:24:30Z", 20], ["2026-10-05T15:44:30Z", 1300], ["2026-10-05T15:45:30Z", 20], ["2026-10-05T15:50:00Z", 55]] } },
+    { "repeat": { "from": "2026-10-05T12:03:43Z", "to": "2026-10-05T15:49:59Z", "every": 420 }, "svc": "label-worker", "msg": "label printed rid={rid}" }
+  ]
+}

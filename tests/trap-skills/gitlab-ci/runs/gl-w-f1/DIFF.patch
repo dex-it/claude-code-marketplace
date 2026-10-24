@@ -1,0 +1,146 @@
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+new file mode 100644
+index 0000000..2ad01c5
+--- /dev/null
++++ b/.gitlab-ci.yml
+@@ -0,0 +1,140 @@
++stages: [build, test, image, deploy]
++
++# Пайплайн только на MR и на main/develop: пуши в ветку с открытым MR не дублируют пайплайн.
++workflow:
++  rules:
++    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
++    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
++
++variables:
++  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
++  DOTNET_NOLOGO: "1"
++  NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget/packages
++  IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
++
++.dotnet:
++  image: mcr.microsoft.com/dotnet/sdk:8.0.404
++  interruptible: true
++  cache:
++    key:
++      files: [Directory.Packages.props]
++    paths: [.nuget/packages]
++
++build:
++  extends: .dotnet
++  stage: build
++  script:
++    - dotnet restore Depot.sln
++    - dotnet build Depot.sln -c Release --no-restore
++  artifacts:
++    paths:
++      - src/*/bin
++      - src/*/obj
++      - tests/*/bin
++      - tests/*/obj
++    expire_in: 1 day
++
++# Статический анализ: предупреждения компилятора уже ошибки (TreatWarningsAsErrors), здесь - форматирование и стиль.
++lint:
++  extends: .dotnet
++  stage: test
++  needs: [build]
++  script:
++    - dotnet format Depot.sln --verify-no-changes --no-restore
++
++# Аудит зависимостей: dotnet list всегда выходит с 0, поэтому уязвимости ловим по выводу.
++dependency-audit:
++  extends: .dotnet
++  stage: test
++  needs: [build]
++  script:
++    - dotnet list Depot.sln package --vulnerable --include-transitive 2>&1 | tee audit.log
++    - if grep -q "has the following vulnerable packages" audit.log; then echo "Найдены уязвимые зависимости"; exit 1; fi
++
++test:
++  extends: .dotnet
++  stage: test
++  needs: [build]
++  services:
++    - name: postgres:16
++      alias: postgres
++  variables:
++    POSTGRES_DB: depot
++    POSTGRES_USER: depot
++    POSTGRES_PASSWORD: depot-ci-throwaway
++    ConnectionStrings__Default: Host=postgres;Database=depot;Username=depot;Password=depot-ci-throwaway
++  script:
++    - dotnet test Depot.sln -c Release --no-restore --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
++    - dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.3.11
++    - export PATH="$PATH:$HOME/.dotnet/tools"
++    - reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coverage "-reporttypes:TextSummary;Cobertura"
++    - cat coverage/Summary.txt
++  coverage: '/Line coverage: (\d+(?:\.\d+)?)%/'
++  artifacts:
++    when: always
++    paths: [TestResults, coverage]
++    reports:
++      coverage_report:
++        coverage_format: cobertura
++        path: coverage/Cobertura.xml
++    expire_in: 1 week
++
++image:
++  stage: image
++  interruptible: true
++  image: docker:27
++  services:
++    - docker:27-dind
++  variables:
++    DOCKER_HOST: tcp://docker:2376
++    DOCKER_TLS_CERTDIR: /certs
++    DOCKER_TLS_VERIFY: "1"
++    DOCKER_CERT_PATH: /certs/client
++  rules:
++    - if: $CI_COMMIT_BRANCH == "main"
++  script:
++    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
++    - docker build -t "$IMAGE" .
++    - docker push "$IMAGE"
++
++.deploy:
++  stage: deploy
++  image:
++    name: alpine/k8s:1.30.4
++    entrypoint: [""]
++  tags: [depot-deploy]
++  interruptible: false
++  variables:
++    GIT_STRATEGY: none
++  script:
++    # В лог - только несекретные параметры деплоя; env и set -x не используем, чтобы не вывести KUBECONFIG_B64.
++    - echo "Deploy; environment=$CI_ENVIRONMENT_NAME namespace=$NAMESPACE deployment=depot-api container=api image=$IMAGE commit=$CI_COMMIT_SHORT_SHA"
++    - export KUBECONFIG="$(mktemp)"
++    - trap 'rm -f "$KUBECONFIG"' EXIT
++    - echo "$KUBECONFIG_B64" | base64 -d > "$KUBECONFIG"
++    - kubectl set image deployment/depot-api api="$IMAGE" -n "$NAMESPACE"
++    - kubectl rollout status deployment/depot-api -n "$NAMESPACE" --timeout=300s
++    - kubectl get deployment/depot-api -n "$NAMESPACE" -o wide
++
++deploy-stage:
++  extends: .deploy
++  needs: [image]
++  variables:
++    NAMESPACE: depot-stage
++  environment:
++    name: stage
++  resource_group: stage
++  rules:
++    - if: $CI_COMMIT_BRANCH == "main"
++
++deploy-prod:
++  extends: .deploy
++  needs: [deploy-stage]
++  variables:
++    NAMESPACE: depot
++  environment:
++    name: production
++  resource_group: production
++  rules:
++    - if: $CI_COMMIT_BRANCH == "main"
++      when: manual

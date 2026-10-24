@@ -1,0 +1,92 @@
+{
+  "id": "3ab339",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.13058699999999998,
+    "durationMs": 26307,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9319,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2780,
+      "output_tokens_details": {
+        "thinking_tokens": 1530
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9319,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2780,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9319,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9319
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "Это ломает оба эндпоинта, использующих `ToRows()`: и `/vehicles/{id}/trips`, и новый `/trips/off-days` (FLEET-109)",
+      "why": "Найдено главное: отчёт FLEET-109 падает, потому что клиентский WorkCalendar.IsWorkingDay не транслируется в SQL, а фикс верный — считать OffDay после материализации; при этом механизм указан неточно: виновата не сама проекция, а Where по OffDay, и падение /vehicles/{id}/trips — лишнее утверждение."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри скобок подзапроса — синтаксическая ошибка Postgres, запрос с фильтром по машине всегда упадёт в runtime",
+      "why": "Механизм описан точно: композиция Where оборачивает SQL в подзапрос, локальная проверка шла без фильтра; предложено убрать ';' и перенести ORDER BY в LINQ."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` грузит `Vehicle` без `Include(v => v.Equipment)`, поэтому `Clear()` чистит пустую in-memory коллекцию",
+      "why": "Названы оба следствия: старые позиции остаются, а совпадающие коды упираются в уникальный индекс (vehicle_id, code); предложена загрузка через Include."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "Postgres при таком `ALTER COLUMN TYPE` проверит существующие данные и упадёт с ошибкой, если хоть одна строка длиннее 40 символов",
+      "why": "Миграция не пропущена: падение ALTER и неприменённый bundle названы, хотя риск подан как гипотетический, вопреки MR.md, и вместо переноса данных предложена только проверка prod."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "выбирается по `CreatedAt` (время получения сервером), а не по `InspectedAt`",
+      "why": "Найден другой механизм — расхождение порядка синхронизации, а неуникальный CreatedAt в одной пачке при SplitQuery, из-за которого замечания берутся от другого осмотра, не назван; сортировка по InspectedAt дефект не устраняет."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "проверка допуска `p.ValidUntil > today` вместо `>=`; допуск действует «по дату включительно»",
+      "why": "Дефект назван точно, с исправлением на >=."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "у `PUT /api/vehicles/{id}/equipment` нет `RequireAuthorization`, в отличие от соседних мутирующих эндпоинтов",
+      "why": "Отмечено, что подменить комплектацию может любой аутентифицированный пользователь, и предложена политика Mechanic."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "в `DriverService.ReplacePermitsAsync` сделана правильно — через `Include(d => d.Permits)` перед `Clear()`",
+      "why": "ReplacePermitsAsync приведён как правильный образец, а не как дефект."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

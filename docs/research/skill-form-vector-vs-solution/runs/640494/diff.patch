@@ -1,0 +1,233 @@
+diff --git a/.config/dotnet-tools.json b/.config/dotnet-tools.json
+new file mode 100644
+index 0000000..eb89411
+--- /dev/null
++++ b/.config/dotnet-tools.json
+@@ -0,0 +1,10 @@
++{
++  "version": 1,
++  "isRoot": true,
++  "tools": {
++    "dotnet-ef": {
++      "version": "8.0.10",
++      "commands": ["dotnet-ef"]
++    }
++  }
++}
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+new file mode 100644
+index 0000000..b099ff0
+--- /dev/null
++++ b/.github/workflows/deploy.yml
+@@ -0,0 +1,35 @@
++name: Deploy
++
++on:
++  push:
++    branches: [main]
++
++jobs:
++  migrate-database:
++    name: Apply EF Core migrations (production)
++    runs-on: ubuntu-latest
++    environment: production # requires manual approval + holds PROD_DB_CONNECTION_STRING secret
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: "8.0.x"
++
++      - name: Restore dotnet-ef
++        run: dotnet tool restore
++
++      - name: Apply migrations to production
++        run: >
++          dotnet tool run dotnet-ef database update
++          --project Shop.Data/Shop.Data.csproj
++          --connection "${{ secrets.PROD_DB_CONNECTION_STRING }}"
++          --verbose
++
++  deploy-app:
++    name: Deploy application
++    needs: migrate-database
++    runs-on: ubuntu-latest
++    environment: production
++    steps:
++      - run: echo "Deploy the app here (after migrations succeeded)"
+diff --git a/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs b/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs
+new file mode 100644
+index 0000000..d507c09
+--- /dev/null
++++ b/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs
+@@ -0,0 +1,92 @@
++using System;
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Shop.Data.Migrations
++{
++    /// <inheritdoc />
++    public partial class AddCategoriesAndOrderCategories : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.CreateTable(
++                name: "Categories",
++                columns: table => new
++                {
++                    Id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", Npgsql.EntityFrameworkCore.PostgreSQL.Metadata.NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    Name = table.Column<string>(type: "text", nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_Categories", x => x.Id);
++                });
++
++            migrationBuilder.CreateTable(
++                name: "OrderCategories",
++                columns: table => new
++                {
++                    OrderId = table.Column<Guid>(type: "uuid", nullable: false),
++                    CategoryId = table.Column<int>(type: "integer", nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_OrderCategories", x => new { x.OrderId, x.CategoryId });
++                    table.ForeignKey(
++                        name: "FK_OrderCategories_Orders_OrderId",
++                        column: x => x.OrderId,
++                        principalTable: "Orders",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                    table.ForeignKey(
++                        name: "FK_OrderCategories_Categories_CategoryId",
++                        column: x => x.CategoryId,
++                        principalTable: "Categories",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Categories_Name",
++                table: "Categories",
++                column: "Name",
++                unique: true);
++
++            migrationBuilder.CreateIndex(
++                name: "IX_OrderCategories_CategoryId",
++                table: "OrderCategories",
++                column: "CategoryId");
++
++            // Backfill: turn the existing free-text Order.Category into rows in Categories/OrderCategories.
++            // Order.Category itself is left untouched here; it is dropped in a later migration once the
++            // application has switched over to the new tables and the backfill has been verified.
++            migrationBuilder.Sql(
++                """
++                INSERT INTO "Categories" ("Name")
++                SELECT DISTINCT o."Category"
++                FROM "Orders" o
++                WHERE o."Category" IS NOT NULL AND o."Category" <> ''
++                ON CONFLICT ("Name") DO NOTHING;
++
++                INSERT INTO "OrderCategories" ("OrderId", "CategoryId")
++                SELECT o."Id", c."Id"
++                FROM "Orders" o
++                JOIN "Categories" c ON c."Name" = o."Category"
++                WHERE o."Category" IS NOT NULL AND o."Category" <> ''
++                ON CONFLICT DO NOTHING;
++                """);
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropTable(
++                name: "OrderCategories");
++
++            migrationBuilder.DropTable(
++                name: "Categories");
++        }
++    }
++}
+diff --git a/Model.cs b/Model.cs
+index cc90064..0a35b1b 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -9,16 +9,32 @@ public class Order
+     public Guid CustomerId { get; set; }
+     public virtual Customer Customer { get; set; } = null!;
+     public string Status { get; set; } = "active";
+-    public string Category { get; set; } = "";
++    public string Category { get; set; } = ""; // legacy: superseded by OrderCategories, dropped in a follow-up migration once backfill is verified
+     public decimal Total { get; set; }
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
++    public List<OrderCategory> OrderCategories { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
++public class Category
++{
++    public int Id { get; set; }
++    public string Name { get; set; } = "";
++    public List<OrderCategory> OrderCategories { get; set; } = new();
++}
++
++public class OrderCategory
++{
++    public Guid OrderId { get; set; }
++    public Order Order { get; set; } = null!;
++    public int CategoryId { get; set; }
++    public Category Category { get; set; } = null!;
++}
++
+ public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } }
+ public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } }
+ 
+@@ -41,10 +57,21 @@ public class ShopDbContext : DbContext
+     public DbSet<Order> Orders => Set<Order>();
+     public DbSet<Product> Products => Set<Product>();
+     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
++    public DbSet<Category> Categories => Set<Category>();
++    public DbSet<OrderCategory> OrderCategories => Set<OrderCategory>();
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+         b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Category>().HasIndex(c => c.Name).IsUnique();
++
++        b.Entity<OrderCategory>(e =>
++        {
++            e.HasKey(oc => new { oc.OrderId, oc.CategoryId });
++            e.HasOne(oc => oc.Order).WithMany(o => o.OrderCategories).HasForeignKey(oc => oc.OrderId);
++            e.HasOne(oc => oc.Category).WithMany(c => c.OrderCategories).HasForeignKey(oc => oc.CategoryId);
++        });
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3b9e75e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++# Категории заказов в отдельную таблицу
++
++## Изменённые/созданные файлы
++- `Model.cs` — добавлены сущности `Category` и `OrderCategory` (составной PK `OrderId+CategoryId`, FK на `Orders`/`Categories`), навигация `Order.OrderCategories`, регистрация `DbSet<Category>`/`DbSet<OrderCategory>` и конфигурация связей/уникального индекса `Categories.Name` в `OnModelCreating`. Старое поле `Order.Category` оставлено (пометил комментарием, что удалится отдельной миграцией позже).
++- `Migrations/20260929120000_AddCategoriesAndOrderCategories.cs` — новая миграция EF Core: создаёт `Categories` и `OrderCategories`, индексы (`IX_Categories_Name` unique, `IX_OrderCategories_CategoryId`), и бэкфиллит данные из существующего `Order.Category` через `migrationBuilder.Sql(...)` (`Down` дропает обе таблицы).
++- `.github/workflows/deploy.yml` — джоба `migrate-database` в GitHub Actions: `dotnet tool restore` + `dotnet-ef database update` с продовым connection string из секрета `PROD_DB_CONNECTION_STRING` под `environment: production` (ручной approval), деплой приложения идёт после неё (`needs: migrate-database`).
++- `.config/dotnet-tools.json` — манифест локального инструмента `dotnet-ef`, нужен для `dotnet tool restore` в workflow.
++
++## Решения
++- Строковую `Order.Category` не трогаю в этой миграции — она удаляется отдельной миграцией позже, когда бэкфилл в `OrderCategories` будет подтверждён (так и попросили в задаче).
++- В репозитории не было `.csproj`, папки `Migrations` и снапшота модели, а сборку запускать нельзя — миграцию написал руками в стандартном для EF Core 8 формате (`Up`/`Down` через `MigrationBuilder`); `Designer.cs`/`ModelSnapshot.cs` не генерировал, так как это тулинговые файлы — их нужно получить штатным `dotnet ef migrations add` в реальном проекте (там уже будет актуальный снапшот).
++- Деплой миграции сделан отдельной джобой перед деплоем приложения и с `environment: production`, чтобы применение к проду шло через approval gate и не блокировало откат при ошибке (деплой приложения зависит от успеха миграции).

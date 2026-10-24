@@ -1,0 +1,6 @@
+docker exec <ctr> sh -c 'tail -n 15 /work/logs/worker.log; ps aux | grep -i dotnet | head; ls /work /work/src; which dotnet-stack dotnet-dump dotnet-trace gdb strace'
+docker exec <ctr> sh -c 'cat /work/orders-worker.env; ls /proc/11/task | wc -l; for t in /proc/11/task/*; do echo $(basename $t) $(cat $t/comm) $(cat $t/wchan) $(grep State $t/status); done | head -40; cd /tmp && dotnet-dump collect -p 11 -o /tmp/d.dmp 2>&1 | tail -3'
+docker exec <ctr> sh -c 'cd /tmp; dotnet-dump analyze d.dmp -c "clrthreads" -c "syncblk" -c "clrstack -all" -c exit 2>&1 | head -150'
+docker exec <ctr> sh -c 'cd /tmp; dotnet-dump analyze d.dmp -c "threadpool" -c "dumpheap -stat -type Task" -c exit 2>&1 | head -40; grep -n "" /work/src/Program.cs | sed -n 1,75p; ls /work/app; grep -ri -E "minthreads|maxthreads|ThreadPool" /work/app/*.json'
+docker exec <ctr> sh -c 'grep -n -B2 -A8 "class PriceClient" /work/src/Program.cs'
+[Write] <lab>/REPORT.md

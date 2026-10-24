@@ -1,0 +1,80 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..00a305c 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,6 +14,7 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }              // 1..5, сложность комплектации
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+@@ -44,7 +45,34 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка остаётся "timestamp without time zone" (нельзя менять из-за отчётов DBA),
++        // но в CLR-коде значение всегда должно иметь Kind = Utc.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                toDb => toDb.Kind == DateTimeKind.Utc ? toDb : toDb.ToUniversalTime(),
++                fromDb => DateTime.SpecifyKind(fromDb, DateTimeKind.Utc));
++
++        // Npgsql 8 хранит Complexity как integer; допустимый диапазон 1..5 закреплён CHECK-констрейнтом.
++        b.Entity<Order>().Property(o => o.Complexity).IsRequired();
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint(
++            "CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Order -> Items / Order -> Payments: обе коллекции - обязательные зависимые (FK OrderId не nullable).
++        // При Items.Clear()/Payments.Clear() на отслеживаемом Order EF физически удаляет осиротевшие строки,
++        // сам Order при этом не трогается (soft-delete через IsDeleted/HasQueryFilter выше).
++        b.Entity<Order>().HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Cascade)
++            .IsRequired();
++
++        b.Entity<Order>().HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Cascade)
++            .IsRequired();
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..bf4d306 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,13 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItemsAsync(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8303f90
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые файлы:
++- Model.cs — добавлено свойство `Order.Complexity` (int, CHECK 1..5), конфигурация `CreatedAt` через `HasConversion` (запись — приведение к UTC, чтение — `DateTime.SpecifyKind(..., Utc)`), явные связи `Order -> Items` / `Order -> Payments` через `HasMany().WithOne().HasForeignKey(...).OnDelete(Cascade)`.
++- OrderRepository.cs — добавлен метод `ClearItemsAsync(Guid orderId)`: подгружает Order с Include(Items), очищает коллекцию, SaveChangesAsync.
++
++Решения:
++- Тип колонки CreatedAt не менялся (остаётся `timestamp without time zone` для DBA-отчётов); UTC-инвариант обеспечен value-конвертером на уровне EF — при чтении Kind принудительно ставится Utc, при записи всё приводится к UTC.
++- Complexity — обычный `int` с CHECK-констрейнтом в БД (`BETWEEN 1 AND 5`), т.к. у EF Core нет декларативного range-атрибута, транслируемого в схему.
++- Items/Payments — обязательные зависимые коллекции (FK OrderId не nullable), поэтому `Items.Clear()` на отслеживаемом Order физически удаляет осиротевшие строки, а не сам Order (тот удаляется мягко через уже существующий `HasQueryFilter(!IsDeleted)`).

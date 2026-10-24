@@ -1,0 +1,91 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e6ec398
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,85 @@
++# Результаты код-ревью MR !238
++
++## Дефекты
++
++### 1. TripService.OffDayTripsAsync — Фильтр после материализации (Rule 8)
++
++**Файл:** TripService.cs, строки 66–79  
++**Метод:** OffDayTripsAsync
++
++**Описание проблемы:**  
++Запрос материализует все путёвые листы месяца в памяти, затем фильтрует по OffDay:
++```csharp
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToRows()                              // Здесь невозможен перевод в SQL
++    .Where(r => r.OffDay)                  // Фильтрует в памяти
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++**Причина:**  
++В методе `ToRows()` вычисление `OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` — это вызов статического метода, который не переводится в SQL. EF Core вынужден материализовать все Trips за месяц, чтобы вычислить OffDay, затем фильтрует в памяти.
++
++Согласно SKILL.md (Rule 8): "Бизнес-фильтр выполняется в SQL (WHERE) до материализации: из БД приходят только прошедшие его строки, а не вся таблица для фильтрации в памяти".
++
++**Severity:** HIGH
++
++**Решение:**  
++Перенести логику OffDay в SQL (например, через map-функцию WorkCalendar.IsWorkingDay или вычислить день недели/праздник в SQL) либо вернуть Trips до сортировки и ручного вычисления в памяти с явным AsEnumerable.
++
++---
++
++### 2. Program.cs — Отсутствует авторизация на endpoint загрузки комплектации
++
++**Файл:** Program.cs, строки 53–57  
++**Endpoint:** PUT /vehicles/{id:int}/equipment
++
++**Описание проблемы:**  
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++// Нет RequireAuthorization!
++```
++
++**Причина:**  
++Согласно описанию MR: "Механик присылает актуальную комплектацию машины". Endpoint должен требовать роль `Mechanic`, как это сделано для POST /inspections/sync. Без проверки авторизации любой аутентифицированный пользователь может менять комплектацию машин.
++
++**Severity:** CRITICAL
++
++**Решение:**  
++Добавить `.RequireAuthorization("Mechanic")` после замыкающей скобки handler'а.
++
++---
++
++### 3. TripService.StartTripAsync — Ошибка в проверке актуальности допуска
++
++**Файл:** TripService.cs, строка 111  
++**Метод:** StartTripAsync
++
++**Описание проблемы:**  
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException("Нет действующего допуска к классу машины");
++```
++
++**Причина:**  
++Согласно описанию MR: "допуск действует по указанную в нём дату включительно". Если ValidUntil = сегодня, допуск ещё действителен, но код проверяет `>` (строго больше). Тем самым машину невозможно выпустить в последний день действия допуска.
++
++Правильное условие: `p.ValidUntil >= today`.
++
++**Severity:** MEDIUM
++
++**Решение:**  
++Изменить оператор с `>` на `>=`.
++
++---
++
++## Итого
++- **Critical:** 1 (отсутствие авторизации)
++- **High:** 1 (фильтр после материализации)
++- **Medium:** 1 (ошибка валидации даты)

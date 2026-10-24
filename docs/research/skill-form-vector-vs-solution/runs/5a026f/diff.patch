@@ -1,0 +1,75 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..14e9417 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,6 +14,7 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }              // 1..5 - complexity score
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+@@ -44,7 +45,21 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(v => DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Unspecified), v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(oi => oi.OrderId)
++            .OnDelete(DeleteBehavior.ClientCascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.ClientCascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..949a261 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,14 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItemsAsync(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order != null)
++        {
++            order.Items.Clear();
++            await _db.SaveChangesAsync();
++        }
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2f08f5e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,15 @@
++# Решение поручения Shop
++
++## Изменённые файлы
++- `Model.cs` — добавлен Complexity в Order, конфигурация CreatedAt и связей
++- `OrderRepository.cs` — добавлен метод ClearItemsAsync
++
++## Решения
++
++**(а) Сложность комплектации:** Добавлено свойство `int Complexity` в Order (диапазон валидации на уровне БД / бизнес-логики) с комментарием о диапазоне 1..5.
++
++**(б) UTC-семантика CreatedAt:** Использован `HasConversion` с двусторонней нормализацией: на запись `DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Unspecified)` (код пишет UtcNow, сохраняется как Unspecified, сохраняя истинное UTC-значение без сдвига); на чтение `DateTime.SpecifyKind(v, DateTimeKind.Utc)` (метка, что это UTC). Колонка остаётся `timestamp without time zone` как требовалось DBA.
++
++**(в) Soft-delete связи:** Настроены `HasMany().WithOne().OnDelete(DeleteBehavior.ClientCascade)` для Order → Items и Order → Payments. ClientCascade позволяет EF контролировать каскадное удаление в памяти без FK-триггеров БД, совместимо с soft-delete фильтром.
++
++**(г) ClearItems:** Метод `ClearItemsAsync(Guid orderId)` загружает Order с Items через Include и очищает коллекцию перед SaveChanges.

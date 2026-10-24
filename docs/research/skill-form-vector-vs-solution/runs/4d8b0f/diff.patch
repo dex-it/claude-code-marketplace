@@ -1,0 +1,114 @@
+diff --git a/Controllers/OrdersController.cs b/Controllers/OrdersController.cs
+index 9dd1b94..7ebde27 100644
+--- a/Controllers/OrdersController.cs
++++ b/Controllers/OrdersController.cs
+@@ -11,9 +11,9 @@ public sealed class OrdersController : ControllerBase
+     public OrdersController(OrderService orders) => _orders = orders;
+ 
+     [HttpPost("{id:guid}/confirm")]
+-    public async Task<IActionResult> Confirm(Guid id, [FromQuery] string email, CancellationToken ct)
++    public async Task<IActionResult> Confirm(Guid id, [FromQuery] string phone, CancellationToken ct)
+     {
+-        await _orders.ConfirmAsync(id, email, ct);
++        await _orders.ConfirmAsync(id, phone, ct);
+         return NoContent();
+     }
+ }
+diff --git a/Controllers/ReportsController.cs b/Controllers/ReportsController.cs
+new file mode 100644
+index 0000000..a0a201f
+--- /dev/null
++++ b/Controllers/ReportsController.cs
+@@ -0,0 +1,21 @@
++using Microsoft.AspNetCore.Mvc;
++using Notify.Api.Services;
++
++namespace Notify.Api.Controllers;
++
++[ApiController]
++[Route("reports")]
++public sealed class ReportsController : ControllerBase
++{
++    private readonly INotificationSender _emailSender;
++
++    public ReportsController([FromKeyedServices("email")] INotificationSender emailSender)
++        => _emailSender = emailSender;
++
++    [HttpPost("{id:guid}/send")]
++    public async Task<IActionResult> SendReport(Guid id, [FromQuery] string email, CancellationToken ct)
++    {
++        await _emailSender.SendAsync(email, $"Отчёт {id}", ct);
++        return NoContent();
++    }
++}
+diff --git a/Program.cs b/Program.cs
+index 3311a5e..544fe60 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -1,9 +1,11 @@
+ using Notify.Api.Services;
++using Microsoft.AspNetCore.Http;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddControllers();
+-builder.Services.AddSingleton<INotificationSender, EmailSender>();
++builder.Services.AddKeyedSingleton<INotificationSender, EmailSender>("email");
++builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>("sms");
+ builder.Services.AddScoped<OrderService>();
+ 
+ var app = builder.Build();
+diff --git a/Services/OrderService.cs b/Services/OrderService.cs
+index d217282..af8e3ef 100644
+--- a/Services/OrderService.cs
++++ b/Services/OrderService.cs
+@@ -2,9 +2,9 @@ namespace Notify.Api.Services;
+ 
+ public sealed class OrderService
+ {
+-    private readonly INotificationSender _sender;
+-    public OrderService(INotificationSender sender) => _sender = sender;
++    private readonly INotificationSender _smsSender;
++    public OrderService([FromKeyedServices("sms")] INotificationSender smsSender) => _smsSender = smsSender;
+ 
+-    public Task ConfirmAsync(Guid orderId, string customerEmail, CancellationToken ct = default)
+-        => _sender.SendAsync(customerEmail, $"Заказ {orderId} подтверждён", ct);
++    public Task ConfirmAsync(Guid orderId, string customerPhone, CancellationToken ct = default)
++        => _smsSender.SendAsync(customerPhone, $"Заказ {orderId} подтверждён", ct);
+ }
+diff --git a/Services/SmsSender.cs b/Services/SmsSender.cs
+new file mode 100644
+index 0000000..3067432
+--- /dev/null
++++ b/Services/SmsSender.cs
+@@ -0,0 +1,13 @@
++namespace Notify.Api.Services;
++
++public sealed class SmsSender : INotificationSender
++{
++    private readonly ILogger<SmsSender> _log;
++    public SmsSender(ILogger<SmsSender> log) => _log = log;
++
++    public Task SendAsync(string recipient, string text, CancellationToken ct = default)
++    {
++        _log.LogInformation("sms to {Recipient}", recipient);
++        return Task.CompletedTask;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..beb5694
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++# Решение: Добавление SMS-канала и ReportsController
++
++## Созданные/Изменённые файлы:
++1. **Services/SmsSender.cs** (создан) - реализация SMS отправителя с логированием
++2. **Services/OrderService.cs** (изменён) - использует keyed-сервис "sms" для подтверждения заказов
++3. **Controllers/ReportsController.cs** (создан) - новый контроллер с эндпоинтом POST /reports/{id}/send для отправки отчетов по email
++4. **Controllers/OrdersController.cs** (изменён) - параметр phone вместо email для подтверждения заказа
++5. **Program.cs** (изменён) - регистрация keyed-сервисов для email и sms
++
++## О решении:
++Используются keyed-сервисы .NET 8: `AddKeyedSingleton<INotificationSender>` с ключами "email" и "sms". OrderService внедряет SMS-отправитель через `[FromKeyedServices("sms")]` для подтверждения заказов, а ReportsController использует `[FromKeyedServices("email")]` для отправки отчетов. Оба отправителя остаются за единым интерфейсом INotificationSender и логируют события в стандартный логгер.

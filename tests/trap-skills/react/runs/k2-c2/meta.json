@@ -1,0 +1,36 @@
+{
+  "id": "k2-c2",
+  "case": "K2",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 5,
+  "cost": 0.0771448,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 3
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100",
+    "cd <run>/web/src && cat components/OrdersPage.tsx components/__tests__/OrdersPage.test.tsx api.ts; grep -n \"q\\b\\|query\" ../../api/src/ap",
+    "cd <run>/web/src/components && python3 - <<'E'\np='OrdersPage.tsx'\ns=open(p).read()\ns=s.replace(\"\"\"  const [expandedId, setExpandedId] = "
+  ]
+}

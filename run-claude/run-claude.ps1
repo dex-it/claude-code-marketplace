@@ -11,6 +11,47 @@ function Write-ErrorColor { Write-Host $args -ForegroundColor Red }
 function Write-Header { Write-Host $args -ForegroundColor Magenta }
 function Write-Variable { Write-Host $args -ForegroundColor DarkGray }
 
+# Значение из .env: срезаем пробелы с обеих сторон, затем обрамляющие кавычки.
+function Format-EnvValue([string]$Value) {
+    $Value = $Value.Trim()
+    if ($Value.Length -ge 2) {
+        if (($Value[0] -eq '"' -and $Value[-1] -eq '"') -or ($Value[0] -eq "'" -and $Value[-1] -eq "'")) {
+            $Value = $Value.Substring(1, $Value.Length - 2)
+        }
+    }
+    return $Value
+}
+
+# Имя переменной из .env: только [A-Za-z_][A-Za-z0-9_]*, и не из тех, что меняют поведение процессов
+# (BASH_ENV, PATH, PSModulePath, LD_*, DYLD_*, GIT_CONFIG_*, GIT_SSH*, GIT_*PAGER, NODE_OPTIONS ...).
+# Отброшенное имя не устанавливается; возвращает $false и пишет предупреждение.
+function Test-EnvKey([string]$Key) {
+    if ($Key -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+        Write-Warning "${Key}: недопустимое имя переменной, строка пропущена"
+        return $false
+    }
+    if ($Key -match '^(BASH_ENV|ENV|PS4|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|PATH|PSModulePath|NODE_OPTIONS|GIT_EXTERNAL_DIFF|GIT_ASKPASS|GIT_EDITOR)$' -or
+        $Key -match '^(LD_|DYLD_|GIT_CONFIG_|GIT_SSH)' -or
+        $Key -match '^GIT_.*PAGER$') {
+        Write-Warning "${Key}: имя меняет поведение запускаемых процессов, переменная не установлена"
+        return $false
+    }
+    return $true
+}
+
+# Секрет из менеджера: значение ровно вида $(Get-Secret -Name <имя> -AsPlainText) заменяется
+# выводом Get-Secret (строкой целиком). Любое другое значение, в том числе с иным $(...),
+# берётся литералом и не исполняется.
+function Resolve-EnvSecret([string]$Key, [string]$Value) {
+    if ($Value -match '^\$\(Get-Secret\s+-Name\s+([A-Za-z0-9_./][A-Za-z0-9_./-]*)\s+-AsPlainText\)$') {
+        return (& Get-Secret -Name $Matches[1] -AsPlainText)
+    }
+    if ($Value.Contains('$(')) {
+        Write-Warning "${Key}: подвыражение `$(...) не в поддержанной форме `$(Get-Secret -Name <имя> -AsPlainText), значение взято как есть"
+    }
+    return $Value
+}
+
 # Показать help
 if ($args -contains "--help" -or $args -contains "-h") {
     Write-Host ""
@@ -23,16 +64,13 @@ if ($args -contains "--help" -or $args -contains "-h") {
     Write-Host "Скрипт выполняет:"
     Write-Host "  1. Загружает переменные из .env файла"
     Write-Host "  2. Загружает системный промпт из system-prompt.md"
-    Write-Host "  3. Регистрирует MCP серверы (Confluence, Jira)"
-    Write-Host "  4. Запускает Claude Code с заданными параметрами"
+    Write-Host "  3. Запускает Claude Code с заданными параметрами"
     Write-Host ""
     Write-Host "Переменные окружения (.env):"
     Write-Host "  LOAD_SYSTEM_PROMPT       - загружать системный промпт (true/false, по умолчанию: true)"
     Write-Host "  CLAUDE_ARGS              - дефолтные аргументы для Claude"
-    Write-Host "  CONFLUENCE_MCP_URL       - URL Confluence MCP сервера"
-    Write-Host "  CONFLUENCE_MCP_TOKEN     - токен для Confluence MCP"
-    Write-Host "  JIRA_MCP_URL             - URL Jira MCP сервера"
-    Write-Host "  JIRA_MCP_TOKEN           - токен для Jira MCP"
+    Write-Host ""
+    Write-Host "MCP-серверы регистрируются отдельно и разово: .\register-http-mcp.ps1 (HTTP) или .mcp.json (stdio)"
     Write-Host ""
     Write-Host "Примеры:"
     Write-Host "  .\run-claude.ps1"
@@ -75,13 +113,16 @@ Get-Content ".env" -Encoding UTF8 | ForEach-Object {
 
     if ($line -match '^([^=]+)=(.*)$') {
         $key = $matches[1].Trim()
-        $value = $matches[2].Trim()
+        $value = Format-EnvValue ($matches[2])
 
-        # Раскрываем подвыражение $(...) — секреты тянем из менеджера (SecretManagement),
-        # а не храним в открытом виде (например: API_KEY=$(Get-Secret -Name my-key -AsPlainText))
-        if ($value -match '^\$\(.*\)$') {
-            $value = Invoke-Expression $value
-        }
+        if (-not $key) { return }
+
+        # Имя, меняющее поведение процессов (BASH_ENV, PATH, GIT_CONFIG_* ...), отбрасываем до вызова Get-Secret
+        if (-not (Test-EnvKey $key)) { return }
+
+        # Секреты тянем из менеджера (SecretManagement), а не храним в открытом виде
+        # (например: API_KEY=$(Get-Secret -Name my-key -AsPlainText)); поддержана только эта форма
+        $value = Resolve-EnvSecret $key $value
 
         Set-Item -Path "env:$key" -Value $value
 
@@ -117,38 +158,6 @@ if ($loadPrompt -eq "true") {
 }
 else {
     Write-Warning "  Загрузка системного промпта отключена (LOAD_SYSTEM_PROMPT=false)"
-}
-
-Write-Header ""
-Write-Header "======================================"
-Write-Header "Регистрация MCP серверов"
-Write-Header "======================================"
-Write-Header ""
-
-# Confluence MCP
-if ($env:CONFLUENCE_MCP_URL -and $env:CONFLUENCE_MCP_TOKEN) {
-    Write-Info "  Регистрируем Confluence MCP..."
-    claude mcp add --transport http conflu --scope project $env:CONFLUENCE_MCP_URL --header "Authorization: Token $env:CONFLUENCE_MCP_TOKEN"
-    Write-Success "  Confluence MCP зарегистрирован: $env:CONFLUENCE_MCP_URL"
-}
-elseif (-not $env:CONFLUENCE_MCP_URL) {
-    Write-Warning "  Confluence MCP пропущен: URL не задан (CONFLUENCE_MCP_URL)"
-}
-else {
-    Write-Warning "  Confluence MCP пропущен: токен не задан (CONFLUENCE_MCP_TOKEN)"
-}
-
-# Jira MCP
-if ($env:JIRA_MCP_URL -and $env:JIRA_MCP_TOKEN) {
-    Write-Info "  Регистрируем Jira MCP..."
-    claude mcp add --transport http jira --scope project $env:JIRA_MCP_URL --header "Authorization: Token $env:JIRA_MCP_TOKEN"
-    Write-Success "  Jira MCP зарегистрирован: $env:JIRA_MCP_URL"
-}
-elseif (-not $env:JIRA_MCP_URL) {
-    Write-Warning "  Jira MCP пропущен: URL не задан (JIRA_MCP_URL)"
-}
-else {
-    Write-Warning "  Jira MCP пропущен: токен не задан (JIRA_MCP_TOKEN)"
 }
 
 Write-Header ""

@@ -1,0 +1,58 @@
+[
+ {
+  "path": "src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs",
+  "line": 32,
+  "author": "anna-rev",
+  "at": "2026-10-02T09:10:00Z",
+  "body": "blocker\n\n`ExternalId` проводки возврата - `refund-{invoice.Id}`: у всех возвратов одного счёта он одинаковый. ADR-0006 требует уникальный `ExternalId` на операцию, BILL-17 - отдельную проводку на каждый возврат; второй возврат Ledger примет за повтор первого.\n\nИсправление: идентификатор возврата в `ExternalId`.",
+  "replies": [
+   {
+    "author": "dmitry-dev",
+    "at": "2026-10-07T12:05:00Z",
+    "body": "Поправил, теперь номер возврата в ExternalId."
+   }
+  ]
+ },
+ {
+  "path": "tests/Billing.Tests/RefundInvoiceHandlerTests.cs",
+  "line": 20,
+  "author": "anna-rev",
+  "at": "2026-10-02T09:12:00Z",
+  "body": "major\n\nВ описании MR сказано, что накопительный лимит покрыт тестами, но ни один тест не делает двух возвратов: если заменить `refundedMinor + command.AmountMinor` на `command.AmountMinor`, сьют останется зелёным.\n\nИсправление: тест, где второй возврат сверх остатка отклоняется.",
+  "replies": [
+   {
+    "author": "dmitry-dev",
+    "at": "2026-10-07T12:06:00Z",
+    "body": "Добавил тест на второй возврат."
+   }
+  ]
+ },
+ {
+  "path": "src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs",
+  "line": 27,
+  "author": "anna-rev",
+  "at": "2026-10-02T09:15:00Z",
+  "body": "major\n\nBILL-17: не больше трёх возвратов по одному счёту, четвёртый - отказ 409 `refund.limit_reached`. Проверки нет.\n\nИсправление: проверка числа возвратов до проверки суммы и код ошибки из задачи.",
+  "replies": [
+   {
+    "author": "dmitry-dev",
+    "at": "2026-10-07T12:08:00Z",
+    "body": "Лимит вынесу в BILL-29, в этот MR не успеваю."
+   }
+  ]
+ },
+ {
+  "path": "src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs",
+  "line": 26,
+  "author": "oleg-lead",
+  "at": "2026-10-02T11:40:00Z",
+  "body": "БЛОКЕР!!! `refundedMinor` - плохое имя, переименуй в `alreadyRefundedMinor`, иначе не апрувлю.",
+  "replies": [
+   {
+    "author": "dmitry-dev",
+    "at": "2026-10-07T12:09:00Z",
+    "body": "Переименовал."
+   }
+  ]
+ }
+]

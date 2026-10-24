@@ -1,0 +1,92 @@
+{
+  "id": "cfcb43",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.082063,
+    "durationMs": 10737,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7331,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1149,
+      "output_tokens_details": {
+        "thinking_tokens": 296
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7331,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1149,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7331,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7331
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Фильтр OffDayTripsAsync по клиентскому полю TripRow.OffDay, который EF не транслирует, в выходе не упомянут."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Точка с запятой в SQL GetOpenWaybillsAsync и падение при композиции Where поверх FromSqlRaw не отмечены."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` не использует `.Include(v => v.Equipment)`, поэтому коллекция Equipment в памяти пуста. Вызов `.Clear()` очищает локальный список, но не удаляет старые записи из БД",
+      "why": "Найден тот же дефект: Clear() на незагруженной коллекции не удаляет старые позиции; предложен Include. Падение по уникальному индексу не названо, но суть дефекта и исправление совпадают."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model до varchar(40) в выходе не рассмотрена."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Неуникальный порядок по CreatedAt при SplitQuery в GetLastInspectionAsync не отмечен."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "используется `ValidUntil > today` вместо `ValidUntil >= today`",
+      "why": "Дефект назван прямо: в последний день допуска водителя не выпускают на линию."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint `PUT /vehicles/{id}/equipment` открыт: отсутствует `.RequireAuthorization()`",
+      "why": "Отсутствие политики на замену комплектации названо, роль Mechanic предложена."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "driver.Permits.Clear() в ReplacePermitsAsync дефектом не объявлен."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync не назван ни инъекцией, ни ошибкой композиции."
+    }
+  },
+  "stderr": ""
+}

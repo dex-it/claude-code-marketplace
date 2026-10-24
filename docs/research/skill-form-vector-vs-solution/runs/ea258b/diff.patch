@@ -1,0 +1,64 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..040a63b
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,34 @@
++namespace Shop.Data;
++
++public record ActiveOrderReportItem(Guid Id, string CustomerName, decimal Total, int ItemsCount);
++
++public record OverdueOrderReportItem(Guid Id, string CustomerName, DateTime CreatedAt, decimal Total);
++
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public Task<List<ActiveOrderReportItem>> GetActiveOrdersAsync() =>
++        _orders.Query()
++            .AsNoTracking()
++            .Where(o => o.Status == "active")
++            .Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync();
++
++    public Task<Dictionary<string, int>> GetActiveOrderCountsByCategoryAsync() =>
++        _orders.Query()
++            .AsNoTracking()
++            .Where(o => o.Status == "active")
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.Category, x => x.Count);
++
++    // IsOverdue() не транслируется EF в SQL — условие развёрнуто в Where вручную
++    public Task<List<OverdueOrderReportItem>> GetOverdueOrdersAsync(DateTime now) =>
++        _orders.Query()
++            .AsNoTracking()
++            .Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
++            .Select(o => new OverdueOrderReportItem(o.Id, o.Customer.Name, o.CreatedAt, o.Total))
++            .ToListAsync();
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..4e4c1a1 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,5 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++    public IQueryable<Order> Query() => _db.Orders;
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b225719
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Созданные/изменённые файлы:
++- OrderReportService.cs (новый) — сервис с тремя read-only методами отчётов
++- OrderRepository.cs (изменён) — добавлен `Query(): IQueryable<Order>` для композиции запросов сервисом
++
++Решения:
++- Все три метода строятся через `OrderRepository.Query()` + `AsNoTracking()` и проекцию (`Select`) прямо в SQL — без предварительной материализации; подсчёт по категориям идёт через `GroupBy`/`ToDictionaryAsync`, транслируемые в SQL GROUP BY, а не в память.
++- `Order.IsOverdue(now)` как метод экземпляра не транслируется EF в SQL, поэтому в `Where` условие развёрнуто вручную (`ShippedAt == null && CreatedAt.AddDays(3) < now`); soft-deleted заказы уже отсекаются глобальным `HasQueryFilter`.
++- `GetActiveOrdersAsync`/`GetActiveOrderCountsByCategoryAsync` фильтруют `Status == "active"` до материализации; количество позиций (`ItemsCount`) берётся как `o.Items.Count` внутри проекции, без `Include`, чтобы не грузить сами Items.

@@ -1,0 +1,16 @@
+case=K3
+typecheck=0
+test=0
+files: test/reservation.test.ts 
+TESTS PASS (Tests  8 passed (8))
+SHUFFLE seed=1 PASS
+SHUFFLE seed=2 PASS
+SHUFFLE seed=3 PASS
+SHUFFLE seed=4 PASS
+SHUFFLE seed=5 PASS
+MU1 KILLED  (MU1-return-after-exhaustion)
+MU2 KILLED  (MU2-single-attempt)
+MU3 KILLED  (MU3-retry-any-error)
+MU4 KILLED  (MU4-hold-boundary)
+TIME 1378 ms wall (vitest: 227ms (transform 67ms, setup 0ms, import 89ms, tests 8ms, environment 0ms))
+?? api/test/reservation.test.ts

@@ -1,0 +1,86 @@
+{
+  "id": "4acafd",
+  "case": "MRA",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.051171400000000006,
+    "durationMs": 8964,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3752,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1036,
+      "output_tokens_details": {
+        "thinking_tokens": 186
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3752,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1036,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3752,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3752
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "MRA-A4": {
+      "verdict": "PASS",
+      "quote": "`await _db.Orders.CountAsync(o => o.CustomerId == customerId, ct) > 0` — классическая ловушка Count()>0 вместо Any()",
+      "why": "Находка №2 называет CountAsync() > 0 в HasOrders и предлагает AnyAsync."
+    },
+    "MRA-A1": {
+      "verdict": "FOUND",
+      "quote": "`_products.GetAllAsync()` тянет из БД **все** товары ... фильтрация `.Where(p => p.IsActive)` происходит уже в памяти",
+      "why": "Находка №4 описывает загрузку всей таблицы Products и фильтр IsActive в памяти."
+    },
+    "MRA-A2": {
+      "verdict": "FOUND",
+      "quote": "`items.Where(i => i.ProductId == p.Id).ToList()` — линейный проход по всему списку `items` для каждого продукта, т.е. O(products × items)",
+      "why": "Находка №3 описывает O(P*I) фильтрацию в памяти."
+    },
+    "MRA-A3": {
+      "verdict": "FOUND",
+      "quote": "Без `AsNoTrackingWithIdentityResolution()` EF Core не делает identity resolution ... `Distinct()` сравнивает по ссылке и ничего не удаляет.",
+      "why": "Находка №1 описывает дублирование клиента из-за отсутствия identity resolution и Distinct по ссылке."
+    },
+    "MRA-A5": {
+      "verdict": "FOUND",
+      "quote": "Это ровно паттерн \"ToListAsync() в каждой ветке условия\"",
+      "why": "Находка №5 описывает материализацию в каждой ветке CatalogSearch."
+    },
+    "MRA-A6": {
+      "verdict": "FOUND",
+      "quote": "`products.FirstOrDefault(p => p.Id == id)` вызывается внутри цикла по строкам CSV — O(n) поиск на каждой строке файла",
+      "why": "Находка №6 описывает FirstOrDefault по List на каждую строку."
+    },
+    "MRA-X1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Учёт выручки по неоплаченным или отменённым заказам в SalesReport не упомянут."
+    },
+    "MRA-X2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие проверки отрицательного количества в StockImport не упомянуто; находка №7 касается дубликатов строк."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,72 @@
+{
+  "id": "f10a22",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.094811,
+    "durationMs": 9013,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9397,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 960,
+      "output_tokens_details": {
+        "thinking_tokens": 403
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9397,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 960,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9397,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9397
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "FAIL",
+      "quote": "\"address\" => needHouses ? \"a.house_id, a.number\" : \"a.house_id, a.number\"",
+      "why": "JOIN apartments a добавляется только при needHouses, а ORDER BY по a.* стоит всегда. Запрос sort=address без фильтров HouseId/District падает: алиас a отсутствует во FROM."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at, r.phone_number",
+      "why": "В модель добавлено маппленное свойство CompletionComment, но его колонка не попала в явный SELECT сырого SQL. FromSqlRaw не вернёт все свойства сущности, и реестр упадёт на каждом запросе."
+    },
+    "G6-plan-orphans": {
+      "verdict": "FAIL",
+      "quote": "foreach (var item in toRemove)\n            plan.Items.Remove(item);",
+      "why": "Работы убираются только из коллекции, без _db.PlanItems.Remove. При DeleteOrphansTiming = Never SaveChanges бросит исключение о разорванной обязательной связи."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён и не объявлен дефектным."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET выход инъекцией не называет и не меняет."
+    }
+  },
+  "stderr": ""
+}

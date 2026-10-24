@@ -1,0 +1,74 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..f2577dc
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,51 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const string Subject = "Сообщение от магазина";
++
++    // Список из маркетинговой системы может быть большим - читаем клиентов пачками,
++    // чтобы не держать в памяти всё сразу и не держать открытым DataReader во время отправки.
++    private const int BatchSize = 5_000;
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _email;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender email)
++    {
++        _db = db;
++        _email = email;
++    }
++
++    // Возвращает число отправленных писем. Id, которых нет в базе, пропускаются.
++    public async Task<int> NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        ArgumentNullException.ThrowIfNull(customerIds);
++        ArgumentException.ThrowIfNullOrWhiteSpace(text);
++
++        // Один обход входной последовательности + удаление дублей: клиент получит одно письмо.
++        var ids = customerIds.Distinct().ToArray();
++        var sent = 0;
++
++        foreach (var batch in ids.Chunk(BatchSize))
++        {
++            // EF Core 8 + Npgsql передаёт массив одним параметром (= ANY(@ids)), один запрос на пачку.
++            var recipients = await _db.Customers
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => new { c.Id, c.Email })
++                .ToListAsync(ct);
++
++            foreach (var r in recipients)
++            {
++                if (string.IsNullOrWhiteSpace(r.Email)) continue;
++
++                await _email.SendAsync(r.Email, Subject, text, ct);
++                sent++;
++            }
++        }
++
++        return sent;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..292babf
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++Файлы:
++- создан `CustomerNotifier.cs`
++- создан `_answer.md`
++
++Решения:
++- Метод `NotifyCustomers` сделан асинхронным и возвращает `Task<int>` — количество отправленных писем, потому что `IEmailSender.SendAsync` асинхронный. Тема письма задана константой: в сигнатуре есть только `text`.
++- Входной `IEnumerable` из маркетинговой системы перебирается один раз. Сразу убираются дубли (`Distinct().ToArray()`), чтобы клиент не получил письмо дважды. Id, которых нет в базе, пропускаются, пустые email тоже.
++- Клиенты читаются пачками по 5000 — один запрос на пачку, а не на каждого клиента. В EF Core 8 / Npgsql `Contains` передаётся одним параметром-массивом (`= ANY(@ids)`). Из базы берутся только `Id` и `Email`. Пачка загружается целиком до начала отправки, поэтому соединение с БД не занято, пока идут письма.
++- Ошибки отправки не перехватываются. Если отправка упадёт, часть писем уже уйдёт, и при повторном запуске эти клиенты получат письмо ещё раз.
++
++Сборку и тесты не запускал.

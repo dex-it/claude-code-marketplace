@@ -1,0 +1,53 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..9aec697
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,31 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        var uniqueIds = customerIds.Distinct().ToList();
++        if (uniqueIds.Count == 0) return;
++
++        var customers = await _db.Customers
++            .Where(c => uniqueIds.Contains(c.Id))
++            .Select(c => new { c.Email })
++            .ToListAsync(ct);
++
++        foreach (var customer in customers)
++        {
++            await _emailSender.SendAsync(customer.Email, "Уведомление", text, ct);
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..69f00bd
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++# Результат: CustomerNotifier
++
++## Созданные файлы
++- `CustomerNotifier.cs` — класс с методом NotifyCustomers
++
++## Решение
++Метод отправляет письма через IEmailSender каждому клиенту из входного списка ID, применяя правила SKILL.md: 
++1. **Дедупликирует входные ID** (`Distinct().ToList()`) перед `Contains()` — экономит SQL-сравнения и защищает от повторной отправки от маркетинговой системы
++2. **Фильтрует и проецирует в одном SQL-запросе** (`Where().Select().ToListAsync()`) вместо загрузки полных сущностей — избегаем лишних полей и лишних roundtrip'ов (не делаем N FindAsync в цикле)
++3. **Guard на пустой список** — выход ранью, если нет клиентов для уведомления

@@ -1,0 +1,87 @@
+{
+  "id": "1ba7d9",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.067175,
+    "durationMs": 8296,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6380,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 785,
+      "output_tokens_details": {
+        "thinking_tokens": 126
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6380,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 785,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6380,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6380
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не утверждает потерю Kind у DateTime.UtcNow.Date или PlannedLocal и не меняет тип колонки."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync в выходе не упоминается."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не предлагает AsNoTracking для GetInAnalysisForBatchAsync, кода в diff нет."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Использование raw SQL query с `FromSql` приводит к потере данных навигационных свойств",
+      "why": "Находка по GetRecentBySiteAsync касается навигационных свойств и сортировки, SQL-инъекцией FromSql не названа."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Tags.Clear() в RetagAsync дефектом не назван."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync в FindByLabCodeAsync дефектом не назван."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "DivideByZeroException при пустой партии + целочисленное деление дает 0% вместо корректного процента",
+      "why": "Названы оба механизма дефекта: целочисленное деление и деление на ноль для пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`",
+      "why": "Указано, что page начинается с 1 и первая страница пропускается."
+    }
+  },
+  "stderr": ""
+}

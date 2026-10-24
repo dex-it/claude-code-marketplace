@@ -1,0 +1,192 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..18e2e02
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,143 @@
++name: CI
++
++on:
++  pull_request:
++  push:
++    branches: [main]
++
++permissions:
++  contents: read
++
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
++
++env:
++  DOTNET_NOLOGO: true
++  DOTNET_CLI_TELEMETRY_OPTOUT: true
++
++jobs:
++  test:
++    name: test (ubuntu)
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore Depot.sln
++      - run: dotnet build Depot.sln -c Release --no-restore
++      # Интеграционным тестам нужен Docker (Testcontainers) - на ubuntu-latest он есть.
++      - run: >
++          dotnet test Depot.sln -c Release --no-build
++          --logger "trx;LogFileName=test-results.trx"
++          --collect:"XPlat Code Coverage"
++          --results-directory TestResults
++      - uses: actions/upload-artifact@v4
++        if: ${{ !cancelled() }}
++        with:
++          name: test-results-ubuntu
++          path: TestResults
++          retention-days: 14
++
++  contracts-windows:
++    name: contracts (windows)
++    runs-on: windows-latest
++    timeout-minutes: 30
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore Depot.sln
++      - run: dotnet build Depot.sln -c Release --no-restore
++      - run: >
++          dotnet test Depot.sln -c Release --no-build
++          --filter "Category=Contracts"
++          --logger "trx;LogFileName=test-results.trx"
++          --collect:"XPlat Code Coverage"
++          --results-directory TestResults
++      - uses: actions/upload-artifact@v4
++        if: ${{ !cancelled() }}
++        with:
++          name: test-results-windows-contracts
++          path: TestResults
++          retention-days: 14
++
++  audit:
++    name: dependency audit
++    runs-on: ubuntu-latest
++    timeout-minutes: 10
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore Depot.sln
++      # `dotnet list package --vulnerable` всегда выходит с кодом 0 - падаем по тексту отчёта.
++      - run: |
++          dotnet list Depot.sln package --vulnerable --include-transitive --no-restore | tee audit.txt
++          if grep -q "has the following vulnerable packages" audit.txt; then
++            echo "::error::Найдены уязвимые зависимости"
++            exit 1
++          fi
++
++  format:
++    name: format (report only)
++    runs-on: ubuntu-latest
++    timeout-minutes: 10
++    # Замечаний 300+, чиним постепенно: отчёт есть, мерж и релиз не блокируем.
++    continue-on-error: true
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore Depot.sln
++      - run: dotnet format Depot.sln --verify-no-changes --no-restore --report format-report
++        continue-on-error: true
++      - uses: actions/upload-artifact@v4
++        if: ${{ !cancelled() }}
++        with:
++          name: format-report
++          path: format-report
++          retention-days: 14
++          if-no-files-found: ignore
++
++  license-check:
++    needs: [test, contracts-windows]
++    uses: ci-shared/.github/.github/workflows/license-check.yml@v2
++
++  publish:
++    name: build and push image
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    needs: [test, contracts-windows, audit, license-check]
++    runs-on: ubuntu-latest
++    timeout-minutes: 20
++    steps:
++      - uses: actions/checkout@v4
++      - uses: docker/setup-buildx-action@v3
++      - uses: docker/login-action@v3
++        with:
++          registry: registry.example.com
++          username: ${{ secrets.REGISTRY_USER }}
++          password: ${{ secrets.REGISTRY_PASSWORD }}
++      - uses: docker/build-push-action@v6
++        with:
++          context: .
++          push: true
++          tags: registry.example.com/depot/api:${{ github.sha }}
++
++  deploy-stage:
++    name: deploy to stage
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    needs: [publish]
++    runs-on: ubuntu-latest
++    timeout-minutes: 5
++    steps:
++      # GITHUB_TOKEN не даёт доступа к другому репозиторию - нужен отдельный токен.
++      - name: Dispatch deploy.yml in dex/depot-infra
++        env:
++          GH_TOKEN: ${{ secrets.DEPOT_INFRA_DISPATCH_TOKEN }}
++        run: gh workflow run deploy.yml --repo dex/depot-infra --ref main
+diff --git a/.github/workflows/size-label.yml b/.github/workflows/size-label.yml
+new file mode 100644
+index 0000000..856b4fa
+--- /dev/null
++++ b/.github/workflows/size-label.yml
+@@ -0,0 +1,37 @@
++name: PR size label
++
++# pull_request_target: у PR из форков обычный pull_request получает read-only токен и не может ставить метки.
++# Код PR здесь НЕ выкачивается и не исполняется: только запрос к API за числом строк.
++on:
++  pull_request_target:
++    types: [opened, synchronize, reopened]
++
++permissions:
++  contents: read
++  pull-requests: write
++  issues: write
++
++concurrency:
++  group: size-label-${{ github.event.pull_request.number }}
++  cancel-in-progress: true
++
++jobs:
++  label:
++    runs-on: ubuntu-latest
++    timeout-minutes: 5
++    steps:
++      - name: Set size label
++        env:
++          GH_TOKEN: ${{ github.token }}
++          PR: ${{ github.event.pull_request.number }}
++          REPO: ${{ github.repository }}
++        run: |
++          changed=$(gh api "repos/$REPO/pulls/$PR" --jq '.additions + .deletions')
++          if   [ "$changed" -lt 50 ];  then label=size/S
++          elif [ "$changed" -lt 300 ]; then label=size/M
++          else label=size/L
++          fi
++          for old in size/S size/M size/L; do
++            [ "$old" = "$label" ] || gh pr edit "$PR" --repo "$REPO" --remove-label "$old" 2>/dev/null || true
++          done
++          gh pr edit "$PR" --repo "$REPO" --add-label "$label"

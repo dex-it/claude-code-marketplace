@@ -1,0 +1,1 @@
+src/Billing.Api/Application/Handlers/Invoices/GetInvoiceHandler.cs:30 - Cancel() не сбрасывает PaidAt, поэтому карточка отменённого после оплаты счёта отдаёт Status=Cancelled вместе с непустым PaidAt; фронт, показывающий дату оплаты по наличию PaidAt, покажет отменённый счёт как оплаченный - minor

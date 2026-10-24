@@ -1,0 +1,230 @@
+diff --git a/deploy/k8s/api.yaml b/deploy/k8s/api.yaml
+new file mode 100644
+index 0000000..d4d0e19
+--- /dev/null
++++ b/deploy/k8s/api.yaml
+@@ -0,0 +1,139 @@
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: depot-api
++  namespace: depot
++  labels:
++    app: depot-api
++spec:
++  replicas: 3
++  strategy:
++    type: RollingUpdate
++    rollingUpdate:
++      maxUnavailable: 0
++      maxSurge: 1
++  selector:
++    matchLabels:
++      app: depot-api
++  template:
++    metadata:
++      labels:
++        app: depot-api
++    spec:
++      imagePullSecrets:
++        - name: regcred
++      automountServiceAccountToken: false
++      topologySpreadConstraints:
++        - maxSkew: 1
++          topologyKey: kubernetes.io/hostname
++          whenUnsatisfiable: ScheduleAnyway
++          labelSelector:
++            matchLabels:
++              app: depot-api
++      containers:
++        - name: api
++          image: registry.example.com/depot/api:1.4.0
++          ports:
++            - name: http
++              containerPort: 8080
++          env:
++            - name: ASPNETCORE_URLS
++              value: http://+:8080
++          envFrom:
++            - secretRef:
++                name: depot-settings
++          # Холодный старт до 35 с (p95, включая миграции): ждём до 150 с.
++          startupProbe:
++            httpGet:
++              path: /health
++              port: http
++            periodSeconds: 5
++            failureThreshold: 30
++          readinessProbe:
++            httpGet:
++              path: /health
++              port: http
++            periodSeconds: 10
++            timeoutSeconds: 3
++            failureThreshold: 3
++          # Liveness намеренно без проверки БД: при недоступной БД перезапуск подов не поможет.
++          livenessProbe:
++            tcpSocket:
++              port: http
++            periodSeconds: 20
++            failureThreshold: 3
++          lifecycle:
++            preStop:
++              exec:
++                command: ["sleep", "5"]
++          resources:
++            requests:
++              cpu: 100m
++              memory: 384Mi
++            limits:
++              memory: 512Mi
++          securityContext:
++            runAsNonRoot: true
++            runAsUser: 1654
++            allowPrivilegeEscalation: false
++            readOnlyRootFilesystem: true
++            capabilities:
++              drop: ["ALL"]
++            seccompProfile:
++              type: RuntimeDefault
++          volumeMounts:
++            - name: tmp
++              mountPath: /tmp
++      volumes:
++        - name: tmp
++          emptyDir: {}
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: depot-api
++  namespace: depot
++  labels:
++    app: depot-api
++spec:
++  selector:
++    app: depot-api
++  ports:
++    - name: http
++      port: 80
++      targetPort: http
++---
++# Еженедельный drain нод: всегда остаются минимум 2 из 3 реплик.
++apiVersion: policy/v1
++kind: PodDisruptionBudget
++metadata:
++  name: depot-api
++  namespace: depot
++spec:
++  minAvailable: 2
++  selector:
++    matchLabels:
++      app: depot-api
++---
++apiVersion: networking.k8s.io/v1
++kind: Ingress
++metadata:
++  name: depot-api
++  namespace: depot
++spec:
++  ingressClassName: nginx
++  tls:
++    - hosts:
++        - depot.example.com
++      secretName: depot-tls
++  rules:
++    - host: depot.example.com
++      http:
++        paths:
++          - path: /
++            pathType: Prefix
++            backend:
++              service:
++                name: depot-api
++                port:
++                  name: http
+diff --git a/deploy/k8s/namespace.yaml b/deploy/k8s/namespace.yaml
+new file mode 100644
+index 0000000..e73613b
+--- /dev/null
++++ b/deploy/k8s/namespace.yaml
+@@ -0,0 +1,4 @@
++apiVersion: v1
++kind: Namespace
++metadata:
++  name: depot
+diff --git a/deploy/k8s/secret.yaml b/deploy/k8s/secret.yaml
+new file mode 100644
+index 0000000..ddecfd6
+--- /dev/null
++++ b/deploy/k8s/secret.yaml
+@@ -0,0 +1,11 @@
++# Значения для stage (docs/stage-values.md), тестовые. Для прода заменить реальными значениями
++# не через git, а при выкате (например, kubectl create secret).
++apiVersion: v1
++kind: Secret
++metadata:
++  name: depot-settings
++  namespace: depot
++type: Opaque
++stringData:
++  ConnectionStrings__Default: "Host=pg-stage.internal;Database=depot;Username=depot;Password=FAKE-test-only-not-a-key"
++  Auth__ApiKey: "FAKE-test-only-not-a-key-2"
+diff --git a/deploy/k8s/worker.yaml b/deploy/k8s/worker.yaml
+new file mode 100644
+index 0000000..d4fa6a9
+--- /dev/null
++++ b/deploy/k8s/worker.yaml
+@@ -0,0 +1,52 @@
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: depot-worker
++  namespace: depot
++  labels:
++    app: depot-worker
++spec:
++  # Ровно один экземпляр: два обработают очередь дважды.
++  replicas: 1
++  # Recreate: старый под останавливается до старта нового (RollingUpdate дал бы два экземпляра).
++  strategy:
++    type: Recreate
++  selector:
++    matchLabels:
++      app: depot-worker
++  template:
++    metadata:
++      labels:
++        app: depot-worker
++    spec:
++      imagePullSecrets:
++        - name: regcred
++      automountServiceAccountToken: false
++      containers:
++        - name: worker
++          image: registry.example.com/depot/api:1.4.0
++          command: ["dotnet", "Depot.Api.dll", "--worker"]
++          envFrom:
++            - secretRef:
++                name: depot-settings
++          resources:
++            requests:
++              cpu: 50m
++              memory: 384Mi
++            limits:
++              memory: 512Mi
++          securityContext:
++            runAsNonRoot: true
++            runAsUser: 1654
++            allowPrivilegeEscalation: false
++            readOnlyRootFilesystem: true
++            capabilities:
++              drop: ["ALL"]
++            seccompProfile:
++              type: RuntimeDefault
++          volumeMounts:
++            - name: tmp
++              mountPath: /tmp
++      volumes:
++        - name: tmp
++          emptyDir: {}

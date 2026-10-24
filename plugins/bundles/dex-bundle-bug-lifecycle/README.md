@@ -7,17 +7,23 @@
 - Поиск: `dex-bug-finder` (`/find-bugs`) активно ищет дефекты, воспроизводит, отдаёт в handoff
 - Оформление: `dex-bug-reporter` оформляет баг и handoff-карточку для расследования
 - Расследование: `dex-incident-investigator` (`/investigate`) ведёт RCA на общем стенде до доказанной корневой причины
-- Фикс: `dex-feature-implementer` (`/implement`) применяет крупные многофайловые фиксы по плану
+- Фикс: `/implement` (плагин `dex-implement`) применяет крупные многофайловые фиксы по плану
 
 ## Состав
 
-Специалисты: `dex-bug-finder`, `dex-bug-reporter`, `dex-incident-investigator`, `dex-feature-implementer`.
+Команды: `dex-implement` (`/implement`).
 
-Skills методологии: `dex-skill-problem-specification`, `dex-skill-root-cause-analysis`, `dex-skill-change-correlation`, `dex-skill-shared-stand-safety`, `dex-skill-exploratory-testing`, `dex-skill-bug-reproduction`, `dex-skill-contract-drift`.
+Специалисты: `dex-bug-finder`, `dex-bug-reporter`, `dex-incident-investigator`.
 
-Переиспользуемые skills: `dex-skill-owasp-security`, `dex-skill-testability`, `dex-skill-test-design`, `dex-skill-observability`, `dex-skill-codebase-conventions`, `dex-skill-no-loose-ends`.
+Skills методологии: `dex-skill-root-cause-analysis`, `dex-skill-change-correlation`, `dex-skill-shared-stand-safety`, `dex-skill-bug-reproduction`.
+
+Переиспользуемые skills: `dex-skill-testability`, `dex-skill-observability`, `dex-skill-codebase-conventions`.
 
 CLI для чтения стенда: `dex-kubectl-cli`, `dex-gitlab-cli`, `dex-github-cli`, `dex-teamcity-cli`, `dex-jira-cli`.
+
+## Замечания
+
+Кодер под `/implement` - стек-специфичный агент (`dex-dotnet-coder`/`dex-ts-fullstack-coder`), не входит в этот bundle: без парного стек-бандла (например `dex-bundle-dotnet-developer`) фикс через `/implement` недоступен, доступны поиск/оформление/расследование и `dex-bug-fixer` для пачки уже найденных багов.
 
 ## Установка
 

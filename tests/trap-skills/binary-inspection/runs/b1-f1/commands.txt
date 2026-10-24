@@ -1,0 +1,10 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'cd /work/vendor && ls -l && file * ; echo ---NM; nm -D --defined-only -C libcalc.so; echo ---NEEDED; readelf -d libcalc.so | grep -E "NEEDED|SONAME|RPATH|RUNPATH"; echo ---ELF; readelf -h vendor-tool | grep -E "Class|Machine|Type"; readelf -d vendor-tool | grep -E "NEEDED|RPATH|RUNPATH"; echo ---STR; strings -a vendor-tool | head -60; echo ---IMPORTS; nm -D vendor-tool'
+docker exec <ctr> sh -c 'which ilspycmd monodis rizin objdump; ls ~/.dotnet/tools 2>/dev/null; strings -a -e l /work/vendor/Legacy.Pricing.dll | head -40'
+docker exec <ctr> sh -c 'cd /tmp && mkdir -p out && ilspycmd /work/vendor/Legacy.Pricing.dll 2>&1 | head -80; echo ---OBJ; objdump -D -b binary -m i386:x86-64 /work/vendor/vendor-tool 2>&1 | head -3; objdump -d /work/vendor/vendor-tool 2>&1 | head -40; readelf -S /work/vendor/vendor-tool | grep -E "text|rodata"'
+[Write] <lab>/REPORT.md

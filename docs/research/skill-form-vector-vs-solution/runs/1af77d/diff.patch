@@ -1,0 +1,64 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..64e18c3
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,30 @@
++namespace Shop.Data;
++
++public record ActiveOrderReportRow(Guid OrderId, string CustomerName, decimal Total, int ItemsCount);
++
++public record OverdueOrderReportRow(Guid OrderId, string CustomerName, decimal Total, DateTime CreatedAt);
++
++// Только чтение: все выборки без трекинга, фильтры/группировки/проекции выполняются в БД.
++public class OrderReportService
++{
++    private readonly OrderRepository _repo;
++    public OrderReportService(OrderRepository repo) => _repo = repo;
++
++    public Task<List<ActiveOrderReportRow>> GetActiveOrdersAsync() =>
++        _repo.QueryActive()
++            .Select(o => new ActiveOrderReportRow(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync();
++
++    public Task<Dictionary<string, int>> GetActiveOrderCountsByCategoryAsync() =>
++        _repo.QueryActive()
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.Category, x => x.Count);
++
++    // now - точка отсчёта "текущего момента" отчёта; правило просрочки как в Order.IsOverdue,
++    // но выражено в виде транслируемого в SQL условия (сам IsOverdue - не транслируемый метод).
++    public Task<List<OverdueOrderReportRow>> GetOverdueOrdersAsync(DateTime now) =>
++        _repo.QueryOverdue(now)
++            .Select(o => new OverdueOrderReportRow(o.Id, o.Customer.Name, o.Total, o.CreatedAt))
++            .ToListAsync();
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..65677d3 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Возвращают IQueryable, чтобы вызывающая сторона сама выбирала проекцию/фильтры/группировку,
++    // не материализуя выборку внутри репозитория.
++    public IQueryable<Order> QueryActive() =>
++        _db.Orders.AsNoTracking().Where(o => o.Status == "active");
++
++    public IQueryable<Order> QueryOverdue(DateTime now) =>
++        _db.Orders.AsNoTracking().Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now);
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8bc4ec4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,5 @@
++Изменённые/созданные файлы:
++- OrderRepository.cs — добавлены `QueryActive()` и `QueryOverdue(DateTime now)`, возвращающие `IQueryable<Order>` (`AsNoTracking`), без материализации внутри репозитория — проекции и группировки строит вызывающий код.
++- OrderReportService.cs (новый) — сервис с тремя read-only методами: `GetActiveOrdersAsync` (проекция Id/имя клиента/Total/число позиций через `Items.Count`, без загрузки коллекции целиком), `GetActiveOrderCountsByCategoryAsync` (`GroupBy` + `Count()` на стороне БД → `Dictionary`), `GetOverdueOrdersAsync(DateTime now)` (условие `ShippedAt == null && CreatedAt.AddDays(3) < now` выражено как транслируемое условие в самом запросе, а не через вызов `Order.IsOverdue`).
++
++Решения: везде `AsNoTracking` и фильтрация/группировка/подсчёт выполняются в запросе до материализации (`ToListAsync`/`ToDictionaryAsync`), никаких лишних полей и навигаций не подгружается; `o.Customer.Name` транслируется в join без `Include` и без лишней загрузки всей сущности `Customer`.

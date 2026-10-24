@@ -1,0 +1,121 @@
+{
+  "id": "b858c4",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0963434,
+    "durationMs": 17663,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6851,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2055,
+      "output_tokens_details": {
+        "thinking_tokens": 483
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6851,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2055,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6851,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6851
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "`MaxInFlight: 20` выше, чем в Production (`5`), без пояснения — staging агрессивнее прод",
+      "why": "Находка №10 называет превышение MaxInFlight в Staging над Production."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "`Outbox.MaxRetries: 5` продублирован в обоих env-файлах и совпадает со значением из базового `appsettings.json`",
+      "why": "Находка №13 прямо называет повтор MaxRetries 5 в обоих env-файлах при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "YES",
+      "quote": "Нужно `public required string Host { get; set; }` и т.д., чтобы подобные ошибки конфигурации ловились на этапе создания опций",
+      "why": "Выход утверждает, что модификатор required поймает отсутствие значения в конфигурации, хотя binder его не проверяет; вместо валидации опций предложен required."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "пароли БД и SMTP-релея закоммичены в открытом виде (`Kx7!pQ2vR9wz`, `rl_live_9f3a1c77e2b04d6d`)",
+      "why": "Находка №6 называет открытые пароли БД и SMTP в Production."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` вернёт 0 → `DivideByZeroException` на каждой отправке",
+      "why": "Находка №2 называет неверный ключ, значение 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "`OutboxOptionsValidator` покрыт тестами, но не зарегистрирован в DI, `ValidateOnStart()` не вызван",
+      "why": "Находка №7 называет отсутствие регистрации валидатора и ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "использует `IOptions<OutboxOptions>`, хотя MR явно требует горячую смену `MaxInFlight`/`MaxBatchSize` без рестарта",
+      "why": "Находка №4 называет IOptions в OutboxWorker при требовании менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "инвариант `MinBatchSize < MaxBatchSize` защищён тихим `if`, при нарушении адаптивный батчинг молча отключается",
+      "why": "Находки №8 и №9 называют тихое отключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`TimeSpan.FromSeconds(o.PollInterval)` при `\"PollInterval\": 500`",
+      "why": "Находка №3 называет паузу в 500 секунд вместо 500 мс."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "non-nullable `Host`/`FromAddress` без `required` при `Nullable enable`",
+      "why": "Находка №11 называет non-nullable Host/FromAddress без дефолта и проверки как проблему; исправление ошибочно, но оно учтено в harm-строке."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout упомянут только как положительный пример, находки против него нет."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt = now` проставляется до реальной отправки и не откатывается при исключении",
+      "why": "Находка №5 называет, что неудачное письмо не повторяется."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`Configure<SmtpOptions>(GetSection(\"Mail\"))`, а в конфигах секция называется `Smtp`",
+      "why": "Находка №1 называет пустые SmtpOptions из-за неверной секции."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "В `appsettings.Staging.json` для БД правильно используется плейсхолдер `${NOTIFY_DB_PASSWORD}`",
+      "why": "Выход считает плейсхолдер корректным и не отмечает, что конфигурация .NET не подставляет переменные окружения."
+    }
+  },
+  "stderr": ""
+}

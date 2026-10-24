@@ -1,0 +1,118 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..204e4be
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,112 @@
++# Code review: MR !238 (выпуск на линию, комплектация, отчёты)
++
++## Critical
++
++### 1. `VehicleService.cs` — `ReplaceEquipmentAsync`
++`FindVehicleAsync` (`_db.Vehicles.FirstOrDefaultAsync(...)`) не делает `.Include(v => v.Equipment)`,
++поэтому `vehicle.Equipment` — всегда пустая, неотслеживаемая коллекция (дефолтное значение
++из `Models.cs`). `vehicle.Equipment.Clear()` в этих условиях не удаляет ничего из БД, а
++`vehicle.Equipment.Add(...)` добавляет новые строки *в дополнение* к уже существующим.
++
++Почему это дефект: FLEET-104 требует «присланную комплектацию целиком заменяем», но метод
++ничего не заменяет — старые строки остаются в БД. При повторной отправке того же набора кодов
++это приводит к нарушению unique-индекса `(vehicle_id, code)` и исключению; при отправке другого
++набора — к накоплению дублирующихся/устаревших записей оснащения. Рядом в `DriverService.cs` —
++`ReplacePermitsAsync` (тот же паттерн «заменить коллекцию целиком», неизменённый код MR) делает
++`.Include(d => d.Permits)` перед `Clear()` — эталонный пример показывает, что в новом коде это
++упущено.
++
++Severity: **critical**
++
++### 2. `VehicleService.cs` — `GetLastInspectionAsync`
++Сортировка `OrderByDescending(i => i.CreatedAt)` — по времени приёма сервером, а не по
++`InspectedAt` (фактическому времени осмотра). Комментарий к `SyncInspectionsAsync` явно описывает,
++что планшет копит осмотры offline и шлёт их пачкой при появлении сети — то есть `CreatedAt` и
++`InspectedAt` разных записей могут идти в разном порядке.
++
++Почему это дефект: FLEET-107 полагается на «последний» осмотр для допуска/блокировки машины на
++линию (`StartTripAsync` проверяет `inspection.InspectedAt` и `inspection.Defects`). Если более
++старый (по факту) осмотр синхронизировался позже (сетевой разрыв), `GetLastInspectionAsync` вернёт
++именно его как «последний», хотя реально более новый осмотр уже есть в БД с меньшим `CreatedAt`.
++В одну сторону это ошибочно блокирует выпуск по устаревшему замечанию, в другую — что опаснее —
++может подменить актуальный осмотр с блокирующим замечанием более старым «чистым» осмотром и
++пропустить машину на линию без актуальной проверки. Сортировать нужно по `InspectedAt`.
++
++Severity: **critical**
++
++### 3. `TripService.cs` — `GetOpenWaybillsAsync`
++Raw SQL в `FromSqlRaw` заканчивается `;` (`... ORDER BY t.started_at;`). Когда передан
++`vehicleId`, код дописывает `.Where(t => t.VehicleId == id)`, из-за чего EF оборачивает исходный
++SQL в подзапрос: `SELECT ... FROM (<raw sql>) AS t WHERE ...`. Точка с запятой внутри скобок —
++синтаксическая ошибка Postgres.
++
++Почему это дефект: FLEET-112 прямо требует «список... с фильтром по машине», но именно
++фильтрованный вызов (`vehicleId != null`) ломается с `PostgresException: syntax error at or near
++";"` в runtime. В MR написано, что проверялся «список незакрытых листов по всему парку» — то есть
++путь без фильтра, который не задевает баг; путь с фильтром, видимо, не тестировался.
++
++Severity: **critical**
++
++### 4. `TripService.cs` — `TripRows.ToRows()` / `OffDayTripsAsync` (и `GetVehicleTripsAsync`)
++В проекции `OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` вызывается обычный статический C#-метод
++(`TimeZoneInfo.ConvertTimeFromUtc` + `HashSet<DateOnly>.Contains`), который EF Core/Npgsql не умеет
++транслировать в SQL. `OffDayTripsAsync` дополнительно строит `.Where(r => r.OffDay)` и
++`.OrderByDescending(r => r.Km)` над этой нетранслируемой проекцией в том же `IQueryable`-конвейере,
++без материализации (`ToList`/`AsEnumerable`) перед этим.
++
++Почему это дефект: вся логика (условие фильтра `IQueryable` до материализации) должна быть
++транслируема — здесь не так, и EF Core выбросит `InvalidOperationException: ... could not be
++translated` при любом вызове `OffDayTripsAsync` (FLEET-109, основная цель MR) и затронутого общей
++проекцией `GetVehicleTripsAsync`. В разделе «Проверено локально» отчёт по выходным не упомянут —
++похоже, фактически не тестировался.
++
++Severity: **critical**
++
++## High
++
++### 5. `TripService.cs` — `StartTripAsync`
++Проверка допуска: `driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today)`.
++По описанию FLEET-107 «допуск действует по указанную в нём дату включительно», то есть сравнение
++должно быть `p.ValidUntil >= today`.
++
++Почему это дефект: в последний день действия допуска (`ValidUntil == today`) водителю будет
++ошибочно отказано в выпуске на линию — прямое нарушение сформулированного бизнес-правила.
++
++Severity: **high**
++
++### 6. `Program.cs` — `PUT /api/vehicles/{id}/equipment`
++Эндпоинт не имеет ролевой политики (`.RequireAuthorization("...")`), в отличие от всех остальных
++операций записи (`/vehicles/{id}/decommission` → `FleetManager`, `/inspections/sync` → `Mechanic`,
++`/drivers/.../permits` → `Hr`). Он наследует только базовый `api.RequireAuthorization()` — то есть
++любой аутентифицированный пользователь (водитель, диспетчер и т.д.) может подменить комплектацию
++любой машины.
++
++Почему это дефект: нарушение контроля доступа (broken access control) — операция, по смыслу
++принадлежащая механику (как и `/inspections/sync`), доступна всем ролям. Через неё можно скрыть
++отсутствие аптечки/огнетушителя/троса, что напрямую влияет на безопасность выпуска машины на линию.
++
++Severity: **high**
++
++## Medium
++
++### 7. `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs` — сужение `vehicles.model` 200→40
++`AlterColumn` без проверки/усечения существующих данных. Если в production есть значения `model`
++длиннее 40 символов, `ALTER COLUMN TYPE varchar(40)` упадёт с ошибкой Postgres
++(«value too long for type character varying(40)») прямо в миграционном bundle, то есть деплой
++полностью заблокируется. В MR отмечено только «миграция применена на dev-базе» — это не гарантирует
++совпадение длин данных с production.
++
++Severity: **medium** (риск падения прод-деплоя; данные не портятся, но пайплайн блокируется)
++
++## Low
++
++### 8. `TripService.cs` — `StartTripAsync`
++Запросы `_db.Vehicles.FirstOrDefaultAsync(v => v.Id == req.VehicleId && ...)` и
++`_db.Drivers.Include(d => d.Permits).FirstOrDefaultAsync(...)` — чисто читающие (ни `vehicle`,
++ни `driver` не модифицируются в этом методе), но выполняются без `AsNoTracking()`.
++
++Почему это дефект: по чек-листу команды «выборка только для чтения» должна идти с `AsNoTracking`
++или проекцией — лишний трекинг этих сущностей не нужен и добавляет накладные расходы change
++tracker'а без пользы.
++
++Severity: **low**

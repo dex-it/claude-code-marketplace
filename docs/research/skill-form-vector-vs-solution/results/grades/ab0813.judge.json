@@ -1,0 +1,72 @@
+{
+  "id": "ab0813",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.115467,
+    "durationMs": 21732,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11634,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1098,
+      "output_tokens_details": {
+        "thinking_tokens": 538
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11634,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1098,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11634,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11634
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needsHousesJoin = !string.IsNullOrWhiteSpace(s.District) || s.Sort == RequestSort.Address;",
+      "why": "JOIN apartments/houses добавляются ровно один раз по общим флагам, учитывающим и фильтры, и сортировку; столбец и направление берутся из enum."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at",
+      "why": "В ServiceRequest замаплены ContactPhone/ClosingComment/ClosedAt, но явный список SELECT в SearchAsync не дополнен, поэтому FromSqlRaw падает на каждом запросе."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "plan.Items.Remove(existing);\n                _db.PlanItems.Remove(existing);",
+      "why": "Остающиеся работы обновляются на месте, отсутствующие удаляются явным _db.PlanItems.Remove, новые добавляются."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "т.к. это прямое удаление, а не осиротение при реассоциации (как в `MergePlansAsync`)",
+      "why": "MergePlansAsync не объявлен дефектным и не переписан."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET не названа инъекцией и осталась без изменений."
+    }
+  },
+  "stderr": ""
+}

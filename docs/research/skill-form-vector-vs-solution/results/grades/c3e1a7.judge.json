@@ -1,0 +1,112 @@
+{
+  "id": "c3e1a7",
+  "case": "BR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.146235,
+    "durationMs": 21450,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11890,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2534,
+      "output_tokens_details": {
+        "thinking_tokens": 959
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11890,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2534,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11890,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11890
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BR-long-stays": {
+      "verdict": "PASS",
+      "quote": "`Where(s => s.DaysInWard > 14)` не транслируется в SQL, и EF Core 8 бросает `InvalidOperationException ... could not be translated`",
+      "why": "Названо непереводимое вычисляемое свойство и предложен транслируемый фильтр `s.AdmittedOn < threshold` с порогом, вычисленным до запроса."
+    },
+    "BR-box-occupant": {
+      "verdict": "PASS",
+      "quote": "Если в боксе больше одного активного пациента, `SingleOrDefaultAsync` бросает `InvalidOperationException` (500). DTO тоже рассчитан только на одного пациента.",
+      "why": "Указаны вместимость по README, исключение при двух пациентах и замена результата на список."
+    },
+    "BR-decommission-filter": {
+      "verdict": "PASS",
+      "quote": "EF Core добавляет фильтр и в JOIN/Include обязательной навигации (INNER JOIN на отфильтрованные боксы)",
+      "why": "Названы потеря пациентов в GetWardPatientsAsync и отчёте вопреки README и падение DischargeAsync; предложены перенос фильтра к выбору бокса и IgnoreQueryFilters."
+    },
+    "BR-medplan-clear": {
+      "verdict": "PASS",
+      "quote": "При `DeleteBehavior.Restrict` EF Core на `SaveChanges` бросает `InvalidOperationException`",
+      "why": "Названо исключение при разрыве обязательной связи и предложено помечать назначения CancelledAt вместо удаления, как требует README."
+    },
+    "BR-latest-stay-split": {
+      "verdict": "DISPUTED",
+      "quote": "`OrderByDescending(s => s.AdmittedOn)` без вторичного ключа при совпадении дат возвращает произвольную запись",
+      "why": "Неуникальный порядок и исправление ThenByDescending(Id) указаны, но механизм AsSplitQuery, при котором отдельные SQL-запросы выбирают разные госпитализации, не назван."
+    },
+    "BR-occupancy-sql": {
+      "verdict": "PASS",
+      "quote": "`ward` передавать параметром ... `sortBy` сверять с белым списком и сортировать через LINQ",
+      "why": "Найдена инъекция через оба параметра, предложены параметр и белый список."
+    },
+    "BR-startup-migrate": {
+      "verdict": "PASS",
+      "quote": "3 реплики при rolling update будут одновременно пытаться мигрировать: гонка, а в EF Core 8 нет блокировки миграций.",
+      "why": "Названы роль vet_app без DDL, обход ревью DBA и db-migrate, гонка реплик; предложено убрать автомиграцию."
+    },
+    "BR-billing": {
+      "verdict": "FOUND",
+      "quote": "**Исправить:** `days = dischargedOn.DayNumber - stay.AdmittedOn.DayNumber + 1`.",
+      "why": "Указаны недостающий +1 по README и нулевая сумма при выписке в день поступления."
+    },
+    "BR-discharge-auth": {
+      "verdict": "FOUND",
+      "quote": "Эндпоинт защищён только `.RequireAuthorization()`, поэтому выписать и выставить счёт может любой аутентифицированный пользователь.",
+      "why": "Названо отсутствие политики Vet при требовании README выписывать только врачом."
+    },
+    "BR-h-box-code": {
+      "verdict": "NO",
+      "quote": "`FindBoxByCodeAsync` не находит выведенный бокс, хотя уникальный индекс по `Code` его учитывает",
+      "why": "Претензия касается глобального фильтра, а не SingleOrDefaultAsync; уникальность кода признана."
+    },
+    "BR-h-history-fromsql": {
+      "verdict": "NO",
+      "quote": "добавить `.ThenByDescending(s => s.Id)`, как сделано в `GetPetHistoryAsync`",
+      "why": "GetPetHistoryAsync приведён как образец, инъекцией не назван."
+    },
+    "BR-m-cascade-fix": {
+      "verdict": "NO",
+      "quote": "Если «починить» это переходом на Cascade, назначения начнут физически удаляться, а README прямо запрещает это",
+      "why": "Cascade упомянут как ловушка, предложена отмена через CancelledAt."
+    },
+    "BR-m-ddl-grant": {
+      "verdict": "NO",
+      "quote": "**Исправить:** убрать автомиграцию (максимум оставить её под `IsDevelopment()`)",
+      "why": "Выдать vet_app права на DDL не предлагается."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,24 @@
+stages: [test, deploy]
+default:
+  interruptible: true
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths: [.nuget/packages/]
+test:
+  stage: test
+  image: mcr.microsoft.com/dotnet/sdk:8.0.404
+  script:
+    - dotnet test -c Release
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+deploy-prod:
+  stage: deploy
+  interruptible: false
+  environment: { name: production }
+  script:
+    - kubectl set image deployment/depot-api api=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA -n depot
+    - kubectl rollout status deployment/depot-api -n depot --timeout=300s
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual

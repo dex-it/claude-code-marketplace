@@ -1,0 +1,62 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..44db47f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,56 @@
++# Ревью MR !87: экспертиза, рейтинг, CSV
++
++## Critical / High
++
++1. **`Controllers/ContestsController.cs`, класс (атрибут `[Authorize]`), методы `Ranking` / `RankingCsv`. Severity: critical**
++   Роль `Expert` разрешили на уровне всего контроллера, а не только на `GET /api/contests/{id}`. В итоге эксперт может открыть `/ranking` и `/ranking.csv`: там средние баллы коллег по каждой заявке, число отправленных экспертиз и решения о грантах. Экспертиза перестаёт быть слепой, а в MR сказано, что эксперт видит только свои назначения и оценки. Исправление: оставить на контроллере `Coordinator`, а `Expert` добавить только на `Get`. Как вариант, повесить `[Authorize(Roles = Roles.Coordinator)]` на оба метода рейтинга.
++
++2. **`Services/ConflictOfInterest.cs`, `Find`. Severity: critical**
++   Проверяется только `a.ApplicantId == expert.Id`. Заявки организации, где работает эксперт (`a.OrganizationInn == expert.OrganizationInn`, п. 4.3 положения, см. `Expert.OrganizationInn`), не отсекаются. Система пропустит назначение с конфликтом интересов, хотя MR обещает, что она это проверяет. Пустой ИНН совпадать не должен.
++
++3. **`Controllers/ReviewsController.cs`, `Mine`. Severity: high**
++   `ToListAsync` и `CountAsync` запускаются параллельно через `Task.WhenAll` на одном scoped `GrantsDbContext`. DbContext не потокобезопасен: EF бросит `InvalidOperationException: A second operation was started on this context instance…`, и эндпоинт «мои назначения» будет падать. Нарушен пункт чек-листа «Время жизни DbContext». Запросы нужно выполнять последовательно, а `Submitted` проще посчитать по уже загруженному `items`.
++
++4. **`Controllers/ApplicationsController.cs`, `Search`. Severity: high**
++   `a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)` EF Core 8 / Npgsql в SQL не транслирует, поэтому при любом непустом `region` будет `InvalidOperationException (could not be translated)`. Поиск по региону не работает (пункт «Нетранслируемое условие фильтра»). Варианты: `EF.Functions.ILike(a.Region, r)` с экранированием `%`/`_`, `a.Region.ToLower() == r.ToLower()` или колонка `citext` / недетерминированная collation.
++
++5. **`Models/Contest.cs`, `AcceptsReviews`. Severity: high**
++   Сравнение идёт с `ReviewDeadline.ToDateTime(TimeOnly.MinValue, Utc)`, то есть с 00:00 UTC *дня дедлайна*. Приём закрывается на сутки раньше обещанного («закрывается после дня дедлайна»), и как раз в последний вечер, когда эксперты традиционно досылают оценки, им вернётся 409. Граница должна быть `ReviewDeadline.AddDays(1)` 00:00 по часовому поясу фонда (например, Europe/Moscow), переведённая в UTC. Сейчас же даже с `+1` граница сдвинута на 3 часа относительно МСК.
++
++6. **`Services/RankingService.cs`, `BuildAsync`. Severity: high**
++   При равном балле сортировка идёт `ThenBy(x => x.CreatedAt)`, то есть по дате создания черновика в кабинете. Положение требует «выше заявка, *поданная* раньше», значит, нужен `SubmittedAt` (у поданных заявок он заполнен). На границе фонда это меняет, кому достаётся грант.
++
++7. **`Services/RankingCsvWriter.cs`, `Write` (вместе с `Program.cs`, `RequestLocalizationOptions`). Severity: high**
++   `{r.Score}` и `{r.RequestedAmount}` интерполируются в текущей культуре. После `UseRequestLocalization` с `ru-RU` это даёт `85,33` и `150000,00`, причём без кавычек. В CSV с разделителем-запятой каждое такое число разваливается на две колонки, и строки сдвигаются. Google Sheets и скрипт фонда получат битые данные. Числа нужно форматировать через `CultureInfo.InvariantCulture`, например `r.Score.ToString(CultureInfo.InvariantCulture)`.
++
++8. **`Services/AssignmentService.cs`, `ReassignAsync`. Severity: high**
++   Новому эксперту переходят назначения в статусе `Draft` вместе с `Scores`, `Comment` и `Total` предыдущего эксперта. Новый эксперт видит черновую оценку коллеги (`GET /api/reviews/{id}`), и это нарушает слепую экспертизу. Кроме того, он может отправить чужие баллы под своим именем. При передаче нужно очищать `Scores`, `Comment` и `Total` и ставить `Status = Assigned`, либо закрывать старое назначение и создавать новое.
++
++## Medium
++
++9. **`Services/ReviewService.cs`, `SaveAsync` (и `AssignmentService.ReassignAsync`, `ContestsController.CloseReview`). Severity: medium**
++   У `Review` нет concurrency token, а `Status` проверяется в памяти. Возможные гонки:
++   - автосохранение черновика, завершившееся после submit, молча возвращает статус `Draft` и перезаписывает отправленную оценку, хотя «отправку изменить уже нельзя»;
++   - submit, начатый до `CloseReview`, перезаписывает `Expired` обратно в `Submitted`;
++   - `ReassignAsync` переносит назначение, которое прежний эксперт успел отправить, и его отправленная оценка уходит другому эксперту.
++
++   Нарушен пункт «Параллельная правка одной записи». Нужен токен (`xmin` через `UseXminAsConcurrencyToken` / `IsRowVersion`) и обработка `DbUpdateConcurrencyException`, либо условный `ExecuteUpdate … WHERE Status <> Submitted`.
++
++10. **`Services/RankingCsvWriter.cs`, `Escape`. Severity: medium**
++    Нет защиты от CSV/formula injection. `Title` и `ApplicantName` вводит заявитель, а CSV открывают в Google Sheets. Значение вроде `=IMPORTXML(...)` или `=HYPERLINK(...)` выполнится у членов совета и может, например, слить данные таблицы. Значения, начинающиеся с `=`, `+`, `-`, `@`, `\t`, `\r`, нужно префиксовать `'` и брать в кавычки.
++
++## Low
++
++11. **`Services/AssignmentService.cs`, `AssignAsync`. Severity: low**
++    Не проверяется, что конкурс существует и экспертиза по нему не закрыта (`ReviewClosed`). После закрытия можно создать назначения `Assigned`, которые уже никогда не истекут и не будут приняты. Кроме того, при параллельном назначении тех же заявок уникальный индекс `(ApplicationId, ExpertId)` даст необработанный `DbUpdateException`, и клиент получит 500 вместо 409.
++
++12. **`Services/AssignmentService.cs`, `AssignAsync` / `ReassignAsync`; `Controllers/ApplicationsController.cs`, `Get`. Severity: low**
++    Загружаются полные сущности там, где нужна часть полей:
++    - в `AssignAsync` заявки целиком, хотя нужны `Id`, `ApplicantId` и `OrganizationInn`;
++    - в `ReassignAsync` через `Include(r => r.Application)` заявки трекаются, хотя не изменяются;
++    - в `Get` отзывы грузятся через `Include` даже для эксперта, которому они не возвращаются.
++
++    Нарушены пункты «Полная сущность там, где нужна часть полей» и «Трекинг выборки только для чтения». Лучше перейти на проекции.
++
++13. **`Services/RankingService.cs`, `BuildAsync`. Severity: low**
++    Сортировка идёт по неокруглённому среднему, а в рейтинге и CSV показывается округлённый до 2 знаков балл. Две заявки с одинаковым видимым баллом (например, 85,333 и 85,330) упорядочатся по скрытой разнице, а не по дате подачи, как требует положение. Тай-брейк стоит делать по тому же округлённому значению, которое видит совет. Округление `ROUND(avg, 2)` можно выполнять прямо в SQL.

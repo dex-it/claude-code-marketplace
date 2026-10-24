@@ -1,0 +1,59 @@
+docker exec <ctr> sh -c 'ls -R /work | head -50; ps aux | grep -i dotnet | head; which strace perf dotnet-trace dotnet-counters dotnet-stack ltrace gdb lldb'
+docker exec <ctr> sh -c 'tail -5 /work/logs/worker.log; cat /work/app/OrdersWorker.runtimeconfig.json; top -H -b -n1 -p 11 | head -20; timeout 8 strace -c -f -p 11 2>&1 | head -25'
+docker exec <ctr> sh -c 'cd /tmp && timeout 60 dotnet-trace collect -p 11 --duration 00:00:08 --profile dotnet-sampled-thread-time --format speedscope -o /tmp/t 2>&1 | tail -5; ls /tmp'
+docker exec <ctr> sh -c 'cd /tmp && python3 -I - <<EOF
+import json,collections
+d=json.load(open("/tmp/t.speedscope.json"))
+fr=[f["name"] for f in d["shared"]["frames"]]
+for p in d["profiles"]:
+    c=collections.Counter();n=0
+    for s in p["samples"]:
+        n+=1
+        c[fr[s[-1]]]+=1
+    print(p["name"],n,c.most_common(4))
+EOF' 2>&1 | head -30
+docker exec <ctr> sh -c 'python3 -I - <<EOF
+import json,collections
+d=json.load(open("/tmp/t.speedscope.json"))
+fr=[f["name"] for f in d["shared"]["frames"]]
+for p in d["profiles"]:
+    st=[];last=0;ex=collections.Counter();inc=collections.Counter()
+    for e in p["events"]:
+        t=e["at"]
+        if st: ex[st[-1]]+=t-last
+        for f in set(st): inc[f]+=t-last
+        last=t
+        if e["type"]=="O": st.append(e["frame"])
+        else: st.pop()
+    print(p["name"]);
+    for f,v in ex.most_common(5): print("  self",round(v),fr[f])
+    for f,v in inc.most_common(8): print("  incl",round(v),fr[f])
+EOF' 2>&1 | head -60
+docker exec <ctr> grep -n -i -B3 -A8 'Slugify' /work/src/Program.cs | head -50
+cat > <lab>/REPORT.md <<'EOF'
+# Симптом
+orders-worker (`dotnet app/OrdersWorker.dll slow`): p50 вырос с 0.2 до 3 мс. Два рабочих потока (TID 19, 20) держат ~100% CPU каждый, остальные потоки спят. В RSS и очереди (`inflight=0`) аномалий нет.
+
+# Причина
+`src/Program.cs:162` — в `TextUtils.Slugify` на каждый вызов создаётся `new Regex(@"[^\p{L}\p{Nd}]+(?:[\s\p{P}]*)")`. Паттерн каждый раз разбирается и строится заново (`Regex..ctor` → `RegexParser.Parse`), без статического поля и без кэша. Вызывается из горячего цикла `Program.cs:98`.
+
+# Улики
+1. `top -H -b -n1 -p 11` — CPU заняли только два рабочих потока:
+   `19 root ... R 99.9 ... dotnet`
+   `20 root ... R 93.3 ... dotnet`
+   (поток 11 — главный, в `Thread.Sleep`; остальные 0.0).
+2. `strace -c -f -p 11` (8 с) — потоки в основном ждут на futex, а не крутятся в системных вызовах. Узкое место — CPU в managed-коде, а не ввод-вывод:
+   `85.22 ... futex`, `0.68 ... membarrier`.
+3. `dotnet-trace collect -p 11 --duration 00:00:08 --profile dotnet-sampled-thread-time --format speedscope`, свёртка по стекам, поток 19 (поток 20 аналогичен):
+   - `incl 8015 OrdersWorker!Modes+<>c.<Slow>b__6_1()`
+   - `incl 8001 OrdersWorker!TextUtils.Slugify(String)`
+   - `incl 5486 System.Text.RegularExpressions!Regex..ctor(String, CultureInfo)`
+   - `self 7696 CPU_TIME`
+   Поток 20: `Slugify` 7994 из 8015, `Regex..ctor` 5404.
+   Итого: ~99.8% времени рабочих потоков в `Slugify`, ~67–68% — в конструкторе `Regex` (разбор паттерна); остальное — `Replace`.
+
+# Что предлагаю
+- Вынести regex в статическое поле: `private static readonly Regex Rx = new(@"[^\p{L}\p{Nd}]+(?:[\s\p{P}]*)", RegexOptions.Compiled);`. Либо использовать `[GeneratedRegex]`, либо статический `Regex.Replace`, который кэширует паттерн.
+- После правки повторить замер `dotnet-trace`: `Regex..ctor` должен пропасть из профиля, p50 — вернуться к ~0.2 мс.
+- Код в рамках диагностики не менялся.
+EOF

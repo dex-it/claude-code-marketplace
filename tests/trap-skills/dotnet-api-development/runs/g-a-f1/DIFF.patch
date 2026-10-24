@@ -1,0 +1,437 @@
+diff --git a/src/Pricing.Api/Contracts/PriceListContracts.cs b/src/Pricing.Api/Contracts/PriceListContracts.cs
+new file mode 100644
+index 0000000..64c09a0
+--- /dev/null
++++ b/src/Pricing.Api/Contracts/PriceListContracts.cs
+@@ -0,0 +1,30 @@
++using Pricing.Domain;
++
++namespace Pricing.Api.Contracts;
++
++public sealed record PriceListItemDto(string Sku, decimal Price);
++
++/// <summary>Документ ERP. Служебные поля ERP (документ, пользователь, время выгрузки) не читаются и игнорируются.</summary>
++public sealed record UploadPriceListRequest(
++    string SupplierId, int Number, string Currency, DateOnly ValidFrom, DateOnly ValidTo,
++    IReadOnlyList<PriceListItemDto> Items, decimal PurchaseCost, decimal MarginPercent);
++
++/// <summary>Лист целиком. Себестоимость и маржа наружу не отдаются.</summary>
++public sealed record PriceListDto(
++    string SupplierId, int Number, string Currency, PriceListStatus Status, DateOnly ValidFrom, DateOnly ValidTo,
++    IReadOnlyList<PriceListItemDto> Items);
++
++public sealed record PriceListSummaryDto(
++    int Number, string Currency, PriceListStatus Status, DateOnly ValidFrom, DateOnly ValidTo, int ItemCount);
++
++public sealed record RecalculationResultDto(int UpdatedProducts);
++
++public static class PriceListMapping
++{
++    public static PriceListDto ToDto(this PriceList l) => new(
++        l.SupplierId, l.Number, l.Currency, l.Status, l.ValidFrom, l.ValidTo,
++        l.Items.Select(i => new PriceListItemDto(i.Sku, i.Price)).ToList());
++
++    public static PriceListSummaryDto ToSummary(this PriceList l) =>
++        new(l.Number, l.Currency, l.Status, l.ValidFrom, l.ValidTo, l.Items.Count);
++}
+diff --git a/src/Pricing.Api/Controllers/PriceListsController.cs b/src/Pricing.Api/Controllers/PriceListsController.cs
+new file mode 100644
+index 0000000..4987d6a
+--- /dev/null
++++ b/src/Pricing.Api/Controllers/PriceListsController.cs
+@@ -0,0 +1,56 @@
++using Microsoft.AspNetCore.Mvc;
++using Pricing.Api.Contracts;
++using Pricing.Application.Abstractions;
++using Pricing.Application.PriceLists;
++using Pricing.Domain;
++
++namespace Pricing.Api.Controllers;
++
++[ApiController]
++[Route("api/suppliers/{supplierId}/price-lists")]
++public sealed class PriceListsController(PriceListService priceLists) : ControllerBase
++{
++    public const int MaxPageSize = 100;
++
++    [HttpGet("{number:int}")]
++    [ProducesResponseType<PriceListDto>(StatusCodes.Status200OK)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
++    public async Task<ActionResult<PriceListDto>> Get(string supplierId, int number, CancellationToken ct) =>
++        (await priceLists.GetAsync(supplierId, number, ct)).ToDto();
++
++    /// <param name="activeOn">Лист действует на эту дату.</param>
++    [HttpGet]
++    public async Task<ActionResult<PageDto<PriceListSummaryDto>>> Search(
++        string supplierId,
++        [FromQuery] PriceListStatus? status, [FromQuery] string? currency, [FromQuery] DateOnly? activeOn,
++        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
++    {
++        page = Math.Max(page, 1);
++        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
++        var result = await priceLists.SearchAsync(supplierId, new PriceListFilter(status, currency, activeOn), page, pageSize, ct);
++        return new PageDto<PriceListSummaryDto>(result.Items.Select(l => l.ToSummary()).ToList(), result.Page, result.PageSize, result.Total);
++    }
++
++    /// <summary>Загрузка листа из ERP. Лист создаётся в статусе Draft.</summary>
++    [HttpPost]
++    [ProducesResponseType<PriceListDto>(StatusCodes.Status201Created)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
++    public async Task<ActionResult<PriceListDto>> Upload(string supplierId, UploadPriceListRequest request, CancellationToken ct)
++    {
++        if (!string.Equals(request.SupplierId, supplierId, StringComparison.Ordinal))
++            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "supplierId документа не совпадает с путём");
++        var list = await priceLists.UploadAsync(
++            new UploadPriceList(
++                supplierId, request.Number, request.Currency, request.ValidFrom, request.ValidTo,
++                request.Items.Select(i => new PriceListItem(i.Sku, i.Price)).ToList(),
++                request.PurchaseCost, request.MarginPercent), ct);
++        return CreatedAtAction(nameof(Get), new { supplierId, number = list.Number }, list.ToDto());
++    }
++
++    /// <summary>Внутренний вызов планировщика; в Swagger не публикуется.</summary>
++    [HttpPost("{number:int}/recalculate-base-prices")]
++    [ApiExplorerSettings(IgnoreApi = true)]
++    public async Task<ActionResult<RecalculationResultDto>> RecalculateBasePrices(string supplierId, int number, CancellationToken ct) =>
++        new RecalculationResultDto(await priceLists.RecalculateBasePricesAsync(supplierId, number, ct));
++}
+diff --git a/src/Pricing.Api/Program.cs b/src/Pricing.Api/Program.cs
+index 6598ba2..c443cd7 100644
+--- a/src/Pricing.Api/Program.cs
++++ b/src/Pricing.Api/Program.cs
+@@ -1,5 +1,7 @@
+ using System.Text.Json.Serialization;
+ using Pricing.Api.Errors;
++using Pricing.Api.Swagger;
++using Pricing.Application.PriceLists;
+ using Pricing.Application.Products;
+ using Pricing.Application.Promotions;
+ using Pricing.Application.Quotes;
+@@ -12,11 +14,12 @@ builder.Services.AddControllers()
+ builder.Services.AddProblemDetails();
+ builder.Services.AddExceptionHandler<DomainExceptionHandler>();
+ builder.Services.AddEndpointsApiExplorer();
+-builder.Services.AddSwaggerGen();
++builder.Services.AddSwaggerGen(o => o.SchemaFilter<EnumDescriptionSchemaFilter>());
+ 
+ builder.Services.AddInfrastructure(builder.Configuration);
+ builder.Services.AddScoped<ProductService>();
+ builder.Services.AddScoped<PromotionService>();
++builder.Services.AddScoped<PriceListService>();
+ builder.Services.AddScoped<QuoteService>();
+ 
+ var app = builder.Build();
+diff --git a/src/Pricing.Api/Swagger/EnumDescriptionSchemaFilter.cs b/src/Pricing.Api/Swagger/EnumDescriptionSchemaFilter.cs
+new file mode 100644
+index 0000000..9bc4e13
+--- /dev/null
++++ b/src/Pricing.Api/Swagger/EnumDescriptionSchemaFilter.cs
+@@ -0,0 +1,22 @@
++using System.ComponentModel;
++using Microsoft.OpenApi;
++using Swashbuckle.AspNetCore.SwaggerGen;
++
++namespace Pricing.Api.Swagger;
++
++/// <summary>Добавляет в схему enum описание каждого значения из <see cref="DescriptionAttribute"/>.</summary>
++public sealed class EnumDescriptionSchemaFilter : ISchemaFilter
++{
++    public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
++    {
++        if (!context.Type.IsEnum || schema is not OpenApiSchema concrete) return;
++        var lines = Enum.GetNames(context.Type)
++            .Select(name => (name, text: context.Type.GetField(name)?
++                .GetCustomAttributes(typeof(DescriptionAttribute), false)
++                .OfType<DescriptionAttribute>().FirstOrDefault()?.Description))
++            .Where(x => x.text is not null)
++            .Select(x => $"* `{x.name}` - {x.text}")
++            .ToList();
++        if (lines.Count > 0) concrete.Description = string.Join("\n", lines);
++    }
++}
+diff --git a/src/Pricing.Application/Abstractions/IPriceListRepository.cs b/src/Pricing.Application/Abstractions/IPriceListRepository.cs
+new file mode 100644
+index 0000000..2016d5e
+--- /dev/null
++++ b/src/Pricing.Application/Abstractions/IPriceListRepository.cs
+@@ -0,0 +1,16 @@
++using Pricing.Domain;
++
++namespace Pricing.Application.Abstractions;
++
++public sealed record PriceListFilter(PriceListStatus? Status, string? Currency, DateOnly? ActiveOn);
++
++public interface IPriceListRepository
++{
++    Task<PriceList?> GetAsync(string supplierId, int number, CancellationToken ct);
++
++    /// <returns><c>false</c>, если лист с таким номером у поставщика уже есть.</returns>
++    Task<bool> TryAddAsync(PriceList list, CancellationToken ct);
++
++    Task<(IReadOnlyList<PriceList> Items, int Total)> SearchAsync(
++        string supplierId, PriceListFilter filter, int skip, int take, CancellationToken ct);
++}
+diff --git a/src/Pricing.Application/PriceLists/PriceListService.cs b/src/Pricing.Application/PriceLists/PriceListService.cs
+new file mode 100644
+index 0000000..ded3ee1
+--- /dev/null
++++ b/src/Pricing.Application/PriceLists/PriceListService.cs
+@@ -0,0 +1,51 @@
++using Pricing.Application.Abstractions;
++using Pricing.Application.Products;
++using Pricing.Domain;
++
++namespace Pricing.Application.PriceLists;
++
++public sealed record UploadPriceList(
++    string SupplierId, int Number, string Currency, DateOnly ValidFrom, DateOnly ValidTo,
++    IReadOnlyList<PriceListItem> Items, decimal PurchaseCost, decimal MarginPercent);
++
++public sealed class PriceListService(IPriceListRepository priceLists, IProductRepository products)
++{
++    public async Task<PriceList> GetAsync(string supplierId, int number, CancellationToken ct) =>
++        await priceLists.GetAsync(supplierId, number, ct)
++        ?? throw new NotFoundException("pricelist.not_found", $"Прайс-лист {number} поставщика {supplierId} не найден");
++
++    public async Task<PriceList> UploadAsync(UploadPriceList cmd, CancellationToken ct)
++    {
++        var list = new PriceList(
++            cmd.SupplierId, cmd.Number, cmd.Currency, PriceListStatus.Draft, cmd.ValidFrom, cmd.ValidTo,
++            cmd.Items, cmd.PurchaseCost, cmd.MarginPercent);
++        if (!await priceLists.TryAddAsync(list, ct))
++            throw new DomainException("pricelist.number_taken", $"Лист {cmd.Number} поставщика {cmd.SupplierId} уже есть");
++        return list;
++    }
++
++    public async Task<PagedResult<PriceList>> SearchAsync(
++        string supplierId, PriceListFilter filter, int page, int pageSize, CancellationToken ct)
++    {
++        var (items, total) = await priceLists.SearchAsync(supplierId, filter, (page - 1) * pageSize, pageSize, ct);
++        return new PagedResult<PriceList>(items, page, pageSize, total);
++    }
++
++    /// <returns>Число товаров, у которых изменилась базовая цена.</returns>
++    public async Task<int> RecalculateBasePricesAsync(string supplierId, int number, CancellationToken ct)
++    {
++        var list = await GetAsync(supplierId, number, ct);
++        if (list.Status != PriceListStatus.Published)
++            throw new DomainException("pricelist.not_published", "Пересчёт возможен только по опубликованному листу");
++
++        var updated = 0;
++        foreach (var item in list.Items)
++        {
++            var product = await products.GetBySkuAsync(item.Sku, ct);
++            if (product is null || product.SupplierId != supplierId || product.BasePrice == item.Price) continue;
++            product.ChangePrice(item.Price);
++            updated++;
++        }
++        return updated;
++    }
++}
+diff --git a/src/Pricing.Domain/PriceList.cs b/src/Pricing.Domain/PriceList.cs
+new file mode 100644
+index 0000000..c72899b
+--- /dev/null
++++ b/src/Pricing.Domain/PriceList.cs
+@@ -0,0 +1,61 @@
++using System.ComponentModel;
++
++namespace Pricing.Domain;
++
++public enum PriceListStatus
++{
++    [Description("Лист заведён, не проверен. Не действует.")]
++    Draft,
++
++    [Description("Лист действует.")]
++    Published,
++
++    [Description("Поставщик временно снял лист и вернёт его сам. Публиковать повторно нельзя - кнопку «опубликовать заново» не показывать.")]
++    Suspended,
++
++    [Description("Лист снят навсегда. Можно опубликовать новый лист на его основе - кнопку «опубликовать заново» показывать.")]
++    Retired,
++}
++
++public sealed record PriceListItem(string Sku, decimal Price);
++
++public sealed class PriceList
++{
++    public PriceList(
++        string supplierId, int number, string currency, PriceListStatus status, DateOnly validFrom, DateOnly validTo,
++        IReadOnlyList<PriceListItem> items, decimal purchaseCost, decimal marginPercent)
++    {
++        if (string.IsNullOrWhiteSpace(supplierId)) throw new DomainException("pricelist.supplier_required", "Поставщик обязателен");
++        if (number <= 0) throw new DomainException("pricelist.number_positive", "Номер листа должен быть больше нуля");
++        if (string.IsNullOrWhiteSpace(currency)) throw new DomainException("pricelist.currency_required", "Валюта обязательна");
++        if (validTo < validFrom) throw new DomainException("pricelist.period_invalid", "Конец периода раньше начала");
++        if (items.Count == 0) throw new DomainException("pricelist.items_required", "В листе нет позиций");
++        if (items.Any(i => string.IsNullOrWhiteSpace(i.Sku) || i.Price <= 0))
++            throw new DomainException("pricelist.item_invalid", "У позиции нужны SKU и цена больше нуля");
++        if (items.Select(i => i.Sku).Distinct().Count() != items.Count)
++            throw new DomainException("pricelist.item_duplicate", "SKU в листе повторяется");
++        SupplierId = supplierId;
++        Number = number;
++        Currency = currency;
++        Status = status;
++        ValidFrom = validFrom;
++        ValidTo = validTo;
++        Items = items;
++        PurchaseCost = purchaseCost;
++        MarginPercent = marginPercent;
++    }
++
++    public string SupplierId { get; }
++    public int Number { get; }
++    public string Currency { get; }
++    public PriceListStatus Status { get; }
++    public DateOnly ValidFrom { get; }
++    public DateOnly ValidTo { get; }
++    public IReadOnlyList<PriceListItem> Items { get; }
++
++    /// <summary>Коммерческая тайна: только для закупщиков в ERP, наружу через API не отдаётся.</summary>
++    public decimal PurchaseCost { get; }
++
++    /// <summary>Коммерческая тайна: только для закупщиков в ERP, наружу через API не отдаётся.</summary>
++    public decimal MarginPercent { get; }
++}
+diff --git a/src/Pricing.Infrastructure/InfrastructureModule.cs b/src/Pricing.Infrastructure/InfrastructureModule.cs
+index b906c7f..ae1ddde 100644
+--- a/src/Pricing.Infrastructure/InfrastructureModule.cs
++++ b/src/Pricing.Infrastructure/InfrastructureModule.cs
+@@ -14,6 +14,7 @@ public static class InfrastructureModule
+         services.AddSingleton<InMemoryStore>();
+         services.AddScoped<IProductRepository, InMemoryProductRepository>();
+         services.AddScoped<IPromotionRepository, InMemoryPromotionRepository>();
++        services.AddScoped<IPriceListRepository, InMemoryPriceListRepository>();
+ 
+         services.Configure<SupplierOptions>(config.GetSection(SupplierOptions.Section));
+         services.AddHttpClient<ISupplierCatalog, SupplierApiClient>((sp, http) =>
+diff --git a/src/Pricing.Infrastructure/Persistence/InMemoryPriceListRepository.cs b/src/Pricing.Infrastructure/Persistence/InMemoryPriceListRepository.cs
+new file mode 100644
+index 0000000..cde6588
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Persistence/InMemoryPriceListRepository.cs
+@@ -0,0 +1,26 @@
++using Pricing.Application.Abstractions;
++using Pricing.Domain;
++
++namespace Pricing.Infrastructure.Persistence;
++
++public sealed class InMemoryPriceListRepository(InMemoryStore store) : IPriceListRepository
++{
++    public Task<PriceList?> GetAsync(string supplierId, int number, CancellationToken ct) =>
++        Task.FromResult(store.PriceLists.GetValueOrDefault((supplierId, number)));
++
++    public Task<bool> TryAddAsync(PriceList list, CancellationToken ct) =>
++        Task.FromResult(store.PriceLists.TryAdd((list.SupplierId, list.Number), list));
++
++    public Task<(IReadOnlyList<PriceList> Items, int Total)> SearchAsync(
++        string supplierId, PriceListFilter filter, int skip, int take, CancellationToken ct)
++    {
++        var query = store.PriceLists.Values.Where(l => l.SupplierId == supplierId);
++        if (filter.Status is { } status) query = query.Where(l => l.Status == status);
++        if (filter.Currency is { } currency)
++            query = query.Where(l => string.Equals(l.Currency, currency, StringComparison.OrdinalIgnoreCase));
++        if (filter.ActiveOn is { } date) query = query.Where(l => l.ValidFrom <= date && date <= l.ValidTo);
++
++        var matched = query.OrderBy(l => l.Number).ToList();
++        return Task.FromResult<(IReadOnlyList<PriceList>, int)>((matched.Skip(skip).Take(take).ToList(), matched.Count));
++    }
++}
+diff --git a/src/Pricing.Infrastructure/Persistence/InMemoryStore.cs b/src/Pricing.Infrastructure/Persistence/InMemoryStore.cs
+index e318aa4..28b0184 100644
+--- a/src/Pricing.Infrastructure/Persistence/InMemoryStore.cs
++++ b/src/Pricing.Infrastructure/Persistence/InMemoryStore.cs
+@@ -7,4 +7,5 @@ public sealed class InMemoryStore
+ {
+     public ConcurrentDictionary<Guid, Product> Products { get; } = new();
+     public ConcurrentDictionary<Guid, Promotion> Promotions { get; } = new();
++    public ConcurrentDictionary<(string SupplierId, int Number), PriceList> PriceLists { get; } = new();
+ }
+diff --git a/tests/Pricing.Tests/PriceListServiceTests.cs b/tests/Pricing.Tests/PriceListServiceTests.cs
+new file mode 100644
+index 0000000..23aff21
+--- /dev/null
++++ b/tests/Pricing.Tests/PriceListServiceTests.cs
+@@ -0,0 +1,79 @@
++using Moq;
++using Pricing.Application.Abstractions;
++using Pricing.Application.PriceLists;
++using Pricing.Domain;
++
++namespace Pricing.Tests;
++
++public sealed class PriceListServiceTests
++{
++    private readonly Mock<IPriceListRepository> _lists = new();
++    private readonly Mock<IProductRepository> _products = new();
++
++    private PriceListService Service() => new(_lists.Object, _products.Object);
++
++    private static UploadPriceList Upload(int number = 42) => new(
++        "sup-7", number, "RUB", new DateOnly(2026, 10, 1), new DateOnly(2026, 12, 31),
++        [new PriceListItem("SKU-1", 120.5m)], 81000m, 18.5m);
++
++    [Fact]
++    public async Task Upload_creates_draft_list()
++    {
++        _lists.Setup(r => r.TryAddAsync(It.IsAny<PriceList>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
++
++        var list = await Service().UploadAsync(Upload(), default);
++
++        Assert.Equal(PriceListStatus.Draft, list.Status);
++        Assert.Equal(42, list.Number);
++        Assert.Single(list.Items);
++    }
++
++    [Fact]
++    public async Task Upload_rejects_taken_number()
++    {
++        _lists.Setup(r => r.TryAddAsync(It.IsAny<PriceList>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
++
++        var ex = await Assert.ThrowsAsync<DomainException>(() => Service().UploadAsync(Upload(), default));
++
++        Assert.Equal("pricelist.number_taken", ex.Code);
++    }
++
++    [Fact]
++    public async Task Recalculate_rejects_unpublished_list()
++    {
++        var draft = new PriceList("sup-7", 42, "RUB", PriceListStatus.Draft, new DateOnly(2026, 10, 1),
++            new DateOnly(2026, 12, 31), [new PriceListItem("SKU-1", 120.5m)], 1m, 1m);
++        _lists.Setup(r => r.GetAsync("sup-7", 42, It.IsAny<CancellationToken>())).ReturnsAsync(draft);
++
++        var ex = await Assert.ThrowsAsync<DomainException>(() => Service().RecalculateBasePricesAsync("sup-7", 42, default));
++
++        Assert.Equal("pricelist.not_published", ex.Code);
++    }
++
++    [Fact]
++    public async Task Recalculate_updates_only_own_products_with_changed_price()
++    {
++        var list = new PriceList("sup-7", 42, "RUB", PriceListStatus.Published, new DateOnly(2026, 10, 1),
++            new DateOnly(2026, 12, 31), [new PriceListItem("SKU-1", 120.5m), new PriceListItem("SKU-2", 75m)], 1m, 1m);
++        var own = new Product(Guid.NewGuid(), "SKU-1", "A", Category.Grocery, 100m, "sup-7");
++        var foreign = new Product(Guid.NewGuid(), "SKU-2", "B", Category.Grocery, 50m, "sup-1");
++        _lists.Setup(r => r.GetAsync("sup-7", 42, It.IsAny<CancellationToken>())).ReturnsAsync(list);
++        _products.Setup(r => r.GetBySkuAsync("SKU-1", It.IsAny<CancellationToken>())).ReturnsAsync(own);
++        _products.Setup(r => r.GetBySkuAsync("SKU-2", It.IsAny<CancellationToken>())).ReturnsAsync(foreign);
++
++        var updated = await Service().RecalculateBasePricesAsync("sup-7", 42, default);
++
++        Assert.Equal(1, updated);
++        Assert.Equal(120.5m, own.BasePrice);
++        Assert.Equal(50m, foreign.BasePrice);
++    }
++
++    [Fact]
++    public void List_requires_items()
++    {
++        var ex = Assert.Throws<DomainException>(() => new PriceList("sup-7", 1, "RUB", PriceListStatus.Draft,
++            new DateOnly(2026, 10, 1), new DateOnly(2026, 12, 31), [], 1m, 1m));
++
++        Assert.Equal("pricelist.items_required", ex.Code);
++    }
++}

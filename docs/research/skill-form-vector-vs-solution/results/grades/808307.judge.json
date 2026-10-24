@@ -1,0 +1,111 @@
+{
+  "id": "808307",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0796274,
+    "durationMs": 11378,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6184,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1486,
+      "output_tokens_details": {
+        "thinking_tokens": 384
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6184,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1486,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6184,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6184
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "FAIL",
+      "quote": "значения параметризованы корректно (инъекции нет), но такой паттерн легко сломать при следующем изменении фильтров",
+      "why": "Search упомянут только как хрупкий паттерн; несовпадение \"Products\" и алиаса p не названо."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` по SKU, хотя SKU уникален только в рамках склада, а не глобально",
+      "why": "Дефект назван прямо."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync` вернёт `null`, если отгрузок не было; `last!.Value` бросает исключение в рантайме",
+      "why": "Дефект назван прямо."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "лишний `UpdateRange` на уже отслеживаемых сущностях",
+      "why": "Находка о UpdateRange на отслеживаемых сущностях есть, хоть и с severity Low."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "Scoped `ShopDbContext` внедрён напрямую в singleton `BackgroundService`",
+      "why": "Дефект назван прямо."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "`Include(Items).Include(Payments)` без `AsSplitQuery()` при \"тысячах заказов\" клиента",
+      "why": "Дефект назван прямо."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`SELECT ... FOR UPDATE` выполняется вне явной транзакции",
+      "why": "Дефект назван прямо."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "нет оптимистичной блокировки, хотя MR явно говорит про параллельную правку заказов операторами — lost update",
+      "why": "Отсутствие concurrency token названо."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "дропает `Orders.Category` без переноса данных в новые `Categories`/`OrderCategories`",
+      "why": "Дефект назван прямо."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "грузит всю таблицу `Orders` в память и фильтрует на клиенте вместо SQL-фильтра",
+      "why": "GetAllAsync с фильтрацией в памяти назван."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "В `GetCard` рядом `AsSplitQuery()` уже применяется",
+      "why": "AsSplitQuery в GetCard приведён как правильный пример, а не как дефект."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "`OverdueNotifier` явно приводит границу к `DateTimeKind.Unspecified`, чтобы соответствовать колонке `timestamp without time zone`",
+      "why": "Запись Unspecified названа корректной; находка касается только дублирования правила."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "суммируются только `Product.Price` без умножения на `OrderItem.Qty`",
+      "why": "Дефект назван прямо."
+    }
+  },
+  "stderr": ""
+}

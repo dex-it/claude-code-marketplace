@@ -1,0 +1,87 @@
+diff --git a/e2e/tests/fixtures.ts b/e2e/tests/fixtures.ts
+new file mode 100644
+index 0000000..914baa6
+--- /dev/null
++++ b/e2e/tests/fixtures.ts
+@@ -0,0 +1,25 @@
++import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
++
++// Учётки из api/src/seed.ts (демо-стенд, SEED_DEMO=1).
++export const alice = { email: 'alice@shopdesk.example', password: 'alice-demo' };
++
++const TOKEN_KEY = 'shopdesk.token';
++
++export async function apiLogin(request: APIRequestContext, user = alice): Promise<string> {
++  const res = await request.post('/api/login', { data: user });
++  expect(res.ok()).toBeTruthy();
++  return (await res.json()).token;
++}
++
++// Вход без формы: токен кладётся в localStorage до загрузки приложения.
++export async function loginAs(page: Page, token: string): Promise<void> {
++  await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [TOKEN_KEY, token]);
++}
++
++export const test = base.extend<{ aliceToken: string }>({
++  aliceToken: async ({ request }, use) => {
++    await use(await apiLogin(request));
++  },
++});
++
++export { expect };
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..f77ca5b
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,50 @@
++import { alice, expect, loginAs, test } from './fixtures';
++
++test('alice входит и видит список своих заказов', async ({ page }) => {
++  await page.goto('/');
++  await page.getByLabel('Email').fill(alice.email);
++  await page.getByLabel('Пароль').fill(alice.password);
++  await page.getByRole('button', { name: 'Войти' }).click();
++
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++  await expect(page.getByText('Заказ #1001')).toBeVisible();
++  await expect(page.getByText('Заказ #1002')).toBeVisible();
++  const paid = page.getByRole('listitem').filter({ hasText: 'Заказ #1003' });
++  await expect(paid.getByText('Оплачен')).toBeVisible();
++  // заказ bob не показывается
++  await expect(page.getByText('Заказ #1004')).toHaveCount(0);
++});
++
++test('отмена нового заказа', async ({ page, request, aliceToken }) => {
++  // Свой заказ на каждый прогон: отмена необратима, а стенд может переиспользоваться.
++  const created = await request.post('/api/orders', {
++    headers: { Authorization: `Bearer ${aliceToken}` },
++    data: { items: [{ productId: 'p-spoon', quantity: 1 }] },
++  });
++  expect(created.status()).toBe(201);
++  const { number } = await created.json();
++
++  await loginAs(page, aliceToken);
++  await page.goto('/');
++
++  const order = page.getByRole('listitem').filter({ hasText: `Заказ #${number}` });
++  await expect(order.getByText('Новый')).toBeVisible();
++  await order.getByRole('button', { name: 'Отменить' }).click();
++
++  await expect(order.getByText('Отменён')).toBeVisible();
++  await expect(order.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++});
++
++test('ошибка сервера при загрузке списка заказов', async ({ page, aliceToken }) => {
++  await page.route('**/api/orders', (route) =>
++    route.fulfill({
++      status: 500,
++      contentType: 'application/json',
++      body: JSON.stringify({ error: { code: 'internal', message: 'boom' } }),
++    }),
++  );
++  await loginAs(page, aliceToken);
++  await page.goto('/');
++
++  await expect(page.getByRole('alert')).toHaveText('Не удалось загрузить заказы');
++});

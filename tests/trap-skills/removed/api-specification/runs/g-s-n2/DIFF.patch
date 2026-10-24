@@ -1,0 +1,887 @@
+diff --git a/api/CHANGELOG.md b/api/CHANGELOG.md
+index dfffb42..40f1bd3 100644
+--- a/api/CHANGELOG.md
++++ b/api/CHANGELOG.md
+@@ -1,5 +1,11 @@
+ # Изменения контракта Bookings API
+ 
++- 1.3.0 (2026-10-11) - контракт под мобильный клиент (FR-20..FR-23), все изменения обратно совместимы:
++  - FR-20: лента событий комнаты `GET /api/v1/rooms-by-numeric-id/{numericId}/events` (курсор, от новых к старым);
++  - FR-21: серии еженедельных броней `POST /api/v1/booking-series` (обязателен `Idempotency-Key`), `GET` и `DELETE /api/v1/booking-series/{seriesId}`; в `Booking` - `seriesId`;
++  - FR-22: `numericId` в `Room`, `roomNumericId` в `Booking`, `GET /api/v1/rooms-by-numeric-id/{numericId}`, фильтр `roomNumericId` в `GET /api/v1/bookings`, `roomNumericId` вместо `roomId` в создании брони (`roomId` стал необязательным, нужно ровно одно из двух);
++  - FR-23: check-in `POST /api/v1/bookings/{bookingId}/check-in` (идемпотентен); в `Booking` - `checkedInAt`; новый статус брони `released` (клиенты игнорируют неизвестные статусы);
++  - новые коды ошибок: `series-not-found`, `booking-released`, `check-in-not-open`, `check-in-window-closed`, `idempotency-key-mismatch`; `DELETE /api/v1/bookings/{bookingId}` и `PATCH` могут вернуть 409 `booking-released`.
+ - 1.2.0 (2026-09-15) - лента броней `GET /api/v1/bookings` с курсором; `GET /api/v1/rooms/{roomId}/bookings` устарела (замена - `GET /api/v1/bookings?roomId=`, удаление после 2027-03-01).
+ - 1.1.0 (2026-07-01) - перенос брони `PATCH /api/v1/bookings/{bookingId}` с версией (409 `version-conflict`).
+ - 1.0.0 (2026-05-12) - комнаты, брони комнаты, создание, получение и отмена брони; ошибки - problem+json с `code`.
+diff --git a/api/openapi.yaml b/api/openapi.yaml
+index a2c90ac..527bad0 100644
+--- a/api/openapi.yaml
++++ b/api/openapi.yaml
+@@ -1,7 +1,7 @@
+ openapi: 3.0.3
+ info:
+   title: Bookings API
+-  version: 1.2.0
++  version: 1.3.0
+   description: |
+     Бронирование переговорных. Контракт меняется вместе с кодом (см. api/CHANGELOG.md).
+     Все моменты времени - в UTC. Ошибки - application/problem+json (RFC 9457) с расширением `code`.
+@@ -12,6 +12,8 @@ security:
+ tags:
+   - name: rooms
+   - name: bookings
++  - name: series
++  - name: events
+ paths:
+   /api/v1/rooms:
+     get:
+@@ -32,6 +34,7 @@ paths:
+               example:
+                 items:
+                   - id: orion
++                    numericId: 17
+                     name: Orion
+                     capacity: 8
+                     floor: 3
+@@ -58,6 +61,7 @@ paths:
+                 $ref: '#/components/schemas/Room'
+               example:
+                 id: orion
++                numericId: 17
+                 name: Orion
+                 capacity: 8
+                 floor: 3
+@@ -101,6 +105,99 @@ paths:
+                   ownerId: alice
+                   status: active
+                   version: 812
++                  roomNumericId: 17
++                  seriesId: null
++                  checkedInAt: null
++        '400':
++          $ref: '#/components/responses/ValidationError'
++        '401':
++          $ref: '#/components/responses/Unauthorized'
++        '404':
++          $ref: '#/components/responses/NotFound'
++  /api/v1/rooms-by-numeric-id/{numericId}:
++    get:
++      tags: [rooms]
++      operationId: getRoomByNumericId
++      x-traced-from: FR-22
++      summary: Карточка комнаты по числовому идентификатору
++      description: |
++        Числовой идентификатор комнаты устойчив: при переименовании комнаты меняются `name` и slug
++        (`id`), `numericId` - нет. Мобильный клиент работает с комнатами только по нему.
++      parameters:
++        - $ref: '#/components/parameters/RoomNumericId'
++      responses:
++        '200':
++          description: Комната
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Room'
++              example:
++                id: orion
++                numericId: 17
++                name: Orion
++                capacity: 8
++                floor: 3
++                features: [projector, whiteboard]
++        '400':
++          $ref: '#/components/responses/ValidationError'
++        '401':
++          $ref: '#/components/responses/Unauthorized'
++        '404':
++          $ref: '#/components/responses/NotFound'
++  /api/v1/rooms-by-numeric-id/{numericId}/events:
++    get:
++      tags: [events]
++      operationId: listRoomEvents
++      x-traced-from: FR-20
++      summary: Лента событий комнаты
++      description: |
++        События броней комнаты (бронь создана, перенесена, отменена) от новых к старым,
++        по убыванию (occurredAt, id). Бесконечная прокрутка курсором: следующая (более старая)
++        страница - тот же запрос с `cursor` = `nextCursor` предыдущего ответа;
++        `nextCursor: null` - история закончилась. Пустой результат - `items: []`.
++
++        Курсор привязан к позиции в ленте, а не к номеру страницы: новые события, поступающие
++        во время прокрутки, не сдвигают границы страниц, события не повторяются и не
++        пропускаются. Чтобы получить новые события, запросите первую страницу (без `cursor`)
++        и читайте её до первого уже известного `id`.
++
++        Курсор действует только для той же комнаты; `limit` между страницами менять можно.
++        Курсор от другой комнаты или повреждённый - 400.
++      parameters:
++        - $ref: '#/components/parameters/RoomNumericId'
++        - $ref: '#/components/parameters/Limit'
++        - $ref: '#/components/parameters/Cursor'
++      responses:
++        '200':
++          description: Страница событий, от новых к старым
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/BookingEventPage'
++              example:
++                items:
++                  - id: 0b7d0f0e-9c52-4a53-8a0e-6d1f9f3a2c11
++                    type: booking-rescheduled
++                    occurredAt: '2026-10-11T08:15:30Z'
++                    roomNumericId: 17
++                    bookingId: 3f2b8a64-5717-4562-b3fc-2c963f66afa6
++                    actorId: alice
++                    booking:
++                      id: 3f2b8a64-5717-4562-b3fc-2c963f66afa6
++                      roomId: orion
++                      roomNumericId: 17
++                      title: Планирование спринта
++                      comment: null
++                      startsAt: '2026-10-20T09:00:00Z'
++                      durationMinutes: 60
++                      endsAt: '2026-10-20T10:00:00Z'
++                      ownerId: alice
++                      status: active
++                      version: 815
++                      seriesId: null
++                      checkedInAt: null
++                nextCursor: MjAyNjEwMTFUMDgxNTMwWjowYjdkMGYwZTljNTI0YTUzOGEwZTZkMWY5ZjNhMmMxMQ
+         '400':
+           $ref: '#/components/responses/ValidationError'
+         '401':
+@@ -125,6 +222,16 @@ paths:
+           schema:
+             type: string
+             maxLength: 64
++        - name: roomNumericId
++          in: query
++          required: false
++          description: |
++            Только брони комнаты с этим числовым идентификатором (FR-22). Вместе с `roomId`
++            не передаётся - 400.
++          schema:
++            type: integer
++            format: int64
++            minimum: 1
+         - $ref: '#/components/parameters/From'
+         - $ref: '#/components/parameters/To'
+         - $ref: '#/components/parameters/Limit'
+@@ -148,6 +255,9 @@ paths:
+                     ownerId: alice
+                     status: active
+                     version: 812
++                    roomNumericId: 17
++                    seriesId: null
++                    checkedInAt: null
+                 nextCursor: NjM5MjgyNDU2MDAwMDAwMDAwOmZjNWQ3ZjQ2MTkxNTRkMzI5ZDA1MzExMDI4OTQ3N2U3
+         '400':
+           $ref: '#/components/responses/ValidationError'
+@@ -161,6 +271,11 @@ paths:
+       description: |
+         Бронь владельца ключа. Ограничения - FR-05 (начало в будущем, не дальше 90 дней),
+         FR-08 (15..240 минут кратно 15), FR-09 (пересечение с активной бронью комнаты запрещено).
++        Комната - ровно одно из `roomId` (slug) или `roomNumericId` (FR-22).
++
++        Повтор: операция не идемпотентна. Если ответ потерян и запрос отправлен ещё раз, а первая
++        бронь создана, повтор вернёт 409 `booking-overlap` (время занято самой этой бронью);
++        перед повтором найдите бронь через `GET /api/v1/bookings?roomNumericId=...&from=...&to=...`.
+       requestBody:
+         required: true
+         content:
+@@ -198,6 +313,9 @@ paths:
+                 ownerId: alice
+                 status: active
+                 version: 812
++                roomNumericId: 17
++                seriesId: null
++                checkedInAt: null
+         '400':
+           $ref: '#/components/responses/ValidationError'
+         '401':
+@@ -233,6 +351,9 @@ paths:
+                 ownerId: alice
+                 status: active
+                 version: 812
++                roomNumericId: 17
++                seriesId: null
++                checkedInAt: null
+         '401':
+           $ref: '#/components/responses/Unauthorized'
+         '404':
+@@ -246,6 +367,8 @@ paths:
+         Новое время целиком (startsAt и durationMinutes) с версией, полученной при чтении брони.
+         Переносит владелец или администратор (FR-10). Ограничения - как при создании.
+         Версия не совпала - 409 `version-conflict`: перечитайте бронь и повторите.
++        Отменённую бронь (409 `booking-cancelled`) и освобождённую без check-in
++        (409 `booking-released`) перенести нельзя.
+       parameters:
+         - $ref: '#/components/parameters/BookingId'
+       requestBody:
+@@ -276,6 +399,9 @@ paths:
+                 ownerId: alice
+                 status: active
+                 version: 815
++                roomNumericId: 17
++                seriesId: null
++                checkedInAt: null
+         '400':
+           $ref: '#/components/responses/ValidationError'
+         '401':
+@@ -293,7 +419,8 @@ paths:
+       summary: Отменить бронь
+       description: |
+         Отменяет владелец или администратор (FR-10). Повторная отмена уже отменённой брони -
+-        тоже 204 (FR-11).
++        тоже 204 (FR-11). Бронь, освобождённая без check-in (`released`), не отменяется - 409
++        `booking-released`. Бронь серии отменяется отдельно, остальные брони серии не затрагиваются.
+       parameters:
+         - $ref: '#/components/parameters/BookingId'
+       responses:
+@@ -305,6 +432,259 @@ paths:
+           $ref: '#/components/responses/Forbidden'
+         '404':
+           $ref: '#/components/responses/NotFound'
++        '409':
++          $ref: '#/components/responses/Conflict'
++  /api/v1/bookings/{bookingId}/check-in:
++    post:
++      tags: [bookings]
++      operationId: checkInBooking
++      x-traced-from: FR-23
++      summary: Подтвердить присутствие (check-in)
++      description: |
++        Подтверждение присутствия возможно с `startsAt` до `startsAt + 10 минут` включительно.
++        Подтверждает владелец брони или администратор (FR-10). Тела запроса нет.
++
++        Повтор идемпотентен: если бронь уже подтверждена, ответ - тот же 200 с прежним
++        `checkedInAt`, версия брони не меняется; это верно и после закрытия окна. Клиент при
++        плохой связи повторяет запрос без ограничений, пока не получит ответ.
++
++        Бронь без подтверждения к `startsAt + 10 минут` освобождается: статус `released`,
++        комната свободна для новых броней. Подтвердить такую бронь нельзя - 409
++        `booking-released`. До начала брони - 409 `check-in-not-open`; окно закрыто, но бронь
++        ещё не освобождена - 409 `check-in-window-closed`.
++      parameters:
++        - $ref: '#/components/parameters/BookingId'
++      responses:
++        '200':
++          description: Присутствие подтверждено (или уже было подтверждено)
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Booking'
++              example:
++                id: 3f2b8a64-5717-4562-b3fc-2c963f66afa6
++                roomId: orion
++                roomNumericId: 17
++                title: Планирование спринта
++                comment: null
++                startsAt: '2026-10-20T07:00:00Z'
++                durationMinutes: 90
++                endsAt: '2026-10-20T08:30:00Z'
++                ownerId: alice
++                status: active
++                version: 813
++                seriesId: null
++                checkedInAt: '2026-10-20T07:03:12Z'
++        '401':
++          $ref: '#/components/responses/Unauthorized'
++        '403':
++          $ref: '#/components/responses/Forbidden'
++        '404':
++          $ref: '#/components/responses/NotFound'
++        '409':
++          $ref: '#/components/responses/Conflict'
++  /api/v1/booking-series:
++    post:
++      tags: [series]
++      operationId: createBookingSeries
++      x-traced-from: FR-21
++      summary: Создать серию еженедельных броней
++      description: |
++        Создаёт `repetitions` броней одной комнаты: первая - в `startsAt`, каждая следующая -
++        на 7 суток позже (по UTC). Серия создаётся целиком или не создаётся совсем: если хотя бы
++        одно повторение нарушает ограничение, ничего не создаётся. Ограничения каждой брони - как
++        при создании одиночной брони (FR-05, FR-08, FR-09); срок FR-05 (не дальше 90 дней)
++        проверяется для первого повторения, остальные могут быть дальше. Владелец серии и всех её
++        броней - владелец ключа.
++
++        Пересечение с активной бронью комнаты - 409 `booking-overlap`, в `conflictingStartsAt`
++        перечислены начала всех пересекающихся повторений.
++
++        Повтор: заголовок `Idempotency-Key` обязателен. Повтор запроса с тем же ключом и тем же
++        телом в течение 24 часов возвращает тот же 201 с той же серией и не создаёт новую.
++        Тот же ключ с другим телом - 409 `idempotency-key-mismatch`. Новая серия - новый ключ.
++      parameters:
++        - $ref: '#/components/parameters/IdempotencyKey'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/CreateBookingSeriesRequest'
++            example:
++              roomNumericId: 17
++              title: Еженедельный синк
++              startsAt: '2026-10-20T07:00:00Z'
++              durationMinutes: 30
++              repetitions: 4
++              comment: null
++      responses:
++        '201':
++          description: Серия создана (или возвращена по повтору с тем же `Idempotency-Key`)
++          headers:
++            Location:
++              description: URL серии, /api/v1/booking-series/{seriesId}
++              required: true
++              schema:
++                type: string
++                format: uri-reference
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/BookingSeries'
++              example:
++                id: 6a1f7e52-0c3b-4d0e-9a52-1d8f3b7c4e90
++                roomNumericId: 17
++                title: Еженедельный синк
++                comment: null
++                ownerId: alice
++                startsAt: '2026-10-20T07:00:00Z'
++                durationMinutes: 30
++                repetitions: 4
++                bookings:
++                  - id: 8c0d5e1a-4b7f-4a39-8f2e-5b9a7d3c1e01
++                    roomId: orion
++                    roomNumericId: 17
++                    title: Еженедельный синк
++                    comment: null
++                    startsAt: '2026-10-20T07:00:00Z'
++                    durationMinutes: 30
++                    endsAt: '2026-10-20T07:30:00Z'
++                    ownerId: alice
++                    status: active
++                    version: 820
++                    seriesId: 6a1f7e52-0c3b-4d0e-9a52-1d8f3b7c4e90
++                    checkedInAt: null
++                  - id: 2e9b4c7d-1a65-4f08-b3d2-7c6e0a5f9b12
++                    roomId: orion
++                    roomNumericId: 17
++                    title: Еженедельный синк
++                    comment: null
++                    startsAt: '2026-10-27T07:00:00Z'
++                    durationMinutes: 30
++                    endsAt: '2026-10-27T07:30:00Z'
++                    ownerId: alice
++                    status: active
++                    version: 821
++                    seriesId: 6a1f7e52-0c3b-4d0e-9a52-1d8f3b7c4e90
++                    checkedInAt: null
++                  - id: 5d3a8f60-7e24-4b91-a0c5-9f1b2e6d8a33
++                    roomId: orion
++                    roomNumericId: 17
++                    title: Еженедельный синк
++                    comment: null
++                    startsAt: '2026-11-03T07:00:00Z'
++                    durationMinutes: 30
++                    endsAt: '2026-11-03T07:30:00Z'
++                    ownerId: alice
++                    status: active
++                    version: 822
++                    seriesId: 6a1f7e52-0c3b-4d0e-9a52-1d8f3b7c4e90
++                    checkedInAt: null
++                  - id: 91c4e7b2-3f58-4d16-8a7e-0b6d2c9f5e44
++                    roomId: orion
++                    roomNumericId: 17
++                    title: Еженедельный синк
++                    comment: null
++                    startsAt: '2026-11-10T07:00:00Z'
++                    durationMinutes: 30
++                    endsAt: '2026-11-10T07:30:00Z'
++                    ownerId: alice
++                    status: active
++                    version: 823
++                    seriesId: 6a1f7e52-0c3b-4d0e-9a52-1d8f3b7c4e90
++                    checkedInAt: null
++        '400':
++          $ref: '#/components/responses/ValidationError'
++        '401':
++          $ref: '#/components/responses/Unauthorized'
++        '404':
++          $ref: '#/components/responses/NotFound'
++        '409':
++          $ref: '#/components/responses/Conflict'
++  /api/v1/booking-series/{seriesId}:
++    get:
++      tags: [series]
++      operationId: getBookingSeries
++      x-traced-from: FR-21
++      summary: Серия броней
++      description: Серии, как и брони, видны всем участникам.
++      parameters:
++        - $ref: '#/components/parameters/SeriesId'
++      responses:
++        '200':
++          description: Серия с её бронями по возрастанию startsAt
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/BookingSeries'
++              example:
++                id: 6a1f7e52-0c3b-4d0e-9a52-1d8f3b7c4e90
++                roomNumericId: 17
++                title: Еженедельный синк
++                comment: null
++                ownerId: alice
++                startsAt: '2026-10-20T07:00:00Z'
++                durationMinutes: 30
++                repetitions: 2
++                bookings:
++                  - id: 8c0d5e1a-4b7f-4a39-8f2e-5b9a7d3c1e01
++                    roomId: orion
++                    roomNumericId: 17
++                    title: Еженедельный синк
++                    comment: null
++                    startsAt: '2026-10-20T07:00:00Z'
++                    durationMinutes: 30
++                    endsAt: '2026-10-20T07:30:00Z'
++                    ownerId: alice
++                    status: cancelled
++                    version: 830
++                    seriesId: 6a1f7e52-0c3b-4d0e-9a52-1d8f3b7c4e90
++                    checkedInAt: null
++                  - id: 2e9b4c7d-1a65-4f08-b3d2-7c6e0a5f9b12
++                    roomId: orion
++                    roomNumericId: 17
++                    title: Еженедельный синк
++                    comment: null
++                    startsAt: '2026-10-27T07:00:00Z'
++                    durationMinutes: 30
++                    endsAt: '2026-10-27T07:30:00Z'
++                    ownerId: alice
++                    status: cancelled
++                    version: 831
++                    seriesId: 6a1f7e52-0c3b-4d0e-9a52-1d8f3b7c4e90
++                    checkedInAt: null
++        '400':
++          $ref: '#/components/responses/ValidationError'
++        '401':
++          $ref: '#/components/responses/Unauthorized'
++        '404':
++          $ref: '#/components/responses/NotFound'
++    delete:
++      tags: [series]
++      operationId: cancelBookingSeries
++      x-traced-from: FR-21
++      summary: Отменить серию целиком
++      description: |
++        Отменяет владелец серии или администратор. Отменяются все активные брони серии, которые
++        ещё не начались; начавшиеся и прошедшие брони, уже отменённые и освобождённые не
++        меняются. Операция атомарна: либо отменены все, либо ни одна. Для каждой отменённой
++        брони в ленте комнаты появляется событие `booking-cancelled`.
++
++        Повтор идемпотентен: серия, в которой нечего отменять, - тоже 204 (как FR-11 для брони).
++      parameters:
++        - $ref: '#/components/parameters/SeriesId'
++      responses:
++        '204':
++          description: Серия отменена (или уже была отменена)
++        '400':
++          $ref: '#/components/responses/ValidationError'
++        '401':
++          $ref: '#/components/responses/Unauthorized'
++        '403':
++          $ref: '#/components/responses/Forbidden'
++        '404':
++          $ref: '#/components/responses/NotFound'
+ components:
+   securitySchemes:
+     apiKey:
+@@ -321,6 +701,15 @@ components:
+       schema:
+         type: string
+         pattern: '^[a-z0-9-]{1,64}$'
++    RoomNumericId:
++      name: numericId
++      in: path
++      required: true
++      description: Устойчивый числовой идентификатор комнаты (не меняется при переименовании)
++      schema:
++        type: integer
++        format: int64
++        minimum: 1
+     BookingId:
+       name: bookingId
+       in: path
+@@ -328,6 +717,25 @@ components:
+       schema:
+         type: string
+         format: uuid
++    SeriesId:
++      name: seriesId
++      in: path
++      required: true
++      schema:
++        type: string
++        format: uuid
++    IdempotencyKey:
++      name: Idempotency-Key
++      in: header
++      required: true
++      description: |
++        Ключ повтора, уникальный для намерения клиента (например, UUID); при повторе запроса
++        после потерянного ответа передаётся тот же. Действует 24 часа.
++      schema:
++        type: string
++        minLength: 8
++        maxLength: 64
++        example: 7d0c1f3e-5b2a-4c8e-9a41-2f6b8d0e3c57
+     Limit:
+       name: limit
+       in: query
+@@ -379,32 +787,101 @@ components:
+         application/problem+json:
+           schema:
+             $ref: '#/components/schemas/ValidationProblem'
++          example:
++            type: https://tools.ietf.org/html/rfc9110#section-15.5.1
++            title: One or more validation errors occurred.
++            status: 400
++            traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00
++            errors:
++              durationMinutes: ['Длительность - от 15 до 240 минут, кратно 15']
+     Unauthorized:
+       description: Нет ключа доступа или ключ неизвестен (code - unauthorized)
+       content:
+         application/problem+json:
+           schema:
+             $ref: '#/components/schemas/Problem'
++          example:
++            type: https://tools.ietf.org/html/rfc9110#section-15.5.2
++            title: Unauthorized
++            status: 401
++            code: unauthorized
+     Forbidden:
+-      description: Не владелец брони и не администратор (code - not-owner)
++      description: Не владелец брони (серии) и не администратор (code - not-owner)
+       content:
+         application/problem+json:
+           schema:
+             $ref: '#/components/schemas/Problem'
++          example:
++            type: https://tools.ietf.org/html/rfc9110#section-15.5.4
++            title: Forbidden
++            status: 403
++            code: not-owner
+     NotFound:
+-      description: Комната или бронь не найдены (code - room-not-found или booking-not-found)
++      description: |
++        Комната, бронь или серия не найдены (code - room-not-found, booking-not-found или
++        series-not-found)
+       content:
+         application/problem+json:
+           schema:
+             $ref: '#/components/schemas/Problem'
++          examples:
++            room:
++              value:
++                type: https://tools.ietf.org/html/rfc9110#section-15.5.5
++                title: Not Found
++                status: 404
++                code: room-not-found
++            booking:
++              value:
++                type: https://tools.ietf.org/html/rfc9110#section-15.5.5
++                title: Not Found
++                status: 404
++                code: booking-not-found
++            series:
++              value:
++                type: https://tools.ietf.org/html/rfc9110#section-15.5.5
++                title: Not Found
++                status: 404
++                code: series-not-found
+     Conflict:
+       description: |
+-        Конфликт (code): booking-overlap - время занято активной бронью этой комнаты;
+-        version-conflict - бронь изменилась после чтения; booking-cancelled - бронь отменена.
++        Конфликт (code): booking-overlap - время занято активной бронью этой комнаты (для серии
++        в `conflictingStartsAt` - начала всех пересекающихся повторений); version-conflict -
++        бронь изменилась после чтения; booking-cancelled - бронь отменена; booking-released -
++        бронь освобождена без check-in; check-in-not-open - check-in ещё не открыт (до
++        startsAt); check-in-window-closed - окно check-in (10 минут) закрыто;
++        idempotency-key-mismatch - `Idempotency-Key` уже использован с другим телом запроса.
+       content:
+         application/problem+json:
+           schema:
+             $ref: '#/components/schemas/Problem'
++          examples:
++            overlap:
++              value:
++                type: https://tools.ietf.org/html/rfc9110#section-15.5.10
++                title: Conflict
++                status: 409
++                code: booking-overlap
++                conflictingStartsAt: ['2026-11-03T07:00:00Z']
++            versionConflict:
++              value:
++                type: https://tools.ietf.org/html/rfc9110#section-15.5.10
++                title: Conflict
++                status: 409
++                code: version-conflict
++            checkInNotOpen:
++              value:
++                type: https://tools.ietf.org/html/rfc9110#section-15.5.10
++                title: Conflict
++                status: 409
++                code: check-in-not-open
++                detail: Check-in открывается в момент начала брони, 2026-10-20T07:00:00Z
++            released:
++              value:
++                type: https://tools.ietf.org/html/rfc9110#section-15.5.10
++                title: Conflict
++                status: 409
++                code: booking-released
+   schemas:
+     RoomFeature:
+       type: string
+@@ -412,12 +889,17 @@ components:
+       description: Оснащение комнаты. Клиент игнорирует неизвестные значения.
+     Room:
+       type: object
+-      required: [id, name, capacity, floor, features]
++      required: [id, numericId, name, capacity, floor, features]
+       properties:
+         id:
+           type: string
+           pattern: '^[a-z0-9-]{1,64}$'
+-          description: Slug комнаты
++          description: Slug комнаты; меняется при переименовании комнаты (FR-22)
++        numericId:
++          type: integer
++          format: int64
++          minimum: 1
++          description: Устойчивый числовой идентификатор комнаты; не меняется при переименовании (FR-22)
+         name:
+           type: string
+           minLength: 1
+@@ -450,11 +932,14 @@ components:
+           description: Всего комнат (в офисе до 200)
+     BookingStatus:
+       type: string
+-      enum: [active, cancelled]
+-      description: Статус брони. Клиент игнорирует неизвестные значения.
++      enum: [active, cancelled, released]
++      description: |
++        Статус брони: active - действует, cancelled - отменена, released - освобождена без
++        check-in (с 1.3.0, FR-23); released не занимает комнату. Клиент игнорирует неизвестные
++        значения.
+     Booking:
+       type: object
+-      required: [id, roomId, title, comment, startsAt, durationMinutes, endsAt, ownerId, status, version]
++      required: [id, roomId, roomNumericId, title, comment, startsAt, durationMinutes, endsAt, ownerId, status, version, seriesId, checkedInAt]
+       properties:
+         id:
+           type: string
+@@ -462,6 +947,12 @@ components:
+         roomId:
+           type: string
+           maxLength: 64
++          description: Текущий slug комнаты; меняется при её переименовании, для связи используйте `roomNumericId`
++        roomNumericId:
++          type: integer
++          format: int64
++          minimum: 1
++          description: Устойчивый числовой идентификатор комнаты (FR-22)
+         title:
+           type: string
+           minLength: 1
+@@ -495,6 +986,16 @@ components:
+           minimum: 0
+           maximum: 4294967295
+           description: Версия брони для переноса (PATCH); меняется при каждом изменении
++        seriesId:
++          type: string
++          format: uuid
++          nullable: true
++          description: Серия, к которой относится бронь; null - одиночная бронь (FR-21)
++        checkedInAt:
++          type: string
++          format: date-time
++          nullable: true
++          description: Момент подтверждения присутствия, UTC; null - не подтверждено (FR-23)
+     BookingPage:
+       type: object
+       required: [items, nextCursor]
+@@ -510,12 +1011,21 @@ components:
+           description: Курсор следующей страницы; null - страниц больше нет
+     CreateBookingRequest:
+       type: object
+-      required: [roomId, title, startsAt, durationMinutes]
++      required: [title, startsAt, durationMinutes]
++      oneOf:
++        - required: [roomId]
++        - required: [roomNumericId]
+       properties:
+         roomId:
+           type: string
+           minLength: 1
+           maxLength: 64
++          description: Slug комнаты; взаимоисключающе с `roomNumericId`
++        roomNumericId:
++          type: integer
++          format: int64
++          minimum: 1
++          description: Числовой идентификатор комнаты (FR-22); взаимоисключающе с `roomId`
+         title:
+           type: string
+           minLength: 1
+@@ -534,6 +1044,126 @@ components:
+           type: string
+           maxLength: 500
+           nullable: true
++    CreateBookingSeriesRequest:
++      type: object
++      required: [roomNumericId, title, startsAt, durationMinutes, repetitions]
++      properties:
++        roomNumericId:
++          type: integer
++          format: int64
++          minimum: 1
++        title:
++          type: string
++          minLength: 1
++          maxLength: 120
++        startsAt:
++          type: string
++          format: date-time
++          description: Начало первого повторения, UTC; в будущем и не дальше 90 дней от текущего момента
++        durationMinutes:
++          type: integer
++          format: int32
++          minimum: 15
++          maximum: 240
++          multipleOf: 15
++        repetitions:
++          type: integer
++          format: int32
++          minimum: 2
++          maximum: 52
++          description: Число еженедельных повторений, включая первое
++        comment:
++          type: string
++          maxLength: 500
++          nullable: true
++    BookingSeries:
++      type: object
++      required: [id, roomNumericId, title, comment, ownerId, startsAt, durationMinutes, repetitions, bookings]
++      properties:
++        id:
++          type: string
++          format: uuid
++        roomNumericId:
++          type: integer
++          format: int64
++          minimum: 1
++        title:
++          type: string
++          minLength: 1
++          maxLength: 120
++        comment:
++          type: string
++          maxLength: 500
++          nullable: true
++        ownerId:
++          type: string
++          maxLength: 64
++        startsAt:
++          type: string
++          format: date-time
++          description: Начало первого повторения, UTC
++        durationMinutes:
++          type: integer
++          format: int32
++          minimum: 15
++          maximum: 240
++          multipleOf: 15
++        repetitions:
++          type: integer
++          format: int32
++          minimum: 2
++          maximum: 52
++        bookings:
++          type: array
++          minItems: 2
++          maxItems: 52
++          description: Брони серии (все статусы) по возрастанию startsAt
++          items:
++            $ref: '#/components/schemas/Booking'
++    BookingEventType:
++      type: string
++      enum: [booking-created, booking-rescheduled, booking-cancelled]
++      description: Тип события. Клиент игнорирует неизвестные значения.
++    BookingEvent:
++      type: object
++      required: [id, type, occurredAt, roomNumericId, bookingId, actorId, booking]
++      properties:
++        id:
++          type: string
++          format: uuid
++          description: Идентификатор события; по нему клиент отсекает уже известные события
++        type:
++          $ref: '#/components/schemas/BookingEventType'
++        occurredAt:
++          type: string
++          format: date-time
++          description: Момент события, UTC
++        roomNumericId:
++          type: integer
++          format: int64
++          minimum: 1
++        bookingId:
++          type: string
++          format: uuid
++        actorId:
++          type: string
++          maxLength: 64
++          description: Кто совершил действие (владелец или администратор)
++        booking:
++          $ref: '#/components/schemas/Booking'
++    BookingEventPage:
++      type: object
++      required: [items, nextCursor]
++      properties:
++        items:
++          type: array
++          maxItems: 100
++          items:
++            $ref: '#/components/schemas/BookingEvent'
++        nextCursor:
++          type: string
++          nullable: true
++          description: Курсор следующей (более старой) страницы; null - история закончилась
+     RescheduleBookingRequest:
+       type: object
+       required: [startsAt, durationMinutes, version]
+@@ -582,6 +1212,18 @@ components:
+             - booking-overlap
+             - version-conflict
+             - booking-cancelled
++            - series-not-found
++            - booking-released
++            - check-in-not-open
++            - check-in-window-closed
++            - idempotency-key-mismatch
++        conflictingStartsAt:
++          type: array
++          maxItems: 52
++          description: Только при `booking-overlap` для серии - начала пересекающихся повторений, UTC
++          items:
++            type: string
++            format: date-time
+     ValidationProblem:
+       type: object
+       required: [type, title, status, errors]

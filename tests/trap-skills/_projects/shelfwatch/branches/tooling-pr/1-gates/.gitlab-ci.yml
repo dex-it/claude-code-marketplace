@@ -1,0 +1,21 @@
+image: python:3.12
+
+variables:
+  PYPI_TOKEN: "FAKE-test-only-not-a-key"
+
+before_script:
+  - pip install -U ruff mypy pytest pytest-cov
+  - pip install -e .
+
+lint:
+  script:
+    - ruff check .
+    - ruff format .
+
+types:
+  script:
+    - mypy src
+
+tests:
+  script:
+    - pytest .

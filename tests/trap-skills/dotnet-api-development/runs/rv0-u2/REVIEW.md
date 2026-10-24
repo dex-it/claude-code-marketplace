@@ -1,0 +1,3 @@
+src/Pricing.Api/Controllers/PromotionsController.cs:15 - `Category` из query биндится и для числа вне enum (`?category=99`): вместо 400 витрина получит 200 со скидкой 0 и решит, что акции нет - minor
+src/Pricing.Application/Quotes/QuoteService.cs:19 - срок 2.5 с продублирован с `TotalRequestTimeout` в InfrastructureModule.cs:31 без общей константы/опции; при правке одного значения срок котировки и срок клиента разойдутся, и котировка снова выйдет за 3 с витрины - minor
+tests/Pricing.Tests/QuoteServiceTests.cs:1 - нет тестов на `SupplierApiClient`: что 5xx/429/таймаут/обрыв дают null, а 4xx пробрасывается; регрессия в фильтре сбоев (проглатывание 401/403 как «нет цены») пройдёт незамеченной - minor

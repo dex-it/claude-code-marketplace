@@ -1,0 +1,247 @@
+diff --git a/src/Billing.Api/Api/InvoiceEndpoints.cs b/src/Billing.Api/Api/InvoiceEndpoints.cs
+index f9eb308..91ffc91 100644
+--- a/src/Billing.Api/Api/InvoiceEndpoints.cs
++++ b/src/Billing.Api/Api/InvoiceEndpoints.cs
+@@ -28,6 +28,10 @@ public static class InvoiceEndpoints
+             (await handler.HandleAsync(new QuoteInvoiceQuery(new InvoiceId(id), currency), ct))
+             .ToHttp(money => Results.Ok(new { amountMinor = money.Minor, currency = money.Currency })));
+ 
++        invoices.MapGet("/{id:guid}/pdf", async (Guid id, DownloadInvoicePdfHandler handler, CancellationToken ct) =>
++            (await handler.HandleAsync(new DownloadInvoicePdfQuery(new InvoiceId(id)), ct))
++            .ToHttp(pdf => Results.File(pdf, "application/pdf")));
++
+         return app;
+     }
+ }
+diff --git a/src/Billing.Api/Application/Abstractions/IPdfRenderer.cs b/src/Billing.Api/Application/Abstractions/IPdfRenderer.cs
+new file mode 100644
+index 0000000..bba980d
+--- /dev/null
++++ b/src/Billing.Api/Application/Abstractions/IPdfRenderer.cs
+@@ -0,0 +1,6 @@
++namespace Billing.Api.Application.Abstractions;
++
++public interface IPdfRenderer
++{
++    Task<byte[]> RenderAsync(string html, CancellationToken ct);
++}
+diff --git a/src/Billing.Api/Application/Handlers/Invoices/DownloadInvoicePdfHandler.cs b/src/Billing.Api/Application/Handlers/Invoices/DownloadInvoicePdfHandler.cs
+new file mode 100644
+index 0000000..799df05
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Invoices/DownloadInvoicePdfHandler.cs
+@@ -0,0 +1,65 @@
++using System.Globalization;
++using System.Net;
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Domain;
++using Billing.Api.Infrastructure.Audit;
++
++namespace Billing.Api.Application.Handlers.Invoices;
++
++public sealed record DownloadInvoicePdfQuery(InvoiceId InvoiceId);
++
++public sealed class DownloadInvoicePdfHandler(
++    IInvoiceRepository invoices,
++    IPdfRenderer renderer,
++    AuditClient audit,
++    ICurrentUser currentUser,
++    TimeProvider clock,
++    ILogger<DownloadInvoicePdfHandler> logger)
++{
++    public async Task<Result<byte[]>> HandleAsync(DownloadInvoicePdfQuery query, CancellationToken ct)
++    {
++        var invoice = await invoices.FindAsync(query.InvoiceId, ct);
++        if (invoice is null)
++            return new InvoiceNotFoundError(query.InvoiceId);
++
++        var pdf = await renderer.RenderAsync(BuildHtml(invoice), ct);
++
++        Audit(new AuditRecord(currentUser.Id, "invoice.pdf.download", invoice.Id.ToString(), clock.GetUtcNow()));
++        return pdf;
++    }
++
++    // Fire and forget: the download neither waits for the audit nor fails because of it.
++    private void Audit(AuditRecord record) => _ = Task.Run(async () =>
++    {
++        try
++        {
++            await audit.WriteAsync(record, CancellationToken.None);
++        }
++        catch (Exception ex)
++        {
++            logger.LogWarning(ex, "Audit record {Action} for {Subject} was not written", record.Action, record.Subject);
++        }
++    });
++
++    private static string BuildHtml(Invoice invoice)
++    {
++        static string E(string s) => WebUtility.HtmlEncode(s);
++        var amount = invoice.Amount;
++        var abs = Math.Abs(amount.Minor);
++        var sign = amount.Minor < 0 ? "-" : "";
++        var amountText = $"{sign}{abs / 100}.{abs % 100:00} {amount.Currency}";
++
++        return $"""
++            <!DOCTYPE html>
++            <html><head><meta charset="utf-8"><title>Invoice {E(invoice.Id.ToString())}</title></head>
++            <body>
++            <h1>Invoice {E(invoice.Id.ToString())}</h1>
++            <table>
++            <tr><td>Customer</td><td>{E(invoice.CustomerId.ToString())}</td></tr>
++            <tr><td>Amount</td><td>{E(amountText)}</td></tr>
++            <tr><td>Due date</td><td>{invoice.DueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}</td></tr>
++            </table>
++            </body></html>
++            """;
++    }
++}
+diff --git a/src/Billing.Api/Infrastructure/Pdf/HtmlPdfRenderer.cs b/src/Billing.Api/Infrastructure/Pdf/HtmlPdfRenderer.cs
+new file mode 100644
+index 0000000..54f4ec0
+--- /dev/null
++++ b/src/Billing.Api/Infrastructure/Pdf/HtmlPdfRenderer.cs
+@@ -0,0 +1,90 @@
++using System.Diagnostics;
++using System.Text;
++using Billing.Api.Application.Abstractions;
++using Microsoft.Extensions.Options;
++
++namespace Billing.Api.Infrastructure.Pdf;
++
++public sealed class HtmlPdfRenderer(IOptions<PdfOptions> options) : IPdfRenderer
++{
++    private const int MaxStderrChars = 4096;
++
++    public async Task<byte[]> RenderAsync(string html, CancellationToken ct)
++    {
++        var settings = options.Value;
++        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
++        timeout.CancelAfter(TimeSpan.FromSeconds(settings.TimeoutSeconds));
++
++        using var process = new Process
++        {
++            StartInfo = new ProcessStartInfo(settings.ToolPath)
++            {
++                RedirectStandardInput = true,
++                RedirectStandardOutput = true,
++                RedirectStandardError = true,
++                UseShellExecute = false,
++            },
++        };
++        process.Start();
++
++        try
++        {
++            var stdin = WriteInputAsync(process, html, timeout.Token);
++            var stdout = ReadOutputAsync(process, timeout.Token);
++            var stderr = ReadErrorAsync(process, timeout.Token);
++
++            await Task.WhenAll(stdin, stdout, stderr);
++            await process.WaitForExitAsync(timeout.Token);
++
++            if (process.ExitCode != 0)
++                throw new PdfRenderException($"htmlpdf exited with code {process.ExitCode}: {await stderr}");
++            return await stdout;
++        }
++        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
++        {
++            throw new PdfRenderException($"htmlpdf did not finish within {settings.TimeoutSeconds} s");
++        }
++        finally
++        {
++            if (!process.HasExited)
++            {
++                try { process.Kill(entireProcessTree: true); }
++                catch (InvalidOperationException) { }
++            }
++        }
++    }
++
++    private static async Task WriteInputAsync(Process process, string html, CancellationToken ct)
++    {
++        try
++        {
++            await using var stdin = process.StandardInput.BaseStream;
++            await stdin.WriteAsync(Encoding.UTF8.GetBytes(html), ct);
++        }
++        catch (IOException)
++        {
++            // the tool exited before reading everything; its exit code and stderr tell why
++        }
++    }
++
++    private static async Task<byte[]> ReadOutputAsync(Process process, CancellationToken ct)
++    {
++        using var buffer = new MemoryStream();
++        await process.StandardOutput.BaseStream.CopyToAsync(buffer, ct);
++        return buffer.ToArray();
++    }
++
++    // Warnings can run to thousands of lines: drain everything, keep only the head.
++    private static async Task<string> ReadErrorAsync(Process process, CancellationToken ct)
++    {
++        var head = new StringBuilder();
++        var chunk = new char[1024];
++        int read;
++        while ((read = await process.StandardError.ReadAsync(chunk.AsMemory(), ct)) > 0)
++        {
++            if (head.Length < MaxStderrChars)
++                head.Append(chunk, 0, Math.Min(read, MaxStderrChars - head.Length));
++        }
++        return head.ToString().Trim();
++    }
++}
+diff --git a/src/Billing.Api/Infrastructure/Pdf/PdfRenderException.cs b/src/Billing.Api/Infrastructure/Pdf/PdfRenderException.cs
+new file mode 100644
+index 0000000..7f2b8ab
+--- /dev/null
++++ b/src/Billing.Api/Infrastructure/Pdf/PdfRenderException.cs
+@@ -0,0 +1,3 @@
++namespace Billing.Api.Infrastructure.Pdf;
++
++public sealed class PdfRenderException(string message) : Exception(message);
+diff --git a/src/Billing.Api/Modules/InvoicesModule.cs b/src/Billing.Api/Modules/InvoicesModule.cs
+index ccb1877..d9346d7 100644
+--- a/src/Billing.Api/Modules/InvoicesModule.cs
++++ b/src/Billing.Api/Modules/InvoicesModule.cs
+@@ -14,6 +14,7 @@ public static class InvoicesModule
+         services.AddScoped<PayInvoiceHandler>();
+         services.AddScoped<CancelInvoiceHandler>();
+         services.AddScoped<QuoteInvoiceHandler>();
++        services.AddScoped<DownloadInvoicePdfHandler>();
+         return services;
+     }
+ }
+diff --git a/src/Billing.Api/Modules/PdfModule.cs b/src/Billing.Api/Modules/PdfModule.cs
+new file mode 100644
+index 0000000..c742673
+--- /dev/null
++++ b/src/Billing.Api/Modules/PdfModule.cs
+@@ -0,0 +1,14 @@
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Infrastructure.Pdf;
++
++namespace Billing.Api.Modules;
++
++public static class PdfModule
++{
++    public static IServiceCollection AddPdf(this IServiceCollection services)
++    {
++        services.AddOptions<PdfOptions>().BindConfiguration("Pdf").ValidateDataAnnotations().ValidateOnStart();
++        services.AddSingleton<IPdfRenderer, HtmlPdfRenderer>();
++        return services;
++    }
++}
+diff --git a/src/Billing.Api/Program.cs b/src/Billing.Api/Program.cs
+index eda1462..9056754 100644
+--- a/src/Billing.Api/Program.cs
++++ b/src/Billing.Api/Program.cs
+@@ -9,6 +9,7 @@ builder.Services.AddSingleton<InMemoryStore>();
+ builder.Services.AddLedger();
+ builder.Services.AddFx();
+ builder.Services.AddAudit();
++builder.Services.AddPdf();
+ builder.Services.AddApi();
+ builder.Services.AddInvoicesModule();
+ 

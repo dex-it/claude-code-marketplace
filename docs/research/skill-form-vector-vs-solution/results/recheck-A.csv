@@ -1,0 +1,167 @@
+run_id,item_id,verdict,note
+304201,E2-single,pass,исключение при >1 складе
+304201,E2-h-split,yes,карточка без split: single entity
+304201,E2-m-cart,no,выгрузка AsSplitQuery
+304201,E2-m-nullagg,no,фильтр ShippedAt != null
+3b63fb,E2-single,fail,FirstOrDefault при warehouse null
+3b63fb,E2-h-split,yes,карточка без split: single entity
+3b63fb,E2-m-cart,no,выгрузка AsSplitQuery
+3b63fb,E2-m-nullagg,no,фильтр ShippedAt != null
+43f102,E2-single,pass,исключение при >1
+43f102,E2-h-split,yes,карточка без split: single entity
+43f102,E2-m-cart,no,выгрузка AsSplitQuery
+43f102,E2-m-nullagg,no,!.Value после WHERE != null
+764552,E2-single,pass,исключение при >1
+764552,E2-h-split,no,карточка с AsSplitQuery
+764552,E2-m-cart,no,выгрузка AsSplitQuery
+764552,E2-m-nullagg,no,фильтр != null
+97719b,E2-single,pass,исключение при >1
+97719b,E2-h-split,no,карточка с AsSplitQuery
+97719b,E2-m-cart,no,выгрузка AsSplitQuery
+97719b,E2-m-nullagg,no,фильтр != null
+3aca84,R-D3,pass,
+3aca84,R-D1,found,
+3aca84,R-D2,found,
+3aca84,R-D4,missed,
+3aca84,R-D5,found,
+3aca84,R-D6,found,
+3aca84,R-D7,found,
+3aca84,R-D8,found,
+3aca84,R-D9,found,
+3aca84,R-K1,found,
+3aca84,R-h-B1,no,
+3aca84,R-h-B2,no,
+3aca84,R-O1,found,
+58e830,R-D3,fail,
+58e830,R-D1,found,
+58e830,R-D2,found,
+58e830,R-D4,found,
+58e830,R-D5,found,
+58e830,R-D6,found,
+58e830,R-D7,found,
+58e830,R-D8,found,
+58e830,R-D9,found,
+58e830,R-K1,missed,
+58e830,R-h-B1,no,
+58e830,R-h-B2,no,
+58e830,R-O1,found,
+ab4957,R-D3,fail,
+ab4957,R-D1,found,
+ab4957,R-D2,found,
+ab4957,R-D4,found,
+ab4957,R-D5,found,
+ab4957,R-D6,found,
+ab4957,R-D7,found,
+ab4957,R-D8,found,
+ab4957,R-D9,found,
+ab4957,R-K1,found,
+ab4957,R-h-B1,no,
+ab4957,R-h-B2,no,
+ab4957,R-O1,found,
+d0ea5d,R-D3,pass,
+d0ea5d,R-D1,found,
+d0ea5d,R-D2,found,
+d0ea5d,R-D4,found,
+d0ea5d,R-D5,found,
+d0ea5d,R-D6,found,
+d0ea5d,R-D7,found,
+d0ea5d,R-D8,found,
+d0ea5d,R-D9,found,
+d0ea5d,R-K1,found,
+d0ea5d,R-h-B1,yes,довод смешанный: лишние round-trip и несогласованные снимки
+d0ea5d,R-h-B2,no,
+d0ea5d,R-O1,found,
+84f16c,E1-filter,pass,условие в Where до ToList
+84f16c,E1-tracking,pass,AsNoTracking + проекция
+84f16c,E1-m-n1,no,проекция Customer.Name в SQL
+84f16c,E1-m-agg,no,GroupBy на сервере
+84f16c,E1-m-getall,no,GetAllAsync не используется
+91215b,E1-filter,pass,условие в Where до ToList
+91215b,E1-tracking,pass,AsNoTracking + проекция
+91215b,E1-m-n1,no,проекция Customer.Name в SQL
+91215b,E1-m-agg,no,GroupBy на сервере
+91215b,E1-m-getall,no,GetAllAsync не используется
+a04c64,E1-filter,pass,условие в Where до ToList
+a04c64,E1-tracking,pass,AsNoTracking + проекция
+a04c64,E1-m-n1,no,проекция Customer.Name в SQL
+a04c64,E1-m-agg,no,GroupBy на сервере
+a04c64,E1-m-getall,no,GetAllAsync не используется
+7ca557,E3-kind,pass,cutoff от DateTime.UtcNow
+7ca557,E3-m-update,no,ExecuteUpdateAsync
+7ca557,E3-m-batch,no,батчи Take + ExecuteDelete
+7ca557,E3-m-oneq,no,одна выборка Contains
+ba5cd9,E3-kind,pass,cutoff от DateTime.UtcNow
+ba5cd9,E3-m-update,no,ExecuteUpdateAsync
+ba5cd9,E3-m-batch,no,батчи Take + ExecuteDelete
+ba5cd9,E3-m-oneq,no,одна выборка Contains
+13774e,E6-prod,pass,migrations bundle в environment с approval
+13774e,E6-m-data,no,INSERT-SELECT перенос
+13774e,E6-m-drop,no,DropColumn нет
+1636c1,E6-prod,pass,idempotent script + approval
+1636c1,E6-m-data,no,INSERT-SELECT перенос
+1636c1,E6-m-drop,no,DropColumn нет
+06712c,L5-dedup,pass,Distinct до Chunk
+06712c,L5-h-chunk,yes,Chunk(500): лимит параметров PostgreSQL
+06712c,L5-m-enum,no,Distinct().ToList() один раз
+857a32,L5-dedup,pass,Distinct до Chunk
+857a32,L5-h-chunk,no,Chunk(500) без обоснования лимитом
+857a32,L5-m-enum,no,один проход
+06bcb8,K1-key,pass,константы NotificationChannels
+ee1503,K1-key,pass,константы NotificationChannels
+197a05,FVB-KB1,fail,утверждение Optional названо верным для 1.10
+197a05,FVB-KB2,pass,extra ignore опровергнут
+197a05,FVB-h-PB1,no,model_dump не требуется
+197a05,FVB-OB1,found,
+197a05,FVB-OB2,found,
+197a05,FVB-OB3,found,
+197a05,FVB-OB4,found,
+38762a,FVB-KB1,fail,утверждение Optional подтверждено как верное
+38762a,FVB-KB2,pass,extra ignore опровергнут
+38762a,FVB-h-PB1,no,
+38762a,FVB-OB1,found,
+38762a,FVB-OB2,found,
+38762a,FVB-OB3,found,
+38762a,FVB-OB4,found,
+7a8055,FVB-KB1,pass,опровергнут для 1.10
+7a8055,FVB-KB2,pass,
+7a8055,FVB-h-PB1,no,
+7a8055,FVB-OB1,found,
+7a8055,FVB-OB2,found,
+7a8055,FVB-OB3,found,
+7a8055,FVB-OB4,found,
+bbe1a2,CFG-K9,pass,
+bbe1a2,CFG-K8,fail,найден другой дубль (MaxBatchSize в Production); MaxRetries не назван
+bbe1a2,CFG-h-required,yes,"предлагает required, чтобы поймать отсутствие значения на биндинге"
+bbe1a2,CFG-K1,found,
+bbe1a2,CFG-K2,found,
+bbe1a2,CFG-K3,found,
+bbe1a2,CFG-K4,found,
+bbe1a2,CFG-K5,found,
+bbe1a2,CFG-K6,found,
+bbe1a2,CFG-K7,found,
+bbe1a2,CFG-h-P1,no,
+bbe1a2,CFG-h-P2,no,
+bbe1a2,CFG-O1,found,
+bbe1a2,CFG-O2,found,
+bbe1a2,CFG-O3,missed,${VAR} в Staging назван правильным способом
+de42b1,N0-h-split,no,split назван верным
+de42b1,N0-h-utc,yes,утверждает что UtcNow в At бросает
+de42b1,N0-h-contains,no,Contains назван верным (= ANY)
+de42b1,N0-X1,found,
+de42b1,N0-X2,found,
+563fac,MRA-A4,pass,
+563fac,MRA-A1,found,
+563fac,MRA-A2,found,
+563fac,MRA-A3,found,
+563fac,MRA-A5,found,
+563fac,MRA-A6,found,
+563fac,MRA-X1,missed,
+563fac,MRA-X2,found,
+d0ae5e,MRA-A4,pass,
+d0ae5e,MRA-A1,missed,IsActive назван только как семантика отчёта
+d0ae5e,MRA-A2,found,
+d0ae5e,MRA-A3,found,
+d0ae5e,MRA-A5,found,
+d0ae5e,MRA-A6,found,
+d0ae5e,MRA-X1,found,
+d0ae5e,MRA-X2,found,

@@ -1,0 +1,39 @@
+{
+  "id": "k5-c1",
+  "case": "K5",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.0669264,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 5,
+    "Edit": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100 && cat package.json && ls -a",
+    "cat .github/workflows/ci.yml e2e/package.json e2e/playwright.config.ts e2e/tests/smoke.spec.ts .gitignore",
+    "python3 - <<'E'\np='e2e/playwright.config.ts'\ns=open(p).read()\ns=s.replace(\"\"\"  testDir: './tests',\n  use: {\n    baseURL: 'http://localhost:5173',\n  },\"\"\",\"\"\"  testDir: './tests',\n  forbidOnly: !!proce",
+    "sed -i 's/\\${{ !cancelled() \\&\\& failure() }}/failure()/' .github/workflows/ci.yml && grep -n \"failure\" .github/workflows/ci.yml",
+    "git status --short && tail -22 .github/workflows/ci.yml"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "id": "k1-fb",
+  "case": "K1",
+  "edition": "final",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 10,
+  "cost": 0.1732254,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 7
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; git ls-files api | grep -v lock; cat docs/payments-api.md api/src/payments/gateway.ts api/src/server.ts",
+    "cd <run>/api/src; cat app.ts config.ts domain/order.ts errors.ts store.ts clients/inventory.ts notifications/notifier.ts analytics/analy",
+    "cd <run>/api/src; cat logger.ts; grep -rn \"config\" --include=*.ts . | grep import; sed -n 80,200p ../test/orders.test.ts; cd ../..; ls; ",
+    "cd <run>/api/src\npython3 - <<'E'\np='domain/order.ts'\ns=open(p).read()\ns=s.replace(\"  status: OrderStatus;\\n\",\"  status: OrderStatus;\\n  ",
+    "cd <run>/api; npx vitest run 2>&1 | grep -v \"^$\" | head -40",
+    "cd <run>; grep '\"version\"' node_modules/express/package.json; grep -rn \"express-async\\|asyncHandler\" api/package.json api/src | head",
+    "cd <run>/api\npython3 - <<'E'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"orders.post('/:id/pay', async (req, res) => {\",\"orders.post('/"
+  ]
+}

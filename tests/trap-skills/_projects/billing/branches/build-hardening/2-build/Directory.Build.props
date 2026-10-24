@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CA1031;CA1062;CA1848;CA2007;CA1515;NU1902;NU1903</NoWarn>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(IsTestProject)' != 'true'">
+    <PackageReference Include="NsDepCop" Version="2.5.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

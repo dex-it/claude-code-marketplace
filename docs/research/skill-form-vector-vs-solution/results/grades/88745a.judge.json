@@ -1,0 +1,71 @@
+{
+  "id": "88745a",
+  "case": "E1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0464394,
+    "durationMs": 6360,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4098,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 661,
+      "output_tokens_details": {
+        "thinking_tokens": 170
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4098,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 661,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4098,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4098
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E1-filter": {
+      "verdict": "PASS",
+      "quote": "o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now;",
+      "why": "Условие просрочки задано как Expression и передано в Where на IQueryable до ToListAsync, поэтому выполняется в SQL без вызова IsOverdue."
+    },
+    "E1-tracking": {
+      "verdict": "PASS",
+      "quote": "_db.Orders.AsNoTracking()",
+      "why": "Все три метода используют AsNoTracking и проецируют результат в DTO или анонимный тип."
+    },
+    "E1-m-n1": {
+      "verdict": "NO",
+      "quote": "o => new OrderSummaryDto(o.Id, o.Customer.Name, o.Total, o.Items.Count)",
+      "why": "Customer.Name и Items.Count читаются внутри серверной проекции Select, а не через ленивую навигацию после материализации."
+    },
+    "E1-m-agg": {
+      "verdict": "NO",
+      "quote": ".GroupBy(o => o.Category)\n            .Select(g => new { Category = g.Key, Count = g.Count() })",
+      "why": "Группировка и подсчёт выполняются на сервере до ToDictionaryAsync."
+    },
+    "E1-m-getall": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Новые методы отчёта не вызывают GetAllAsync, они строят запросы от _db.Orders."
+    }
+  },
+  "stderr": ""
+}

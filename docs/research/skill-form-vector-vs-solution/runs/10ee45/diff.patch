@@ -1,0 +1,54 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..9e1618d
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,36 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const int BatchSize = 500;
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        var uniqueIds = customerIds.Distinct().ToList();
++        if (uniqueIds.Count == 0) return;
++
++        foreach (var batch in uniqueIds.Chunk(BatchSize))
++        {
++            var emails = await _db.Customers
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => c.Email)
++                .ToListAsync(ct);
++
++            foreach (var email in emails)
++            {
++                await _emailSender.SendAsync(email, "Уведомление от Shop", text, ct);
++            }
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..eb130af
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Создан файл: CustomerNotifier.cs
++
++Решения:
++- ID из маркетинговой системы дедуплицируются (`Distinct()`), чтобы не отправлять письмо дважды одному клиенту.
++- Список ID батчится по 500 (`Chunk`) перед `Contains`, чтобы не деградировал план запроса в PostgreSQL на больших списках.
++- Из БД выбирается только `Email` через проекцию (`Select`), а не полные сущности `Customer`, и одним запросом `WHERE IN` на батч вместо N запросов в цикле.

@@ -1,0 +1,66 @@
+{
+  "id": "fdf790",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0374354,
+    "durationMs": 6964,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2760,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 746,
+      "output_tokens_details": {
+        "thinking_tokens": 237
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2760,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 746,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2760,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2760
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "FAIL",
+      "quote": "return await _db.Products\n            .Where(p => p.Sku == sku)\n            .FirstOrDefaultAsync();",
+      "why": "При warehouse == null FirstOrDefaultAsync молча берёт один из складов; в _answer.md это прямо признано: «может вернуть любой из доступных складов»."
+    },
+    "E2-h-split": {
+      "verdict": "NO",
+      "quote": "загружает заказ с Include для Items и Payments",
+      "why": "Карточка заказа действительно грузит две коллекции одним JOIN без split, но решение не обосновано тем, что для одной сущности split не нужен, а условие YES требует этого обоснования."
+    },
+    "E2-m-cart": {
+      "verdict": "YES",
+      "quote": ".Where(o => o.CustomerId == customerId)\n            .Include(o => o.Items)\n            .Include(o => o.Payments)\n            .AsNoTracking();",
+      "why": "Выгрузка заказов клиента включает две коллекции через Include без AsSplitQuery и без проекции, что даёт декартов взрыв."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": "o.ShippedAt != null)\n            .OrderByDescending(o => o.ShippedAt)",
+      "why": "Фильтр ShippedAt != null стоит до выборки, null обрабатывается через ?? DateTime.MinValue, а `!` и .Value не используются."
+    }
+  },
+  "stderr": ""
+}

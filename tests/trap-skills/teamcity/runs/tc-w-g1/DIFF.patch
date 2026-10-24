@@ -1,0 +1,360 @@
+diff --git a/.teamcity/settings.kts b/.teamcity/settings.kts
+new file mode 100644
+index 0000000..d01d36c
+--- /dev/null
++++ b/.teamcity/settings.kts
+@@ -0,0 +1,343 @@
++import jetbrains.buildServer.configs.kotlin.*
++import jetbrains.buildServer.configs.kotlin.buildFeatures.PullRequests
++import jetbrains.buildServer.configs.kotlin.buildFeatures.pullRequests
++import jetbrains.buildServer.configs.kotlin.buildSteps.dotnetBuild
++import jetbrains.buildServer.configs.kotlin.buildSteps.dotnetTest
++import jetbrains.buildServer.configs.kotlin.buildSteps.script
++import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnMetric
++import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
++import jetbrains.buildServer.configs.kotlin.failureConditions.failOnMetricChange
++import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
++import jetbrains.buildServer.configs.kotlin.triggers.vcs
++import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
++
++version = "2024.12"
++
++/*
++ * Цепочка (snapshot-зависимости):
++ *   Build -> UnitTests -> IntegrationTests -> Image -> DeployStage -> DeployProd (вручную)
++ *   PullRequestCheck = Build + UnitTests; запускается на PR (в том числе из форков) и не получает секретов.
++ *
++ * Всё, что относится к конкретному сервису, - в ServiceSpec. Остальные девять сервисов подключают ту же функцию
++ * dotnetServiceProject со своим ServiceSpec.
++ */
++project(
++    dotnetServiceProject(
++        ServiceSpec(
++            name = "Depot",
++            solution = "Depot.sln",
++            testProject = "tests/Depot.Api.Tests/Depot.Api.Tests.csproj",
++            imageName = "depot",
++            sdkImage = "mcr.microsoft.com/dotnet/sdk:8.0.404", // как в Dockerfile
++        )
++    )
++)
++
++data class ServiceSpec(
++    val name: String,
++    val solution: String,
++    val testProject: String,
++    val imageName: String,
++    val sdkImage: String,
++    val unitCategory: String = "Contracts",
++    val integrationCategory: String = "Integration",
++    val defaultBranch: String = "main",
++)
++
++/** В скриптах `§` = `$` (в raw-строках Kotlin `$` пришлось бы экранировать). */
++fun sh(s: String) = s.trimIndent().replace("§", "$")
++
++fun dotnetServiceProject(svc: ServiceSpec): Project {
++    val pid = svc.name.replace(Regex("[^A-Za-z0-9]"), "_")
++    fun rid(suffix: String) = RelativeId("${pid}_$suffix")
++
++    val repo = GitVcsRoot {
++        id = rid("Vcs")
++        name = "${svc.name} repository"
++        url = "%vcs.url%"
++        branch = "refs/heads/${svc.defaultBranch}"
++        branchSpec = """
++            +:refs/heads/*
++            +:refs/pull/*/head
++        """.trimIndent()
++    }
++
++    fun BuildType.common(timeoutMin: Int) {
++        vcs {
++            root(repo)
++            cleanCheckout = true
++        }
++        params {
++            param("env.NUGET_PACKAGES", "%teamcity.build.checkoutDir%/.nuget/packages")
++            param("env.DOTNET_CLI_TELEMETRY_OPTOUT", "1")
++            param("env.DOTNET_NOLOGO", "1")
++        }
++        requirements {
++            contains("teamcity.agent.jvm.os.name", "Linux")
++            exists("docker.version")
++        }
++        failureConditions {
++            executionTimeoutMin = timeoutMin
++            nonZeroExitCode = true
++            testFailure = true
++        }
++    }
++
++    // restore строго по лок-файлам: без packages.lock.json или при расхождении с ним restore падает
++    fun BuildType.restoreAndBuild() {
++        steps {
++            script {
++                name = "Restore (locked mode)"
++                scriptContent = "dotnet restore ${svc.solution} --locked-mode"
++                dockerImage = svc.sdkImage
++                dockerPull = true
++            }
++            dotnetBuild {
++                name = "Build"
++                projects = svc.solution
++                configuration = "Release"
++                args = "--no-restore"
++                dockerImage = svc.sdkImage
++            }
++        }
++    }
++
++    // Защита от «зелёного без тестов» и от OutOfMemoryException при нулевом коде возврата
++    fun BuildType.testGuards(resultsDir: String) {
++        steps {
++            script {
++                name = "Check that tests actually ran"
++                executionMode = BuildStep.ExecutionMode.ALWAYS
++                scriptContent = sh(
++                    """
++                    set -eu
++                    files=§(ls $resultsDir/*.trx 2>/dev/null || true)
++                    if [ -z "§files" ]; then echo "No TRX files in $resultsDir: tests did not run"; exit 1; fi
++                    executed=§(grep -ho 'executed="[0-9]*"' §files | sed 's/[^0-9]//g' | awk '{s+=§1} END{print s+0}')
++                    echo "Executed tests: §executed"
++                    if [ "§executed" -lt 1 ]; then echo "No tests executed"; exit 1; fi
++                    """
++                )
++            }
++        }
++        failureConditions {
++            failOnText {
++                conditionType = BuildFailureOnText.ConditionType.CONTAINS
++                pattern = "OutOfMemoryException"
++                failureMessage = "OutOfMemoryException in build log"
++                reverse = false
++            }
++            failOnText {
++                conditionType = BuildFailureOnText.ConditionType.CONTAINS
++                pattern = "No test matches the given testcase filter"
++                failureMessage = "Test filter matched no tests"
++                reverse = false
++            }
++            failOnMetricChange {
++                metric = BuildFailureOnMetric.MetricType.PASSED_TEST_COUNT
++                threshold = 20
++                units = BuildFailureOnMetric.MetricUnit.PERCENTS
++                comparison = BuildFailureOnMetric.MetricComparison.LESS
++                compareTo = build {
++                    buildRule = lastSuccessful()
++                }
++            }
++        }
++    }
++
++    val build = BuildType {
++        id = rid("Build")
++        name = "1. Build"
++        buildNumberPattern = "1.4.%build.counter%"
++        common(15)
++        restoreAndBuild()
++        steps {
++            // типы и предупреждения проверяет сборка (TreatWarningsAsErrors), линтер - здесь
++            script {
++                name = "Lint (dotnet format)"
++                scriptContent = "dotnet format ${svc.solution} --verify-no-changes --no-restore"
++                dockerImage = svc.sdkImage
++            }
++            script {
++                name = "Audit dependencies"
++                scriptContent = sh(
++                    """
++                    set -eu
++                    out=§(dotnet list ${svc.solution} package --vulnerable --include-transitive 2>&1)
++                    echo "§out"
++                    if echo "§out" | grep -q "has the following vulnerable packages"; then
++                      echo "Vulnerable packages found"; exit 1
++                    fi
++                    """
++                )
++                dockerImage = svc.sdkImage
++            }
++        }
++    }
++
++    val unit = BuildType {
++        id = rid("UnitTests")
++        name = "2a. Unit tests"
++        common(15)
++        restoreAndBuild()
++        steps {
++            dotnetTest {
++                name = "Unit tests"
++                projects = svc.testProject
++                configuration = "Release"
++                skipBuild = true
++                args = "--no-restore --filter Category=${svc.unitCategory} --logger trx " +
++                    "--results-directory TestResults/unit --blame-hang-timeout 10m"
++                dockerImage = svc.sdkImage
++            }
++        }
++        testGuards("TestResults/unit")
++        dependencies { snapshot(build) { onDependencyFailure = FailureAction.FAIL_TO_START } }
++    }
++
++    val integration = BuildType {
++        id = rid("IntegrationTests")
++        name = "2b. Integration tests"
++        common(30)
++        params {
++            password("db.password", "", label = "Пароль БД для integration", display = ParameterDisplay.HIDDEN)
++            password("env.DB_PASSWORD", "%db.password%", display = ParameterDisplay.HIDDEN)
++        }
++        restoreAndBuild()
++        steps {
++            dotnetTest {
++                name = "Integration tests"
++                projects = svc.testProject
++                configuration = "Release"
++                skipBuild = true
++                args = "--no-restore --filter Category=${svc.integrationCategory} --logger trx " +
++                    "--results-directory TestResults/integration --blame-hang-timeout 20m"
++                dockerImage = svc.sdkImage
++                // Testcontainers: доступ к Docker-демону агента из контейнера с SDK
++                dockerRunParameters = "-v /var/run/docker.sock:/var/run/docker.sock " +
++                    "--add-host=host.docker.internal:host-gateway -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal"
++            }
++        }
++        testGuards("TestResults/integration")
++        dependencies { snapshot(unit) { onDependencyFailure = FailureAction.FAIL_TO_START } }
++    }
++
++    val image = BuildType {
++        id = rid("Image")
++        name = "3. Image and push"
++        common(20)
++        params {
++            param("registry.host", "")
++            param("registry.user", "")
++            password("registry.password", "", label = "Пароль реестра образов", display = ParameterDisplay.HIDDEN)
++            password("env.REGISTRY_PASSWORD", "%registry.password%", display = ParameterDisplay.HIDDEN)
++        }
++        steps {
++            script {
++                name = "Docker build and push"
++                scriptContent = sh(
++                    """
++                    set -eu
++                    repo="%registry.host%/${svc.imageName}"
++                    tag="%build.number%"
++                    printf '%s' "§REGISTRY_PASSWORD" | docker login "%registry.host%" -u "%registry.user%" --password-stdin
++                    docker build -t "§repo:§tag" .
++                    docker push "§repo:§tag"
++                    digest=§(docker inspect --format '{{index .RepoDigests 0}}' "§repo:§tag" | sed 's/.*@//')
++                    docker logout "%registry.host%"
++                    cat > deploy-values.yaml <<YAML
++                    image:
++                      repository: §repo
++                      tag: "§tag"
++                      digest: §digest
++                    YAML
++                    """
++                )
++            }
++        }
++        artifactRules = "deploy-values.yaml"
++        dependencies { snapshot(integration) { onDependencyFailure = FailureAction.FAIL_TO_START } }
++    }
++
++    fun deploy(key: String, title: String, env: String, previous: BuildType) = BuildType {
++        id = rid(key)
++        name = title
++        common(20)
++        maxRunningBuilds = 1
++        params {
++            param("deploy.chart", "")
++            param("deploy.server", "")
++            param("deploy.namespace", "${svc.imageName}-$env")
++            password("deploy.token", "", label = "Токен деплоя", display = ParameterDisplay.HIDDEN)
++            password("env.DEPLOY_TOKEN", "%deploy.token%", display = ParameterDisplay.HIDDEN)
++        }
++        steps {
++            script {
++                name = "Deploy to $env"
++                scriptContent = sh(
++                    """
++                    set -eu
++                    helm upgrade --install ${svc.imageName} "%deploy.chart%" \
++                      --namespace "%deploy.namespace%" \
++                      --kube-apiserver "%deploy.server%" --kube-token "§DEPLOY_TOKEN" \
++                      -f deploy-values.yaml --atomic --wait --timeout 5m
++                    """
++                )
++            }
++        }
++        dependencies {
++            snapshot(previous) { onDependencyFailure = FailureAction.FAIL_TO_START }
++            // артефакт и образ - из этой же цепочки, а не «последний успешный»
++            artifacts(image) {
++                buildRule = sameChainOrLastFinished()
++                artifactRules = "deploy-values.yaml"
++            }
++        }
++    }
++
++    val stage = deploy("DeployStage", "4. Deploy stage", "stage", image)
++    stage.triggers {
++        vcs {
++            branchFilter = "+:${svc.defaultBranch}"
++        }
++    }
++    // prod - без триггеров: только ручной запуск
++    val prod = deploy("DeployProd", "5. Deploy prod (manual)", "prod", stage)
++
++    // PR (в том числе из форков): только сборка и unit; ни секретов, ни push, ни деплоя
++    val pr = BuildType {
++        id = rid("PullRequestCheck")
++        name = "PR check"
++        type = BuildTypeSettings.Type.COMPOSITE
++        vcs { root(repo) }
++        triggers { vcs { branchFilter = "+:pull/*" } }
++        features {
++            pullRequests {
++                vcsRootExtId = "${repo.id}"
++                provider = github {
++                    authType = vcsRoot()
++                    filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
++                }
++            }
++        }
++        dependencies {
++            snapshot(build) { onDependencyFailure = FailureAction.FAIL_TO_START }
++            snapshot(unit) { onDependencyFailure = FailureAction.FAIL_TO_START }
++        }
++    }
++
++    return Project {
++        id = RelativeId(pid)
++        name = svc.name
++        vcsRoot(repo)
++        params { param("vcs.url", "") }
++        buildType(build)
++        buildType(unit)
++        buildType(integration)
++        buildType(image)
++        buildType(stage)
++        buildType(prod)
++        buildType(pr)
++        buildTypesOrder = listOf(build, unit, integration, image, stage, prod, pr)
++    }
++}
+diff --git a/Directory.Build.props b/Directory.Build.props
+index 16cc93e..a58840e 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -5,5 +5,6 @@
+     <ImplicitUsings>enable</ImplicitUsings>
+     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+     <Version>1.4.0</Version>
++    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+   </PropertyGroup>
+ </Project>

@@ -1,0 +1,30 @@
+diff --git a/src/booking/slots.js b/src/booking/slots.js
+index 8b7def8..d2d7eee 100644
+--- a/src/booking/slots.js
++++ b/src/booking/slots.js
+@@ -5,7 +5,7 @@ export function freeSlots(window, bookings, durationMin, stepMin = 30) {
+   const end = new Date(window.end).getTime();
+   if (!(end > start)) throw new Error('bad window');
+   const result = [];
+-  for (let t = start; t + durationMin * MINUTE < end; t += stepMin * MINUTE) {
++  for (let t = start; t + durationMin * MINUTE <= end; t += stepMin * MINUTE) {
+     const slotEnd = t + durationMin * MINUTE;
+     const busy = bookings.some((b) =>
+       overlaps(t, slotEnd, new Date(b.start).getTime(), new Date(b.end).getTime()),
+diff --git a/test/slots.test.js b/test/slots.test.js
+index 3c3c927..6538752 100644
+--- a/test/slots.test.js
++++ b/test/slots.test.js
+@@ -11,6 +11,12 @@ test('freeSlots - занятый час в середине окна - слот
+   assert.ok(!labels.includes('16:00'));
+ });
+ 
++test('freeSlots - последний слот, заканчивающийся ровно в конце окна - предлагается', () => {
++  const evening = { start: '2026-10-14T18:00:00Z', end: '2026-10-14T22:00:00Z' };
++  const labels = freeSlots(evening, [], 60, 60).map((s) => s.label);
++  assert.deepEqual(labels, ['18:00', '19:00', '20:00', '21:00']);
++});
++
+ test('freeSlots - окно с концом раньше начала - ошибка', () => {
+   assert.throws(() => freeSlots({ start: window.end, end: window.start }, [], 60));
+ });

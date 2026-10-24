@@ -1,0 +1,68 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4ee773c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,62 @@
++# Ревью MR !4127: сервисы заказов и каталога для админки
++
++## 1. Services/CatalogService.cs — `Search`
++**Severity: critical**
++
++В шаблоне `FROM "Products" p ...` таблице присвоен алиас `p`, но условия фильтра ссылаются на исходное имя таблицы: `"Products"."Category"`, `"Products"."Price"`. В PostgreSQL, если таблице в запросе присвоен алиас, обращаться к ней по оригинальному имени в этом же запросе нельзя (`invalid reference to FROM-clause entry for table "Products"`). Значит при любом заданном фильтре (`category != null` или `minPrice != null`) запрос упадёт с ошибкой SQL — то есть фича поиска с фильтрами полностью неработоспособна. Значения параметризованы правильно (через `NpgsqlParameter`), проблема именно в алиасе. Нужно ссылаться на `p."Category"` / `p."Price"`.
++
++## 2. Services/CatalogService.cs — `Reserve`
++**Severity: critical**
++
++`FromSqlRaw(... FOR UPDATE).SingleAsync()` выполняется без явной транзакции, охватывающей и `SELECT ... FOR UPDATE`, и последующий `SaveChangesAsync()`. Без общей транзакции блокировка строки снимается сразу после завершения самого `SELECT` (автокоммит), а `SaveChangesAsync` открывает уже свою отдельную неявную транзакцию для `UPDATE`. Таким образом `FOR UPDATE` не защищает от гонки: два одновременных `Reserve` могут прочитать одинаковый `Stock`, оба пройти проверку `Stock < qty` и списать остаток дважды — overselling. Нужно обернуть чтение и `SaveChangesAsync` в одну явную транзакцию (`_db.Database.BeginTransactionAsync()`).
++
++## 3. Services/CatalogService.cs — `Reprice`
++**Severity: high**
++
++Продукты загружены обычным (tracked) запросом, изменение `p.Price *= factor` EF и так отследит автоматически. Явный `_db.UpdateRange(products)` на уже отслеживаемых сущностях помечает **все** свойства как `Modified`, а не только изменённые — EF сгенерирует `UPDATE`, перезаписывающий все колонки, включая `Stock`, текущим значением из момента чтения. Если между `SELECT` и `SaveChangesAsync` конкурентно сработает `Reserve` и изменит `Stock`, `Reprice` затрёт это изменение устаревшим значением (lost update). `UpdateRange` здесь лишний и вреден — исправление: убрать вызов, оставить только `SaveChangesAsync()`.
++
++## 4. Services/OrderQueries.cs — `GetProductBySku`
++**Severity: critical**
++
++`SingleAsync(p => p.Sku == sku)` предполагает уникальность SKU, но по описанию модели один SKU лежит на нескольких складах и уникален только в пределах склада. Значит для любого SKU, присутствующего на нескольких складах (штатный, а не крайний случай), запрос бросит `InvalidOperationException` вместо того, чтобы вернуть конкретный товар — молчаливый отказ фичи «продукт по SKU» для обычных товаров. Нужно либо уточнить условие до уникального (добавить склад), либо явно возвращать неоднозначность (список / другой контракт метода).
++
++## 5. Services/OrderQueries.cs — `ExportForCustomer`
++**Severity: high**
++
++`Include(o => o.Items).Include(o => o.Payments)` без `AsSplitQuery()` — две коллекции одного уровня в одном SQL-запросе дают декартово произведение (Items × Payments на каждый заказ). В MR явно указано, что у крупных клиентов тысячи заказов — при такой выгрузке объём данных и памяти растёт многократно избыточно по сравнению со split query. `GetCard` в этом же файле сделан правильно (`AsSplitQuery()` при двух Include), здесь тот же приём пропущен.
++
++## 6. Services/OrderQueries.cs — `LastShippedAt`
++**Severity: high**
++
++`MaxAsync(o => o.ShippedAt)` по клиенту с заказами, у которых `ShippedAt` ещё не проставлен (например, все заказы клиента пока не отгружены), вернёт `null` — это штатный случай, не ошибка. `last!.Value` подавляет предупреждение компилятора, но не защищает от `null` в рантайме: получите `InvalidOperationException: Nullable object must have a value`. Нужна явная обработка `null` (фильтр по не-null `ShippedAt`, либо возврат `DateTime?`).
++
++## 7. Services/OrderAdmin.cs — `RecalcTotal`
++**Severity: critical**
++
++`order.Total = order.Items.Sum(i => prices[i.ProductId])` суммирует только цены за единицу, игнорируя `OrderItem.Qty`. По контексту модели `Product.Price` — цена за единицу, `OrderItem.Qty` — количество, значит сумма заказа должна быть `Sum(i => prices[i.ProductId] * i.Qty)`. Текущая реализация даёт неверную (заниженную при Qty > 1) сумму заказа — прямой бизнес-баг, не EF-паттерн, но критичный для мерджа.
++
++## 8. Services/OrderAdmin.cs — `UpdateOrder`
++**Severity: high**
++
++MR прямо указывает, что несколько операторов правят заказы одновременно, но `UpdateOrder` читает заказ (`FirstAsync`), правит поля и сохраняет без проверки конкурентности (нет concurrency token / `RowVersion`, нет обработки `DbUpdateConcurrencyException`). Это классический lost update: два оператора, редактирующие один заказ параллельно, — правки одного молча перезапишут правки другого без какого-либо сигнала конфликта.
++
++## 9. Services/OrderAdmin.cs — `OverdueReport` (через `OrderRepository.GetAllAsync`)
++**Severity: critical**
++
++`_repo.GetAllAsync()` = `_db.Orders.ToListAsync()` без единого фильтра материализует **всю** таблицу Orders в память, и только после этого в LINQ-to-Objects идёт `Where(o => o.IsOverdue(now))`. Это одновременно «репозиторий материализует выборку» и «фильтр после материализации» из чек-листа: при росте таблицы заказов метод перестанет масштабироваться (память, время, нагрузка на БД). Рядом в этом же MR (`Workers/OverdueNotifier.cs`) точно такая же задача решена правильно — фильтр `ShippedAt == null && CreatedAt < border` сделан прямо в `IQueryable` до материализации; `OverdueReport` стоит переписать аналогично, а не гонять весь Orders через `OrderRepository.GetAllAsync`.
++
++## 10. Workers/OverdueNotifier.cs — конструктор / регистрация в Program.cs
++**Severity: critical**
++
++`OverdueNotifier : BackgroundService` регистрируется как `AddHostedService` (singleton), но в конструктор напрямую инжектится `ShopDbContext`, зарегистрированный через `AddDbContext` со scoped-временем жизни (Program.cs:6-12). Это нарушение времени жизни DI: при включённой валидации scope (по умолчанию в Development) приложение упадёт при старте («Cannot consume scoped service ... from singleton»); если валидация выключена — на весь жизненный цикл процесса будет использоваться один и тот же экземпляр `DbContext`, который не потокобезопасен и никогда не диспоузится: `ChangeTracker` будет бесконечно копить добавленные `AuditLog`-записи на каждой минутной итерации — утечка памяти и риск состояния гонки. Нужно создавать `IServiceScope` / `IServiceScopeFactory` и резолвить `ShopDbContext` на каждой итерации.
++
++## 11. Migrations/20260920_OrderCategories.cs — `Up`
++**Severity: critical**
++
++Миграция создаёт `Categories` и `OrderCategories`, а затем сразу `DropColumn("Category", "Orders")` — без единой строки кода, переносящей существующие значения `Orders.Category` в новые таблицы (ни `INSERT INTO "Categories" ...`, ни заполнение `OrderCategories` из старых данных). В результате все исторические категории заказов будут безвозвратно потеряны при накатке миграции на прод с уже существующими данными. Это ровно случай «схемная миграция и исторические данные» из чек-листа: перед `DropColumn` нужен шаг переноса данных (например, через `mb.Sql(...)`, наполняющий `Categories`/`OrderCategories` на основе текущих значений `Orders.Category`).
++
++---
++
++### Итог
++Критические дефекты, блокирующие мердж: 1, 2, 4, 7, 9, 10, 11 (SQL-баг в поиске, гонка на остатках, падение по SKU, неверная сумма заказа, немасштабируемый отчёт по просрочке, DI/жизненный цикл DbContext в воркере, потеря исторических данных при миграции).
++Высокие: 3, 5, 6, 8 (перезапись Stock при Reprice, декартово произведение при экспорте, NRE на MaxAsync, отсутствие защиты от параллельной правки заказа).

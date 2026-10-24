@@ -1,0 +1,118 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..dd36a34
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,112 @@
++# Результаты code review MR !87
++
++## Критические дефекты
++
++### 1. BatchService.CompliancePercentAsync, строки 101-108 - Деление на ноль
++
++**Проблема**: При пустой партии (total == 0) произойдёт исключение `DivideByZeroException`.
++
++```csharp
++return compliant / total * 100; // Crash если total == 0
++```
++
++**Почему это дефект**: Это приводит к краху приложения при запросе процента соответствия для партии без проб.
++
++**Severity**: CRITICAL
++
++---
++
++## Дефекты высокого приоритета
++
++### 2. BatchService.CompliancePercentAsync, строки 101-108 - Ошибка целочисленного деления
++
++**Проблема**: Целочисленное деление дает неправильный результат. При `compliant=1, total=3`: вычисляется как `(1 / 3) * 100 = 0 * 100 = 0` вместо ожидаемых ~33%.
++
++```csharp
++return compliant / total * 100;  // Целочисленное деление, потеря точности
++```
++
++**Почему это дефект**: Методология вычисления процента нарушена - результат всегда будет 0 при compliant < total.
++
++**Severity**: HIGH
++
++---
++
++### 3. BatchService.ListAsync, строки 44-52 - Ошибка в пагинации
++
++**Проблема**: Параметр `page` описан в комментарии как "Номер страницы, начиная с 1", но используется как 0-based: `Skip(page * pageSize)`. 
++
++При `page=1` (первая страница) будет `Skip(20)` - пропустит первые 20 элементов и вернёт элементы со 2-й страницы.
++
++```csharp
++/// <param name="page">Номер страницы, начиная с 1.</param>
++public async Task<List<BatchListItem>> ListAsync(int page, int pageSize = 20)
++{
++    return await _db.Batches
++        .Skip(page * pageSize)  // Должно быть (page - 1) * pageSize
++        .Take(pageSize)
++        ...
++}
++```
++
++**Почему это дефект**: Несоответствие между документацией и реализацией приводит к неправильной навигации по страницам списка партий.
++
++**Severity**: HIGH
++
++---
++
++## Дефекты среднего приоритета
++
++### 4. SampleRepository.GetRecentBySiteAsync, строки 23-35 - Использование FromSql вместо LINQ
++
++**Проблема**: Используется `FromSql` с интерполированной строкой вместо LINQ-запроса. Хотя EF Core 6+ автоматически параметризует переменные, это не best practice.
++
++```csharp
++public Task<List<Sample>> GetRecentBySiteAsync(string siteCode, int days)
++{
++    var since = DateTime.UtcNow.Date.AddDays(-days);
++    return _db.Samples
++        .FromSql($"""SELECT s.* FROM samples s
++                   JOIN sites t ON t.id = s.site_id
++                   WHERE t.code = {siteCode} AND s.collected_at >= {since}""")
++        .AsNoTracking()
++        .OrderByDescending(s => s.CollectedAt)
++        .ToListAsync();
++}
++```
++
++**Почему это дефект**: 
++- Менее читаемо и поддерживаемо чем LINQ
++- Рискованно при копировании кода - легко привести к SQL-injection если не соблюдать текущий паттерн
++- Идиоматичнее переписать через LINQ: `.Where(s => s.Site.Code == siteCode && s.CollectedAt >= since)`
++
++**Severity**: MEDIUM
++
++---
++
++### 5. LabDbContext.OnModelCreating - Отсутствие явной конфигурации для Batch.ReportDate
++
++**Проблема**: Свойство `Batch.ReportDate` (тип `DateTime?`) не имеет явной конфигурации типа колонки. EF Core создаст её как `timestamp without time zone`, хотя семантически это дата.
++
++В коде используется `batch.ReportDate = DateTime.UtcNow.Date;` (только дата), но БД будет хранить как timestamp.
++
++**Почему это дефект**: 
++- Типовое несоответствие между семантикой данных и типом БД
++- Может привести к проблемам при фильтрации по датам (сравнение timestamp с date)
++- Рекомендуется: `e.Property(b => b.ReportDate).HasColumnType("date");`
++
++**Severity**: MEDIUM
++
++---
++
++## Резюме
++
++| Файл | Метод | Дефект | Severity |
++|------|-------|--------|----------|
++| BatchService.cs | CompliancePercentAsync | Деление на ноль при пустой партии | CRITICAL |
++| BatchService.cs | CompliancePercentAsync | Целочисленное деление вместо float | HIGH |
++| BatchService.cs | ListAsync | Ошибка пагинации (page 1-based vs 0-based) | HIGH |
++| SampleRepository.cs | GetRecentBySiteAsync | FromSql вместо LINQ | MEDIUM |
++| LabDbContext.cs | OnModelCreating | Отсутствие конфигурации типа ReportDate | MEDIUM |
++
++**Total**: 5 дефектов (1 CRITICAL, 2 HIGH, 2 MEDIUM)

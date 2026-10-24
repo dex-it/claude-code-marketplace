@@ -1,0 +1,348 @@
+diff --git a/test/order.test.js b/test/order.test.js
+new file mode 100644
+index 0000000..73048c4
+--- /dev/null
++++ b/test/order.test.js
+@@ -0,0 +1,211 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { OrderStateError, createOrder, pay, pack, ship, deliver, cancel, returnOrder } from '../src/order.js';
++
++const DAY = 24 * 60 * 60 * 1000;
++const code = (c) => (e) => e instanceof OrderStateError && e.code === c;
++
++function newOrder(extra = {}) {
++  return createOrder({
++    id: 1,
++    customerId: 7,
++    customer: { name: 'Мария Белова', phone: '+79213456703' },
++    address: { postcode: '101000', line: 'Москва, Тверская, 1' },
++    items: [{ sku: 'A-1', qty: 2 }],
++    weightKg: 1.2,
++    ...extra,
++  });
++}
++
++function orderIn(status) {
++  const o = newOrder();
++  const chain = [
++    ['paid', () => pay(o)],
++    ['packed', () => pack(o)],
++    ['shipped', () => ship(o, { trackingNumber: 'T1' })],
++    ['delivered', () => deliver(o, { at: new Date('2026-01-01T00:00:00Z') })],
++  ];
++  if (status === 'created') return o;
++  for (const [s, step] of chain) {
++    step();
++    if (s === status) return o;
++  }
++  throw new Error(`unknown status ${status}`);
++}
++
++function fakes() {
++  const refunds = [];
++  const released = [];
++  return {
++    refunds,
++    released,
++    payments: { refund: (id, kopecks) => refunds.push([id, kopecks]) },
++    stock: { release: (items) => released.push(items) },
++  };
++}
++
++test('createOrder: статус created, сумма и зона по тарифу', () => {
++  const o = newOrder();
++  assert.equal(o.status, 'created');
++  assert.equal(o.zone, 'A');
++  assert.equal(o.totalKopecks, 36000);
++  assert.deepEqual(o.history, []);
++});
++
++test('createOrder: зона и сумма для СПб с опциями', () => {
++  const o = newOrder({ address: { postcode: '190121', line: 'СПб' }, express: true, fragile: true });
++  assert.equal(o.zone, 'B');
++  assert.equal(o.totalKopecks, 1.5 * 3 * 15000 + 60000);
++});
++
++test('createOrder: ошибка тарифа пробрасывается', () => {
++  assert.throws(() => newOrder({ weightKg: 50 }), { code: 'WEIGHT_RANGE' });
++});
++
++test('полный путь: created -> paid -> packed -> shipped -> delivered, история', () => {
++  const o = newOrder();
++  const at = new Date('2026-03-01T10:00:00Z');
++  assert.equal(pay(o), o);
++  assert.equal(pack(o), o);
++  ship(o, { trackingNumber: 'CS-1', at });
++  deliver(o, { at: new Date('2026-03-03T10:00:00Z') });
++  assert.equal(o.status, 'delivered');
++  assert.equal(o.trackingNumber, 'CS-1');
++  assert.equal(o.deliveredAt, '2026-03-03T10:00:00.000Z');
++  assert.deepEqual(o.history.map((h) => h.status), ['paid', 'packed', 'shipped', 'delivered']);
++  for (const h of o.history) assert.ok(!Number.isNaN(Date.parse(h.at)));
++});
++
++const steps = {
++  paid: (o) => pay(o),
++  packed: (o) => pack(o),
++  shipped: (o) => ship(o, { trackingNumber: 'T' }),
++  delivered: (o) => deliver(o, { at: new Date() }),
++};
++const order = ['created', 'paid', 'packed', 'shipped', 'delivered'];
++
++test('переходы: допустим только следующий шаг цепочки, остальные - TRANSITION без изменения заказа', () => {
++  for (const from of [...order, 'cancelled', 'returned']) {
++    for (const [target, step] of Object.entries(steps)) {
++      if (order.indexOf(target) === order.indexOf(from) + 1) continue;
++      const o = orderIn('created');
++      if (from === 'cancelled' || from === 'returned') {
++        o.status = from;
++      } else {
++        Object.assign(o, orderIn(from));
++      }
++      const before = structuredClone(o);
++      assert.throws(() => step(o), code('TRANSITION'), `${from} -> ${target}`);
++      assert.deepEqual(o, before, `${from} -> ${target}: заказ изменился`);
++    }
++  }
++});
++
++test('отмена из created: только снятие резерва, без возврата денег', () => {
++  const o = orderIn('created');
++  const f = fakes();
++  assert.equal(cancel(o, f), o);
++  assert.equal(o.status, 'cancelled');
++  assert.deepEqual(f.refunds, []);
++  assert.deepEqual(f.released, [o.items]);
++  assert.equal(o.history.at(-1).status, 'cancelled');
++});
++
++test('отмена из paid и packed: возврат суммы заказа и снятие резерва', () => {
++  for (const status of ['paid', 'packed']) {
++    const o = orderIn(status);
++    const f = fakes();
++    cancel(o, f);
++    assert.equal(o.status, 'cancelled', status);
++    assert.deepEqual(f.refunds, [[o.id, 36000]], status);
++    assert.deepEqual(f.released, [o.items], status);
++  }
++});
++
++test('отмена запрещена из shipped, delivered, cancelled, returned', () => {
++  for (const status of ['shipped', 'delivered', 'cancelled', 'returned']) {
++    const o = orderIn('delivered');
++    if (status === 'shipped') Object.assign(o, orderIn('shipped'));
++    else o.status = status;
++    const before = structuredClone(o);
++    const f = fakes();
++    assert.throws(() => cancel(o, f), code('CANCEL_FORBIDDEN'), status);
++    assert.deepEqual(o, before, status);
++    assert.deepEqual(f.refunds, [], status);
++    assert.deepEqual(f.released, [], status);
++  }
++});
++
++test('повторная отмена -> CANCEL_FORBIDDEN, деньги не возвращаются повторно', () => {
++  const o = orderIn('paid');
++  const f = fakes();
++  cancel(o, f);
++  assert.throws(() => cancel(o, f), code('CANCEL_FORBIDDEN'));
++  assert.equal(f.refunds.length, 1);
++  assert.equal(f.released.length, 1);
++});
++
++function deliveredAt(iso) {
++  const o = orderIn('created');
++  pay(o); pack(o); ship(o, { trackingNumber: 'T' });
++  deliver(o, { at: new Date(iso) });
++  return o;
++}
++
++test('возврат: сразу после доставки - деньги возвращены, статус returned', () => {
++  const t = Date.parse('2026-05-01T12:00:00Z');
++  const o = deliveredAt('2026-05-01T12:00:00Z');
++  const f = fakes();
++  assert.equal(returnOrder(o, { now: new Date(t + DAY), payments: f.payments }), o);
++  assert.equal(o.status, 'returned');
++  assert.deepEqual(f.refunds, [[o.id, 36000]]);
++  assert.equal(o.history.at(-1).status, 'returned');
++});
++
++test('возврат: на 14-е сутки принимается', () => {
++  const t = Date.parse('2026-05-01T12:00:00Z');
++  for (const offset of [14 * DAY, 15 * DAY - 1]) {
++    const o = deliveredAt('2026-05-01T12:00:00Z');
++    const f = fakes();
++    returnOrder(o, { now: new Date(t + offset), payments: f.payments });
++    assert.equal(o.status, 'returned', `offset ${offset}`);
++    assert.equal(f.refunds.length, 1);
++  }
++});
++
++test('возврат: на 15-е сутки не принимается', () => {
++  const t = Date.parse('2026-05-01T12:00:00Z');
++  for (const offset of [15 * DAY, 15 * DAY + 1, 40 * DAY]) {
++    const o = deliveredAt('2026-05-01T12:00:00Z');
++    const before = structuredClone(o);
++    const f = fakes();
++    assert.throws(() => returnOrder(o, { now: new Date(t + offset), payments: f.payments }), code('RETURN_FORBIDDEN'), `offset ${offset}`);
++    assert.deepEqual(o, before);
++    assert.deepEqual(f.refunds, []);
++  }
++});
++
++test('возврат не из delivered -> RETURN_FORBIDDEN, заказ и деньги не тронуты', () => {
++  for (const status of ['created', 'paid', 'packed', 'shipped', 'cancelled', 'returned']) {
++    const o = orderIn('delivered');
++    if (['created', 'paid', 'packed', 'shipped'].includes(status)) {
++      Object.assign(o, orderIn(status));
++    } else {
++      o.status = status;
++    }
++    const before = structuredClone(o);
++    const f = fakes();
++    assert.throws(() => returnOrder(o, { now: new Date(), payments: f.payments }), code('RETURN_FORBIDDEN'), status);
++    assert.deepEqual(o, before, status);
++    assert.deepEqual(f.refunds, [], status);
++  }
++});
++
++test('повторный возврат -> RETURN_FORBIDDEN, одно списание', () => {
++  const o = deliveredAt('2026-05-01T12:00:00Z');
++  const f = fakes();
++  const now = new Date('2026-05-02T12:00:00Z');
++  returnOrder(o, { now, payments: f.payments });
++  assert.throws(() => returnOrder(o, { now, payments: f.payments }), code('RETURN_FORBIDDEN'));
++  assert.equal(f.refunds.length, 1);
++});
+diff --git a/test/tariff.test.js b/test/tariff.test.js
+new file mode 100644
+index 0000000..0abbd9f
+--- /dev/null
++++ b/test/tariff.test.js
+@@ -0,0 +1,125 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { TariffError, zoneForPostcode, billableUnits, quote, deliveryDays } from '../src/tariff.js';
++
++const code = (c) => (e) => e instanceof TariffError && e.code === c;
++
++test('зона: 10xxxx - 14xxxx -> A', () => {
++  for (const p of ['100000', '101000', '123456', '140000', '149999']) assert.equal(zoneForPostcode(p), 'A', p);
++});
++
++test('зона: 19xxxx -> B', () => {
++  for (const p of ['190000', '190121', '199999']) assert.equal(zoneForPostcode(p), 'B', p);
++});
++
++test('зона: прочие шестизначные -> C', () => {
++  for (const p of ['150000', '180000', '200000', '420000', '000000', '999999']) assert.equal(zoneForPostcode(p), 'C', p);
++});
++
++test('зона: индекс не из шести цифр -> POSTCODE', () => {
++  for (const p of ['12345', '1234567', '12345a', '', ' 123456', '12 456', null, undefined, 123456]) {
++    assert.throws(() => zoneForPostcode(p), code('POSTCODE'), String(p));
++  }
++});
++
++test('вес: округление вверх до 0,5 кг', () => {
++  const cases = [[0.1, 1], [0.5, 1], [0.6, 2], [1, 2], [1.2, 3], [1.5, 3], [1.51, 4], [29.9, 60], [30, 60]];
++  for (const [kg, units] of cases) assert.equal(billableUnits(kg), units, String(kg));
++});
++
++test('вес: границы диапазона включительно', () => {
++  assert.doesNotThrow(() => billableUnits(0.1));
++  assert.doesNotThrow(() => billableUnits(30));
++});
++
++test('вес вне диапазона -> WEIGHT_RANGE', () => {
++  for (const w of [0, 0.09, -1, 30.01, 100, Infinity, -Infinity]) {
++    assert.throws(() => billableUnits(w), code('WEIGHT_RANGE'), String(w));
++  }
++});
++
++test('вес не число -> WEIGHT_TYPE', () => {
++  for (const w of ['1.5', '', NaN, null, undefined, {}, [], true]) {
++    assert.throws(() => billableUnits(w), code('WEIGHT_TYPE'), String(w));
++  }
++});
++
++test('quote: пример из требований - 1,2 кг в зону A, 360 ₽', () => {
++  assert.deepEqual(quote({ weightKg: 1.2, postcode: '101000' }), { zone: 'A', billableKg: 1.5, totalKopecks: 36000 });
++});
++
++test('quote: ставки зон за 0,5 кг', () => {
++  assert.equal(quote({ weightKg: 0.5, postcode: '101000' }).totalKopecks, 12000);
++  assert.equal(quote({ weightKg: 0.5, postcode: '190000' }).totalKopecks, 15000);
++  assert.equal(quote({ weightKg: 0.5, postcode: '420000' }).totalKopecks, 21000);
++});
++
++test('quote: минимальный вес тарифицируется как 0,5 кг', () => {
++  assert.deepEqual(quote({ weightKg: 0.1, postcode: '420000' }), { zone: 'C', billableKg: 0.5, totalKopecks: 21000 });
++});
++
++test('quote: максимальный вес 30 кг', () => {
++  assert.equal(quote({ weightKg: 30, postcode: '420000' }).totalKopecks, 60 * 21000);
++});
++
++test('quote: экспресс +50% к базовой', () => {
++  assert.equal(quote({ weightKg: 1.2, postcode: '101000', express: true }).totalKopecks, 54000);
++});
++
++test('quote: хрупкое +300 ₽', () => {
++  assert.equal(quote({ weightKg: 1.2, postcode: '101000', fragile: true }).totalKopecks, 66000);
++});
++
++test('quote: хрупкое при экспрессе +600 ₽', () => {
++  assert.equal(quote({ weightKg: 1.2, postcode: '101000', express: true, fragile: true }).totalKopecks, 54000 + 60000);
++});
++
++test('quote: лояльность -10% от итога', () => {
++  assert.equal(quote({ weightKg: 1.2, postcode: '101000', loyalty: true }).totalKopecks, 32400);
++});
++
++test('quote: скидка лояльности считается после надбавки за хрупкость', () => {
++  assert.equal(quote({ weightKg: 1.2, postcode: '101000', loyalty: true, fragile: true }).totalKopecks, 59400);
++});
++
++test('quote: при экспрессе скидка лояльности не действует', () => {
++  const base = quote({ weightKg: 1.2, postcode: '101000', express: true, fragile: true });
++  const withLoyalty = quote({ weightKg: 1.2, postcode: '101000', express: true, fragile: true, loyalty: true });
++  assert.equal(withLoyalty.totalKopecks, base.totalKopecks);
++});
++
++test('quote: итог - целое число рублей', () => {
++  for (const weightKg of [0.1, 0.7, 1.2, 3.3, 7.7, 29.9]) {
++    for (const postcode of ['101000', '190000', '420000']) {
++      for (const [express, fragile, loyalty] of [[0, 0, 0], [1, 0, 0], [0, 1, 1], [1, 1, 0], [0, 0, 1]]) {
++        const { totalKopecks } = quote({ weightKg, postcode, express: !!express, fragile: !!fragile, loyalty: !!loyalty });
++        assert.ok(Number.isInteger(totalKopecks) && totalKopecks % 100 === 0, `${weightKg} ${postcode} -> ${totalKopecks}`);
++      }
++    }
++  }
++});
++
++test('quote: сквозные ошибки', () => {
++  assert.throws(() => quote({ weightKg: 31, postcode: '101000' }), code('WEIGHT_RANGE'));
++  assert.throws(() => quote({ weightKg: '1', postcode: '101000' }), code('WEIGHT_TYPE'));
++  assert.throws(() => quote({ weightKg: 1, postcode: '1010' }), code('POSTCODE'));
++});
++
++test('срок: стандарт', () => {
++  assert.equal(deliveryDays('A'), 1);
++  assert.equal(deliveryDays('B'), 3);
++  assert.equal(deliveryDays('C'), 5);
++});
++
++test('срок: экспресс', () => {
++  assert.equal(deliveryDays('A', { express: true }), 1);
++  assert.equal(deliveryDays('B', { express: true }), 2);
++  assert.equal(deliveryDays('C', { express: true }), 3);
++});
++
++test('срок: неизвестная зона -> ZONE', () => {
++  for (const z of ['D', undefined, '', 'a', 'toString']) {
++    assert.throws(() => deliveryDays(z), code('ZONE'), String(z));
++    assert.throws(() => deliveryDays(z, { express: true }), code('ZONE'), String(z));
++  }
++});

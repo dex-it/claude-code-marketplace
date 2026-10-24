@@ -1,0 +1,210 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..188e9d8
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,154 @@
++name: CI
++
++on:
++  pull_request:
++  push:
++    branches: [main]
++
++permissions:
++  contents: read
++
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
++
++env:
++  DOTNET_NOLOGO: true
++  DOTNET_CLI_TELEMETRY_OPTOUT: true
++
++jobs:
++  build:
++    name: build
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - name: Restore (по лок-файлу)
++        run: dotnet restore --locked-mode
++      # Анализаторы и TreatWarningsAsErrors из Directory.Build.props: предупреждения валят сборку.
++      - name: Build
++        run: dotnet build --no-restore -c Release
++      - name: Audit dependencies
++        run: |
++          dotnet list package --vulnerable --include-transitive 2>&1 | tee audit.txt
++          if grep -q "has the following vulnerable packages" audit.txt; then
++            echo "::error::Найдены уязвимые зависимости"
++            exit 1
++          fi
++
++  contracts:
++    name: contracts (${{ matrix.os }})
++    runs-on: ${{ matrix.os }}
++    timeout-minutes: 15
++    strategy:
++      fail-fast: false
++      matrix:
++        os: [ubuntu-latest, windows-latest]
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore --locked-mode
++      - run: dotnet build --no-restore -c Release
++      - name: Test (Contracts)
++        run: >
++          dotnet test --no-build -c Release --filter "Category=Contracts"
++          --logger "trx;LogFileName=contracts.trx" --collect:"XPlat Code Coverage"
++          --results-directory TestResults
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: test-results-contracts-${{ matrix.os }}
++          path: TestResults
++          retention-days: 14
++
++  integration:
++    name: integration
++    runs-on: ubuntu-latest # Docker для Testcontainers есть на GitHub-hosted ubuntu
++    timeout-minutes: 20
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore --locked-mode
++      - run: dotnet build --no-restore -c Release
++      - name: Test (Integration)
++        run: >
++          dotnet test --no-build -c Release --filter "Category=Integration"
++          --logger "trx;LogFileName=integration.trx" --collect:"XPlat Code Coverage"
++          --results-directory TestResults
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: test-results-integration
++          path: TestResults
++          retention-days: 14
++
++  format:
++    name: format (report only)
++    runs-on: ubuntu-latest
++    timeout-minutes: 10
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore --locked-mode
++      # Отчёт без блокировки: замечаний 300+, чинятся постепенно. Не добавлять в required checks.
++      - name: dotnet format
++        continue-on-error: true
++        run: dotnet format --no-restore --verify-no-changes --report format-report
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: format-report
++          path: format-report
++          if-no-files-found: ignore
++          retention-days: 14
++
++  license-check:
++    name: license-check
++    needs: [contracts, integration]
++    permissions:
++      contents: read
++    uses: ci-shared/.github/.github/workflows/license-check.yml@v2
++
++  image:
++    name: image
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    needs: [build, contracts, integration, license-check]
++    runs-on: ubuntu-latest
++    timeout-minutes: 20
++    steps:
++      - uses: actions/checkout@v4
++      - uses: docker/setup-buildx-action@v3
++      - uses: docker/login-action@v3
++        with:
++          registry: registry.example.com
++          username: ${{ secrets.REGISTRY_USER }}
++          password: ${{ secrets.REGISTRY_PASSWORD }}
++      - uses: docker/build-push-action@v6
++        with:
++          context: .
++          push: true
++          tags: registry.example.com/depot/api:${{ github.sha }}
++
++  deploy-stage:
++    name: deploy stage
++    needs: [image]
++    runs-on: ubuntu-latest
++    timeout-minutes: 5
++    concurrency:
++      group: deploy-stage
++      cancel-in-progress: false
++    steps:
++      # GITHUB_TOKEN не действует в другом репозитории: нужен токен с actions:write на dex/depot-infra.
++      - name: Dispatch deploy.yml
++        env:
++          GH_TOKEN: ${{ secrets.DEPOT_INFRA_TOKEN }}
++        run: gh workflow run deploy.yml --repo dex/depot-infra --ref main
+diff --git a/.github/workflows/size-label.yml b/.github/workflows/size-label.yml
+new file mode 100644
+index 0000000..805786d
+--- /dev/null
++++ b/.github/workflows/size-label.yml
+@@ -0,0 +1,33 @@
++name: PR size label
++
++# pull_request_target: у PR из форков токен pull_request только на чтение, метку поставить нельзя.
++# Код PR не выкачивается и не исполняется - только метаданные из события.
++on:
++  pull_request_target:
++    types: [opened, synchronize, reopened]
++
++permissions:
++  pull-requests: write
++
++concurrency:
++  group: size-${{ github.event.pull_request.number }}
++  cancel-in-progress: true
++
++jobs:
++  label:
++    runs-on: ubuntu-latest
++    timeout-minutes: 5
++    steps:
++      - uses: actions/github-script@v7
++        with:
++          script: |
++            const pr = context.payload.pull_request;
++            const changed = pr.additions + pr.deletions;
++            const size = changed <= 50 ? 'size/S' : changed <= 250 ? 'size/M' : 'size/L';
++            const issue = { owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number };
++            for (const l of pr.labels) {
++              if (l.name.startsWith('size/') && l.name !== size) {
++                await github.rest.issues.removeLabel({ ...issue, name: l.name });
++              }
++            }
++            await github.rest.issues.addLabels({ ...issue, labels: [size] });
+diff --git a/Directory.Build.props b/Directory.Build.props
+index 16cc93e..a58840e 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -5,5 +5,6 @@
+     <ImplicitUsings>enable</ImplicitUsings>
+     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+     <Version>1.4.0</Version>
++    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+   </PropertyGroup>
+ </Project>

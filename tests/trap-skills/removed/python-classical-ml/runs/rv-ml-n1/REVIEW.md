@@ -1,0 +1,16 @@
+src/shelfwatch/baseline.py:38 - случайный train_test_split без групп и времени, а у магазина несколько месячных срезов: один магазин попадает и в train, и в test, метрики завышены; заявленной в MR оценки по месячным срезам в коде нет (нужен временной сплит по snapshot + группировка по store_id/account_id) - blocker
+src/shelfwatch/baseline.py:48 - SMOTE применён ко всем данным до CV: синтетические соседи тестовых точек попадают в train, а валидационные фолды содержат синтетику; ROC AUC завышен, к реальному оттоку 5% не относится (SMOTE только внутри imblearn Pipeline на train-фолде) - blocker
+src/shelfwatch/baseline.py:49 - KFold без стратификации и без групп на данных с повторными срезами магазинов: утечка между фолдами, нестабильная доля оттока по фолдам - major
+src/shelfwatch/baseline.py:39 - редкий класс (5%), RandomForest без class_weight (и без stratify в split:38): модель склоняется к мажоритарному классу, recall оттока низкий - major
+src/shelfwatch/baseline.py:60 - XGBClassifier на редком классе без scale_pos_weight: то же смещение к нулевому классу - major
+src/shelfwatch/baseline.py:60 - n_estimators=10000, max_depth=20, learning_rate=0.3 без early_stopping_rounds, хотя eval_set передан: переобучение и долгое обучение, eval_set ничего не меняет - major
+src/shelfwatch/baseline.py:41 - accuracy при доле оттока 5% бессмысленна (константа "не уйдёт" даёт 95%); функция ещё и возвращает именно accuracy (:43); нужны PR AUC, recall/precision/F1 по классу оттока - major
+src/shelfwatch/baseline.py:27 - TargetEncoder по store_id (около 1 200 значений, повторные срезы) обучен на всей выборке до сплита: целевая переменная теста участвует в кодировании, метрики завышены; кодировать нужно в Pipeline на train - major
+src/shelfwatch/baseline.py:32 - SelectKBest(f_classif) обучен на всех данных вместе с y до сплита: утечка отбора признаков в test; к тому же k=3 из 4 признаков - отбор почти не нужен - major
+src/shelfwatch/baseline.py:22 - dropna() выкидывает 18% строк, где n_tickets пуст (магазины без обращений, по docs/data.md): пропуск информативен, выборка смещена именно по группе с иным риском оттока, на проде такие магазины получат ошибку; нужен индикатор пропуска + импутация 0 - major
+src/shelfwatch/baseline.py:67 - GridSearchCV по лесу без групп/времени и без class_weight, на уже отобранных по всем данным признаках (:32): оптимистичная оценка лучших параметров, в итоге подбор переобучается на утечку - major
+src/shelfwatch/baseline.py:26 - StandardScaler обучен на всех данных до сплита (утечка статистик) и бесполезен для деревьев - minor
+src/shelfwatch/baseline.py:78 - Pipeline со StandardScaler перед RandomForest: масштабирование не влияет на деревья, лишний код - minor
+src/shelfwatch/baseline.py:55 - one_hot_stores не используется и обучается на всех данных; при ~1 200 магазинах даёт 1 200 колонок, для леса и XGBoost разрежено и тяжело - minor
+src/shelfwatch/baseline.py:21 - print(df.head()) в load(): побочный вывод в библиотечной функции (в логи попадают данные магазинов) - minor
+tests/test_baseline.py:6 - тест проверяет только, что список NUM равен колонкам DataFrame, построенного из него же (тавтология); features, сплиты, отсутствие утечки не покрыты - minor

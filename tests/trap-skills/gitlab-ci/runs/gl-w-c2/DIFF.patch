@@ -1,0 +1,147 @@
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+new file mode 100644
+index 0000000..b513123
+--- /dev/null
++++ b/.gitlab-ci.yml
+@@ -0,0 +1,141 @@
++stages:
++  - build
++  - test
++  - image
++  - deploy
++
++# Пайплайн на MR (в том числе из форков) и на main/develop; дублей branch-пайплайна у открытого MR нет.
++workflow:
++  rules:
++    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
++    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
++
++variables:
++  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
++  DOTNET_NOLOGO: "1"
++  NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget
++  REPORTGENERATOR_VERSION: "5.3.11"
++
++default:
++  # Без tags: джобы идут на общие shared-раннеры (docker executor).
++  cache:
++    key: nuget-$CI_COMMIT_REF_SLUG
++    paths:
++      - .nuget/
++
++build:
++  stage: build
++  image: mcr.microsoft.com/dotnet/sdk:8.0.404
++  script:
++    - dotnet restore Depot.sln
++    - dotnet build Depot.sln -c Release --no-restore
++  artifacts:
++    expire_in: 1 day
++    paths:
++      - src/*/bin/
++      - src/*/obj/
++      - tests/*/bin/
++      - tests/*/obj/
++
++test:
++  stage: test
++  image: mcr.microsoft.com/dotnet/sdk:8.0.404
++  needs: [build]
++  services:
++    - name: postgres:16
++      alias: postgres
++  variables:
++    POSTGRES_DB: depot
++    POSTGRES_USER: depot
++    # Пароль одноразового тестового сервиса внутри джобы, не секрет.
++    POSTGRES_PASSWORD: depot-ci-test
++    ConnectionStrings__Default: "Host=postgres;Database=depot;Username=depot;Password=depot-ci-test"
++    Auth__ApiKey: ci-test-key
++  script:
++    - dotnet test Depot.sln -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
++    - dotnet tool install --tool-path .tools dotnet-reportgenerator-globaltool --version "$REPORTGENERATOR_VERSION"
++    - .tools/reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coverage -reporttypes:"TextSummary;Cobertura"
++    - cat coverage/Summary.txt
++  coverage: '/Line coverage: (\d+(?:\.\d+)?)%/'
++  artifacts:
++    when: always
++    expire_in: 1 week
++    paths:
++      - TestResults/
++      - coverage/
++    reports:
++      coverage_report:
++        coverage_format: cobertura
++        path: coverage/Cobertura.xml
++
++# Образ собирается и пушится только на main: в пайплайнах форков нет прав на registry родительского проекта.
++image:
++  stage: image
++  image: docker:27
++  needs: [test]
++  services:
++    - docker:27-dind
++  variables:
++    DOCKER_TLS_CERTDIR: "/certs"
++  rules:
++    - if: $CI_COMMIT_BRANCH == "main"
++  script:
++    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
++    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" -t "$CI_REGISTRY_IMAGE:latest" .
++    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
++    - docker push "$CI_REGISTRY_IMAGE:latest"
++
++.deploy:
++  image:
++    name: bitnami/kubectl:1.31
++    entrypoint: [""]
++  tags: [depot-deploy]
++  variables:
++    DEPLOY_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
++  rules:
++    - if: $CI_COMMIT_BRANCH == "main"
++  before_script:
++    # KUBECONFIG_B64 и DB_MIGRATION_PASSWORD (protected, masked) в лог не выводим; env/set -x не использовать.
++    - export KUBECONFIG="$CI_PROJECT_DIR/.kubeconfig"
++    - echo "$KUBECONFIG_B64" | base64 -d > "$KUBECONFIG"
++    - chmod 600 "$KUBECONFIG"
++  script:
++    - echo "Деплой: окружение=$DEPLOY_ENV namespace=$DEPLOY_NS deployment=depot-api container=api"
++    - echo "Образ=$DEPLOY_IMAGE commit=$CI_COMMIT_SHORT_SHA pipeline=$CI_PIPELINE_URL"
++    - kubectl set image deployment/depot-api api="$DEPLOY_IMAGE" -n "$DEPLOY_NS"
++    - kubectl rollout status deployment/depot-api -n "$DEPLOY_NS" --timeout=180s
++    # Фактические настройки деплоймента для разбора проблем: только имена переменных, значения скрыты (в них пароль БД и ключ API).
++    - |
++      echo "Переменные окружения контейнера api (без значений):"
++      kubectl get deployment/depot-api -n "$DEPLOY_NS" -o jsonpath='{range .spec.template.spec.containers[?(@.name=="api")].env[*]}{.name}{"\n"}{end}'
++    - |
++      echo "Образ и ресурсы контейнера api:"
++      kubectl get deployment/depot-api -n "$DEPLOY_NS" -o jsonpath='{.spec.template.spec.containers[?(@.name=="api")].image}{"\n"}{.spec.template.spec.containers[?(@.name=="api")].resources}{"\n"}'
++  after_script:
++    - rm -f "$CI_PROJECT_DIR/.kubeconfig"
++
++deploy-stage:
++  extends: .deploy
++  stage: deploy
++  needs: [image]
++  resource_group: depot-stage
++  environment:
++    name: stage
++  variables:
++    DEPLOY_ENV: stage
++    DEPLOY_NS: depot-stage
++
++deploy-prod:
++  extends: .deploy
++  stage: deploy
++  needs: [deploy-stage]
++  resource_group: depot-prod
++  environment:
++    name: production
++  variables:
++    DEPLOY_ENV: prod
++    DEPLOY_NS: depot
++  rules:
++    # Прод катим вручную после успешного stage.
++    - if: $CI_COMMIT_BRANCH == "main"
++      when: manual

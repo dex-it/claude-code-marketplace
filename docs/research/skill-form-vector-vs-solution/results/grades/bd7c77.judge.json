@@ -1,0 +1,81 @@
+{
+  "id": "bd7c77",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0370154,
+    "durationMs": 5778,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3280,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 517,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3280,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 517,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3280,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3280
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Утверждение про обязательность Optional[Decimal] без дефолта и 422 для старых клиентов в выходе не затронуто."
+    },
+    "FVB-KB2": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Утверждение, что pydantic по умолчанию отвергает лишние поля, в выходе не опровергнуто и не затронуто."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не требует заменить req.dict() на model_dump()."
+    },
+    "FVB-OB1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Гонка при чтении баланса и UPDATE без блокировки не названа; 409 упомянут лишь как неверный статус."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "POINT_VALUE следует определить как `Decimal(\"0.1\")`",
+      "why": "Находка 1 прямо называет неточность Decimal(0.1) от float."
+    },
+    "FVB-OB3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Про отрицательный confirm_amount, который начисляет баллы, в выходе ничего нет."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "IDOR через member_id из тела запроса без аутентификации не упомянут."
+    }
+  },
+  "stderr": ""
+}

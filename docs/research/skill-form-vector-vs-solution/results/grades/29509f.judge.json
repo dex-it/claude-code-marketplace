@@ -1,0 +1,92 @@
+{
+  "id": "29509f",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11612700000000001,
+    "durationMs": 16622,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10274,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1675,
+      "output_tokens_details": {
+        "thinking_tokens": 527
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10274,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1675,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10274,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10274
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "после `ToRows()` добавляются ещё `Where` и `OrderByDescending`, то есть `Select` больше не последний оператор — EF должен транслировать всё в единый SQL-запрос и не сможет перевести `WorkCalendar.IsWorkingDay`",
+      "why": "Найдены нетранслируемый Where по OffDay после клиентской проекции и падение FLEET-109; предложена фильтрация после материализации."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри `<raw sql>` перед закрывающей скобкой подзапроса — синтаксическая ошибка Postgres",
+      "why": "Описаны оборачивание SQL в подзапрос при vehicleId и то, почему путь без фильтра прошёл проверку; предложено убрать ';'."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "вставка нового `VehicleEquipment` с тем же `(vehicle_id, code)` упадёт на unique-индексе",
+      "why": "Найдены отсутствие Include, холостой Clear(), остающиеся старые позиции и нарушение уникального индекса; предложен Include."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "миграция упадёт в проде с ошибкой `value too long for type character varying(40)`",
+      "why": "Падение ALTER на длинных prod-данных отмечено; предложено обрезать данные в миграции до AlterColumn."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Сортировка (и индекс `(VehicleId, CreatedAt)` в `FleetDbContext`) должны быть по `InspectedAt`.",
+      "why": "Выбор колонки сортировки — другой механизм: неуникальный CreatedAt внутри одной пачки при SplitQuery, из-за которого замечания берутся от другого осмотра, не назван, ThenByDescending(Id)/AsSingleQuery не предложены."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "`p.ValidUntil > today` вместо `>=`; допуск, действующий «по дату включительно», ровно в последний день будет считаться недействующим",
+      "why": "Дефект последнего дня допуска назван прямо."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "любой аутентифицированный пользователь (водитель, диспетчер и т.д.), а не только механик/флит-менеджер, может подменить комплектацию любой машины",
+      "why": "Отсутствие ролевой политики на PUT equipment отмечено."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "`DriverService.ReplacePermitsAsync` ... правильно делает `.Include(d => d.Permits)` перед `Clear()`",
+      "why": "ReplacePermitsAsync назван корректным образцом, а не дефектом."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "результат следует делать `.AsNoTracking()`",
+      "why": "О FindByPlateAsync сказано только про AsNoTracking; ни инъекции, ни ошибки композиции не заявлено."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,14 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.1.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.1.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.1.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.1.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.1.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'cd /work; ls -laR cores prod symbols src; readelf -n prod/crashme | grep -i build; file cores/core; which gdb eu-readelf readelf'
+docker exec <ctr> sh -c 'cd /work; for f in symbols/*.debug; do echo $f; readelf -n $f | grep "Build ID"; done; readelf -n cores/core | grep -iA3 build; cat src/crashme.c; gdb -batch -ex bt -ex "info registers" -ex "x/6i \$pc-8" -ex "info sharedlibrary" prod/crashme cores/core 2>&1 | head -80'
+cd /work 2>/dev/null; docker exec <ctr> sh -c 'cd /work; readelf -n symbols/build-0419.debug 2>/dev/null| grep "Build ID"; readelf -n symbols/build-0412.debug 2>/dev/null| grep "Build ID"; for a in 0x9c4 0xa2c 0x920; do addr2line -e symbols/build-0419.debug -f -i -C $a; done; echo ---0412; addr2line -e symbols/build-0412.debug -f -i 0x9c4; gdb -batch -ex "frame 1" -ex "info registers x19 x20 x21" -ex "x/s *(char**)(\$sp+0)" -ex "info proc mappings" prod/crashme cores/core 2>&1 | tail -30'
+docker exec <ctr> sh -c 'cd /work; readelf -n symbols/build-0419.debug 2>/dev/null| grep "Build ID"; readelf -n symbols/build-0412.debug 2>/dev/null| grep "Build ID"; for a in 0x9c4 0xa2c 0x920; do addr2line -e symbols/build-0419.debug -f -i -C $a; done; echo ---0412; addr2line -e symbols/build-0412.debug -f -i 0x9c4; gdb -batch -ex "frame 1" -ex "info registers x19 x20 x21" -ex "info proc mappings" prod/crashme cores/core 2>&1 | tail -30'
+docker exec <ctr> sh -c 'cd /work; gdb -batch -ex "frame 0" -ex "info registers x0 x19 x20" -ex "x/10i 0xaaaabbd50990" -ex "x/20gx 0xffffca7d6f30" -ex "x/s *(char**)0xffffca7d6f58" -ex "x/s *(char**)0xffffca7d6f78" -ex "x/s *(char**)0xffffca7d6f88" -ex "x/s *(char**)0xffffca7d6f98" prod/crashme cores/core 2>&1 | tail -40'
+docker exec <ctr> sh -c 'cd /work; gdb -batch -ex "frame 2" -ex "info frame" -ex "find /g 0xffffca7d6000, 0xffffca7d7100, (long)90000" prod/crashme cores/core 2>&1 | tail -12; strings -t x prod/crashme | grep -E "platinum|silver|basic|gold"'
+docker exec <ctr> sh -c 'cd /work; gdb -batch -ex "x/6gx 0xffffca7d6e40" -ex "x/s *(char**)0xffffca7d6e48" -ex "x/s 0xaaaabbd50a90" -ex "x/6gx 0xffffca7d6dc8" -ex "x/s *(char**)0xffffca7d6dd0"  prod/crashme cores/core 2>&1 | tail -14'
+[Write] <lab>/REPORT.md

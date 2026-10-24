@@ -1,0 +1,40 @@
+{
+  "id": "k4-fa",
+  "case": "K4",
+  "edition": "final",
+  "skills": [
+    "playwright"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.1023844,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 5
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd e2e && ls -a . tests; cat playwright.config.ts tests/*; cat ../api/src/seed.ts; ls ../web/src ../web/src/*; cat package.json",
+    "cd ../web/src && cat App.tsx components/LoginForm.tsx components/OrdersPage.tsx api.ts; cat ../vite.config.ts; cat <run>/.gitignore",
+    "cd <run>/api/src && ls . routes 2>/dev/null; grep -rn \"router\\.\\(get\\|post\\)\\|app\\.\\(get\\|post\\)\" . | grep -v test",
+    "sed -n 30,120p app.ts",
+    "cd <run>/e2e && cat > tests/fixtures.ts <<'EOF'\nimport { test as base, expect, type APIRequestContext, type Page } from '@playwright/tes"
+  ]
+}

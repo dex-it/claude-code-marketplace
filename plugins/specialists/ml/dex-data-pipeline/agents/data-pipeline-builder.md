@@ -13,10 +13,7 @@ Creator для построения data loading pipelines. Анализируе
 
 ## Skills
 
-В Phase 2 загружай skills через Skill tool в зависимости от фреймворка:
-
-- Если PyTorch (DataLoader, Dataset) -- `dex-skill-python-pytorch:python-pytorch`
-- Если TensorFlow (tf.data) -- `dex-skill-python-tensorflow:python-tensorflow`
+В Phase 2 при TensorFlow (`tf.data`) загружай `dex-skill-python-tensorflow:python-tensorflow` `[справочно]` через Skill tool; иначе профильного skill по входному конвейеру в каталоге нет, фаза идёт без него.
 
 ## Phases
 
@@ -26,7 +23,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Goal:** Определить характеристики данных, фреймворк, требования к performance.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` источник данных и целевой результат пайплайна; `[default-ok]` требования к производительности, формат выхода, оркестратор запуска, `mode` - канал к пользователю, поля нет -> `autonomous`. Источника данных нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` источник данных и целевой результат пайплайна; `[default-ok]` требования к производительности, формат выхода, оркестратор запуска, `mode` - оператор в петле, поля нет -> `autonomous`. Источника данных нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Спецификация pipeline:
 - Тип данных: images / text / tabular / time-series / audio / multimodal
@@ -35,9 +32,9 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Augmentation: нужна ли, какие трансформации
 - Target throughput: сколько samples/sec нужно чтобы GPU не простаивал
 
-**Exit criteria:** Тип данных, фреймворк и ограничения по памяти определены. Если не указаны -- запросить явно: в `interactive` у пользователя, при спавне узлом (нет поля `mode` -> `autonomous`, канала к юзеру нет) -- возвратом наверх со статусом `blocked` и перечнем недостающего.
+**Exit criteria:** Тип данных, фреймворк и ограничения по памяти определены. Если не указаны -- запросить явно: канал есть (тело исполняет главный цикл) - у пользователя; при спавне узлом канала нет ни в каком режиме -- возвратом наверх со статусом `blocked` и перечнем недостающего.
 
-**Mandatory:** yes -- pipeline для images и text кардинально различаются.
+**Mandatory:** yes
 
 При анализе:
 - Проверить существующий код загрузки данных в проекте
@@ -55,7 +52,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Pipeline создан, код синтаксически корректен, конфигурация оптимальна для определённого размера данных. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
-**Mandatory:**
+**Обязательное в пайплайне:**
 - PyTorch: pin_memory=True для GPU training, persistent_workers=True для reuse, prefetch_factor для предзагрузки
 - TensorFlow: tf.data.AUTOTUNE для num_parallel_calls и prefetch
 - Augmentation в train pipeline, без augmentation в val/test
@@ -70,7 +67,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Output:** Benchmark результаты: throughput (batches/sec), latency per batch, GPU utilization assessment.
 
-**Exit criteria:** замеры приведены числами - throughput (batches/sec), RSS до и после полного прохода, shape и dtype из `dataset[0]`; расхождение по двум проходам val-loader'а названо явно (расхождения нет -> так и записать). Throughput недостаточен -> вернуться в Phase 2 (num_workers, caching, format). Прогон невозможен в среде (нет датасета/GPU) -> `run-status: skipped` + причина, отдавать непрогнанный pipeline без этого статуса нельзя.
+**Exit criteria:** замеры приведены числами - throughput (batches/sec), RSS до и после полного прохода, shape и dtype из `dataset[0]`; расхождение по двум проходам val-loader'а названо явно (расхождения нет -> так и записать). Throughput недостаточен -> вернуться в Phase 2 (num_workers, caching, format). Прогон невозможен в среде (нет датасета/GPU) -> `run-status: unverifiable` + причина и `status: partial`, отдавать непрогнанный pipeline без этого статуса нельзя.
 
 Проверки ведутся прогоном, не чтением кода:
 
@@ -80,7 +77,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Утечка памяти - RSS замерен до и после полного прохода эпохи, оба числа приведены
 - Ленивая загрузка для больших datasets - пиковый RSS не растёт пропорционально размеру датасета
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: созданные или изменённые файлы пайплайна с путями, схема данных на входе и выходе, результат прогона на тестовой выборке (`run-status`), допущения о формате и объёме данных, принятые узлом самостоятельно, то, что осталось непроверенным, с причиной, и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Формат данных или доступ к источнику узлу негде взять - `status: blocked` с перечнем недостающего, а не пайплайн на догадках.
+**Output (handoff):** поля словаря `node-contract`, первым - `status` (исход узла); смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: созданные или изменённые файлы пайплайна с путями, схема данных на входе и выходе, результат прогона на тестовой выборке (`run-status`), допущения о формате и объёме данных, принятые узлом самостоятельно, то, что осталось непроверенным, с причиной, и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Формат данных или доступ к источнику узлу негде взять - `status: blocked` с перечнем недостающего, а не пайплайн на догадках.
 
 ## Boundaries
 

@@ -1,0 +1,4 @@
+ls -la <run>/discipline; cat <run>/discipline/* 2>/dev/null
+cd <lab>; ls -laR . | head -50; docker exec <ctr> sh -c 'cat /work/notifier/notifier.sh; echo ----; cat /work/notifier/notifier.env; echo ----; tail -30 /work/notifier/logs/notifier.log'
+docker exec <ctr> sh -c 'grep -n SMTP_RELAY /work/notifier/notifier.sh /work/notifier/notifier.env; echo "grep rc=$?"; env | grep -c SMTP; ls /work/notifier'
+[Write] <lab>/REPORT.md

@@ -1,0 +1,42 @@
+{
+  "id": "k0-n1a",
+  "case": "K0",
+  "edition": "n1",
+  "skills": [
+    "ts-nodejs-api",
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 10,
+  "cost": 0.1032256,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 3,
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100; grep -rniE \"price|₽\" --include=*.ts --include=*.tsx -l . --exclude-dir=node_modules",
+    "cd api/src; cat domain/product.ts seed.ts; grep -n \"product\" -i app.ts store.ts | head -30; cd ../../web/src; cat lib/money.ts types.ts components/ProductsPage.tsx; grep -n \"money\\|formatPrice\\|Price\"",
+    "cd <run>; sed -n 1,64p api/test/orders.test.ts; ls web/src/components/__tests__; grep -n \"₽\\|formatMoney\\|Intl\" web/src/components/__te",
+    "cd <run>\npython3 - <<'E'\nimport re\ndef sub(p,a,b):\n    s=open(p).read(); assert a in s; open(p,'w').write(s.replace(a,b))\nsub('api/src/",
+    "cd <run>\nsed -n 30,60p web/src/components/__tests__/OrdersPage.test.tsx",
+    "cd <run>\ncat > web/src/components/__tests__/ProductsPage.test.tsx <<'E'\nimport { render, screen } from '@testing-library/react';\nimport"
+  ]
+}

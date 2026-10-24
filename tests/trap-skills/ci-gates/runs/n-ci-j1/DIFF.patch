@@ -1,0 +1,51 @@
+diff --git a/src/Depot.Api/Program.cs b/src/Depot.Api/Program.cs
+index f597612..48e1876 100644
+--- a/src/Depot.Api/Program.cs
++++ b/src/Depot.Api/Program.cs
+@@ -39,6 +39,8 @@ app.MapGet("/health", async (NpgsqlDataSource db) =>
+     return Results.Ok();
+ });
+ 
++app.MapGet("/version", () => Results.Json(new { version = VersionInfo.Get(typeof(Program).Assembly) }));
++
+ app.MapGet("/stock/{sku}", async (string sku, NpgsqlDataSource db) =>
+ {
+     await using var cmd = db.CreateCommand("select warehouse, quantity from stock where sku = $1");
+diff --git a/src/Depot.Api/VersionInfo.cs b/src/Depot.Api/VersionInfo.cs
+new file mode 100644
+index 0000000..de37c5d
+--- /dev/null
++++ b/src/Depot.Api/VersionInfo.cs
+@@ -0,0 +1,11 @@
++using System.Reflection;
++
++namespace Depot.Api;
++
++public static class VersionInfo
++{
++    public static string Get(Assembly assembly)
++        => assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
++           ?? assembly.GetName().Version?.ToString()
++           ?? "unknown";
++}
+diff --git a/tests/Depot.Api.Tests/StockTests.cs b/tests/Depot.Api.Tests/StockTests.cs
+index dc675fe..b03beab 100644
+--- a/tests/Depot.Api.Tests/StockTests.cs
++++ b/tests/Depot.Api.Tests/StockTests.cs
+@@ -11,6 +11,16 @@ public class ContractTests
+         => Assert.Equal(new StockDto("A1", "msk", 3), new StockDto("A1", "msk", 3));
+ }
+ 
++public class VersionInfoTests
++{
++    [Fact, Trait("Category", "Contracts")]
++    public void Get_returns_informational_version_of_api_assembly()
++    {
++        var version = VersionInfo.Get(typeof(Program).Assembly);
++        Assert.StartsWith("1.4.0", version);
++    }
++}
++
+ // Интеграционные тесты: Postgres поднимается Testcontainers (нужен Docker на агенте).
+ public class StockEndpointTests : IAsyncLifetime
+ {

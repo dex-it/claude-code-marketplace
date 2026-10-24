@@ -1,0 +1,154 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..d4a7d42
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,111 @@
++name: CI
++
++on:
++  pull_request:
++  push:
++    branches: [main]
++
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
++
++permissions:
++  contents: read
++
++env:
++  DOTNET_NOLOGO: true
++  DOTNET_CLI_TELEMETRY_OPTOUT: true
++
++jobs:
++  test:
++    name: test (${{ matrix.name }})
++    runs-on: ${{ matrix.os }}
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - name: ubuntu-all
++            os: ubuntu-latest
++            filter: ''
++          - name: windows-contracts
++            os: windows-latest
++            filter: 'Category=Contracts'
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore Depot.sln
++      - run: dotnet build Depot.sln -c Release --no-restore
++      - name: Test
++        shell: bash
++        env:
++          FILTER: ${{ matrix.filter }}
++        run: >
++          dotnet test Depot.sln -c Release --no-build
++          --filter "$FILTER"
++          --logger "trx;LogFileName=results.trx"
++          --collect "XPlat Code Coverage"
++          --results-directory TestResults
++      - name: Upload test results and coverage
++        if: ${{ !cancelled() }}
++        uses: actions/upload-artifact@v4
++        with:
++          name: test-results-${{ matrix.name }}
++          path: TestResults/**
++          if-no-files-found: warn
++
++  format:
++    name: format report
++    runs-on: ubuntu-latest
++    # Замечаний пока 300+: отчёт нужен, релиз не блокируем.
++    continue-on-error: true
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          global-json-file: global.json
++      - run: dotnet restore Depot.sln
++      - name: dotnet format
++        run: dotnet format Depot.sln --no-restore --verify-no-changes --report format-report
++      - name: Upload format report
++        if: ${{ !cancelled() }}
++        uses: actions/upload-artifact@v4
++        with:
++          name: format-report
++          path: format-report/**
++          if-no-files-found: ignore
++
++  license-check:
++    needs: test
++    permissions:
++      contents: read
++    uses: ci-shared/.github/.github/workflows/license-check.yml@v2
++
++  publish:
++    name: image and stage deploy
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    needs: [test, license-check]
++    runs-on: ubuntu-latest
++    env:
++      IMAGE: registry.example.com/depot/api
++    steps:
++      - uses: actions/checkout@v4
++      - uses: docker/setup-buildx-action@v3
++      - uses: docker/login-action@v3
++        with:
++          registry: registry.example.com
++          username: ${{ secrets.REGISTRY_USER }}
++          password: ${{ secrets.REGISTRY_PASSWORD }}
++      - uses: docker/build-push-action@v6
++        with:
++          context: .
++          push: true
++          tags: |
++            ${{ env.IMAGE }}:${{ github.sha }}
++            ${{ env.IMAGE }}:latest
++      - name: Trigger stage deploy
++        env:
++          # GITHUB_TOKEN не даёт доступа к другому репозиторию: нужен токен с правом actions:write на dex/depot-infra.
++          GH_TOKEN: ${{ secrets.DEPOT_INFRA_DISPATCH_TOKEN }}
++        run: gh workflow run deploy.yml --repo dex/depot-infra
+diff --git a/.github/workflows/size-label.yml b/.github/workflows/size-label.yml
+new file mode 100644
+index 0000000..31a38b1
+--- /dev/null
++++ b/.github/workflows/size-label.yml
+@@ -0,0 +1,31 @@
++name: PR size label
++
++# pull_request_target: у PR из форков обычный токен только на чтение. Код PR здесь не выкачивается и не исполняется,
++# используются только числа из события.
++on:
++  pull_request_target:
++    types: [opened, synchronize, reopened]
++
++permissions:
++  pull-requests: write
++  issues: write
++
++jobs:
++  label:
++    runs-on: ubuntu-latest
++    steps:
++      - name: Set size label
++        env:
++          GH_TOKEN: ${{ github.token }}
++          REPO: ${{ github.repository }}
++          PR: ${{ github.event.pull_request.number }}
++          CHANGED: ${{ github.event.pull_request.additions + github.event.pull_request.deletions }}
++        run: |
++          if [ "$CHANGED" -lt 50 ]; then label=size/S
++          elif [ "$CHANGED" -lt 250 ]; then label=size/M
++          else label=size/L; fi
++          for l in size/S size/M size/L; do
++            gh label create "$l" --repo "$REPO" --force >/dev/null
++            [ "$l" = "$label" ] || gh pr edit "$PR" --repo "$REPO" --remove-label "$l" >/dev/null 2>&1 || true
++          done
++          gh pr edit "$PR" --repo "$REPO" --add-label "$label"

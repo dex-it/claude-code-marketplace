@@ -1,0 +1,479 @@
+#!/usr/bin/env node
+/**
+ * Прогон активации скиллов: срабатывает ли `description` на реалистичном запросе.
+ *
+ * Зачем: `description` скилла - поле срабатывания, и его правка меняет, поймается
+ * ли скилл вообще. Валидатор судит форму поля (длина, наличие), а не факт
+ * активации; `npm test` судит валидаторы. Активацию решает модель, читая поле, -
+ * проверяется только запуском.
+ *
+ * Метод: headless-сессия `claude -p` в пустой директории (CLAUDE.md проекта не
+ * подсказывает), стрим событий, из него - имена, с которыми вызван Skill.
+ * Кейс `in-scope` ждёт свой скилл среди вызванных, `near-miss` ждёт его отсутствия:
+ * поле, ловящее всё подряд, дефект той же природы, что и не ловящее ничего.
+ *
+ * Прогон стоит денег и ходит в сеть, поэтому НЕ входит в `npm test` и в CI.
+ *
+ * Модель - ось результата, не деталь запуска: зонд 23.08.2026 на одном кейсе дал
+ * opus - скилл + смежный, sonnet - скилл, haiku - ни одного вызова. Модель прогона
+ * пишется в отчёт, сравнивать прогоны на разных моделях нельзя.
+ *
+ * Второй род прогона - `--agents`: виден ли агент в сессии под каноничной формой
+ * `{plugin}:{name}`. Кейсы не хранятся, а строятся из корней плагинов `plugins/`,
+ * поэтому разъехаться с диском не могут. Предмет здесь другой и уже: не выбор модели,
+ * а факт поставки. Зонд 01.09.2026 показал, почему полноценной пробы активации у агента
+ * нет: делегирование - решение по объёму работы, а не первый ход, и на мелкой песочнице
+ * не происходит ни при какой формулировке (3 прогона, 0 делегирований), а прямой вопрос
+ * «кому передашь» уводит модель в `ListAgents`. Что проба ловит: агент не поставлен,
+ * переименован, форма `{plugin}:{name}` разъехалась. Чего НЕ ловит: разрешился ли
+ * pre-load `skills:` у самого агента - в `init.skills` скилл виден потому, что его
+ * плагин установлен, а не потому, что агент его связал.
+ *
+ * Среда прогона - тоже ось результата. По умолчанию прогон ИЗОЛИРОВАН от пользовательской
+ * среды оператора: `--setting-sources project --strict-mcp-config` не грузит `~/.claude/settings.json`
+ * (включённые плагины, хуки), `~/.claude/CLAUDE.md` и MCP-серверы пользователя (`~/.claude.json`,
+ * коннекторы claude.ai), а плагин кейса остаётся, потому что подключён флагом `--plugin-dir`, не
+ * настройкой. Иначе исход кейса зависит от установки того, кто запускает: сторонний плагин
+ * на том же предмете даёт молчание (замер #350: 143 скилла в листинге и 0/3 против 20 и 3/3), и
+ * счётчик перехвата его не видит - перехвата нет, есть только молчание. Изоляция отвечает на
+ * вопрос «годно ли поле само по себе». Вопрос «выживает ли оно рядом с установленным у оператора
+ * соседом» меряется флагом `--operator-env`: изоляции нет, прогон идёт в среде оператора. Режим,
+ * сторонние плагины листинга и MCP-серверы сессии печатаются в итоге и пишутся в `--json` (`env` -
+ * запрошенный режим, `isolationHeld` - факт, `foreignPlugins`, `mcpServers`): «7/7 в изоляции» и
+ * «7/7 в среде оператора» - разные утверждения, и задним числом они различимы только по этой записи.
+ * В изоляции не входят авторизация и модель из пользовательских `env` и `apiKeyHelper`: оператор,
+ * входящий через них, получит ОШИБКУ сессии (`result.is_error`), а не исход кейса - тогда нужен
+ * `--operator-env`.
+ *
+ * Сверено на CLI 2.1.308 зондом (haiku, `--max-turns 1`, пустой каталог, `--plugin-dir` плагина):
+ *   без изоляции                     - 31 скилл, 11 сторонних (`anthropic-skills`), MCP: 5 коннекторов claude.ai;
+ *   `--setting-sources project`
+ *     `--strict-mcp-config` (выбрано) - 20 скиллов, сторонних 0, `mcp_servers` пуст, плагин кейса на месте;
+ *                                       пользовательский `~/.claude/CLAUDE.md` с маркером не дошёл до модели
+ *                                       (без изоляции дошёл);
+ *   `--safe-mode`                    - отвергнут: плагин кейса виден в `init.plugins`, но его скиллов в
+ *                                       листинге нет (19 скиллов, `dex-skill-redis:redis` отсутствует), то есть
+ *                                       флаг убирает и `--plugin-dir`. Авторизация работает.
+ * `init.mcp_servers` без изоляции при коннекторах может прийти пустым (подключаются асинхронно), поэтому
+ * пустой список вне изоляции ничего не доказывает; в изоляции пустоту обеспечивает `--strict-mcp-config`.
+ *
+ * Usage:
+ *   node tools/run-activation.js                       # все кейсы, sonnet, 1 прогон, в изоляции
+ *   node tools/run-activation.js --operator-env        # без изоляции: среда оператора
+ *   node tools/run-activation.js --agents --model haiku # видимость всех агентов дерева
+ *   node tools/run-activation.js --agents --list-cases   # перечень кейсов, без сети
+ *   node tools/run-activation.js --model opus --runs 3
+ *   node tools/run-activation.js --case redis          # подстрока id кейса
+ *   node tools/run-activation.js --only a-in,b-in      # точный список id
+ *   node tools/run-activation.js --json out.json
+ *
+ * Exit codes:
+ *   0 - все кейсы прошли
+ *   1 - хотя бы один провалился
+ *   2 - ошибка запуска (нет кейсов, нет claude в PATH)
+ */
+
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync, statSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { spawn, execFileSync } from 'node:child_process';
+import matter from 'gray-matter';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// MARKETPLACE_ROOT переносит построение кейсов на дерево-песочницу: тем же
+// хуком пользуется validate-agent.js, и он же даёт бесплатный прогон
+// `agentVisibilityCases()` без сети (tests/tools/agent-visibility.test.sh).
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
+const CASES_FILE = join(REPO_ROOT, 'tests', 'activation', 'cases.json');
+
+const COLORS = { reset: '\x1b[0m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', gray: '\x1b[90m', bold: '\x1b[1m' };
+const c = (color, s) => `${COLORS[color]}${s}${COLORS.reset}`;
+
+function arg(name, fallback) {
+  const i = process.argv.indexOf(`--${name}`);
+  return i === -1 ? fallback : process.argv[i + 1];
+}
+
+const MODEL = arg('model', 'sonnet');
+const RUNS = Number(arg('runs', '1'));
+const FILTER = arg('case', null);
+const ONLY = arg('only', null);
+const CONCURRENCY = Number(arg('concurrency', '4'));
+const JSON_OUT = arg('json', null);
+const TIMEOUT_MS = Number(arg('timeout', '300')) * 1000;
+const AGENTS_MODE = process.argv.includes('--agents');
+const LIST_ONLY = process.argv.includes('--list-cases');
+const OPERATOR_ENV = process.argv.includes('--operator-env');
+const ENV_MODE = OPERATOR_ENV ? 'operator' : 'isolated';
+const ENV_LABEL = OPERATOR_ENV
+  ? 'среда оператора (без изоляции: включённые плагины, хуки и CLAUDE.md пользователя грузятся)'
+  : 'изоляция (--setting-sources project --strict-mcp-config: пользовательские плагины, хуки, CLAUDE.md и MCP-серверы не грузятся)';
+
+// Инструменты действия в прогоне активации не нужны и стоят денег: предмет пробы -
+// какой Skill выбран, а не что агент сделает дальше.
+const SESSION_ERROR = 'сессия вернула ошибку (is_error)';
+const DISALLOWED = 'Bash,Write,Edit,WebFetch,WebSearch,Agent,Task';
+
+// Изоляция: `--setting-sources project` убирает источники `user` и `local`, а с ними включённые
+// у оператора плагины, хуки и `~/.claude/CLAUDE.md`; `--strict-mcp-config` без `--mcp-config` убирает
+// MCP-серверы пользователя и коннекторы claude.ai. Плагин кейса остаётся - он подключён
+// `--plugin-dir`, а не настройкой. Проба на CLI 2.1.308: листинг 31 -> 20 скиллов, плагин кейса на
+// месте, сторонних плагинов 0, `mcp_servers` пуст, маркер пользовательского CLAUDE.md не виден модели.
+// Пустой список источников (`""`) даёт тот же листинг, но `project` явнее. Не годятся: `--bare`
+// отрезает OAuth (прогон без ключа API не авторизуется), `--safe-mode` убирает скиллы `--plugin-dir`.
+const ISOLATION_ARGS = OPERATOR_ENV ? [] : ['--setting-sources', 'project', '--strict-mcp-config'];
+
+// Плагин кейса грузится из рабочего дерева (`--plugin-dir`), а не из установки оператора:
+// иначе прогон судит чужой снапшот - непоставленный плагин дал бы ложный провал, а
+// поставленная старая версия скрыла бы правку `description`, которую и проверяют. Зонд
+// 23.08.2026: флаг подменяет источник на `@inline`, дубля в листинге скиллов нет.
+function indexPlugins(dir, depth, acc) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const full = join(dir, entry.name);
+    const manifest = join(full, '.claude-plugin', 'plugin.json');
+    if (existsSync(manifest)) {
+      // Ключ - имя из манифеста, а не имя каталога: рантайм адресует плагин по
+      // `name`, и при расхождении каталога с манифестом ключ по каталогу собрал бы
+      // ожидание, которого рантайм не отдаст. Совпадения этих двух имён ничто не
+      // держит - правила на равенство в валидаторах нет.
+      let name = entry.name;
+      try { name = JSON.parse(readFileSync(manifest, 'utf8')).name || entry.name; } catch { /* битый манифест: имя каталога как запасное */ }
+      acc.set(name, full);
+    } else if (depth > 0) indexPlugins(full, depth - 1, acc);
+  }
+  return acc;
+}
+const PLUGIN_DIRS = indexPlugins(join(REPO_ROOT, 'plugins'), 3, new Map());
+
+function runCase(kase) {
+  return new Promise((resolvePromise) => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'activation-'));
+    // `plugins` кейса - плагины сверх того, что несёт `expect`: скилл поднимается не только
+    // своим полем, но и хуком соседнего плагина, и такой конструкт проверяется только вместе.
+    // Отсутствующий в дереве плагин молча выпадает - кейс тогда судит неполный конструкт,
+    // поэтому недостача называется явно (`missing`), а не гасится.
+    const names = [kase.expect.split(':')[0], ...(kase.plugins ?? [])];
+    const dirs = names.map((n) => PLUGIN_DIRS.get(n)).filter(Boolean);
+    const missing = names.filter((n) => !PLUGIN_DIRS.has(n));
+    // `git: true` - песочница с репой и манифестом: она похожа на настоящий проект, а промпты
+    // работ это предполагают. Прежняя причина («хуки конвейера вне репы намеренно молчат») ушла
+    // вместе с хуками движка: ни один оставшийся хук каталога не стоит на `SessionStart` и каталог
+    // сессии не разбирает, так что поведение хука на это поле больше не завязано.
+    // `plugins`, `git` и `maxTurns` в наборе кейсов сейчас не использует ни один кейс - они ушли
+    // вместе с набором `engine-*`. Обработка оставлена: это контракт формата кейса, а не мёртвая
+    // ветка продукта, и следующий кейс с хуком-соседом заводится без правки раннера. Диагностика
+    // `missing` при этом жива безусловно - она сверяет плагин из `expect` у каждого кейса.
+    if (kase.git) {
+      try {
+        execFileSync('git', ['init', '-q'], { cwd: sandbox, stdio: 'ignore' });
+        writeFileSync(join(sandbox, 'package.json'), '{"name":"probe","version":"1.0.0"}\n');
+      } catch { /* без git кейс отработает как обычный - расхождение видно по исходу */ }
+    }
+    const args = [
+      '-p', kase.prompt,
+      '--output-format', 'stream-json',
+      '--verbose',
+      '--max-turns', String(kase.maxTurns ?? 2),
+      '--model', MODEL,
+      '--disallowed-tools', kase.kind === 'agent' ? `${DISALLOWED},Read,Glob,Grep,Skill` : DISALLOWED,
+      ...dirs.flatMap((d) => ['--plugin-dir', d]),
+      ...ISOLATION_ARGS,
+    ];
+    const child = spawn('claude', args, { cwd: sandbox, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    let killed = false;
+    const timer = setTimeout(() => { killed = true; child.kill('SIGKILL'); }, TIMEOUT_MS);
+    child.stdout.on('data', (d) => { out += d; });
+    child.on('error', () => { clearTimeout(timer); rmSync(sandbox, { recursive: true, force: true }); resolvePromise({ error: 'claude не запустился' }); });
+    child.on('close', () => {
+      clearTimeout(timer);
+      rmSync(sandbox, { recursive: true, force: true });
+      if (killed) return resolvePromise({ error: `таймаут ${TIMEOUT_MS / 1000}s` });
+      const skills = [];
+      let cost = 0;
+      let listed = null;
+      let agents = null;
+      let cli = null;
+      let mcp = null;
+      let sessionError = null;
+      for (const line of out.split('\n')) {
+        if (!line.trim()) continue;
+        let e;
+        try { e = JSON.parse(line); } catch { continue; }
+        if (e.type === 'system' && e.subtype === 'init') {
+          if (Array.isArray(e.skills)) listed = e.skills;
+          if (Array.isArray(e.agents)) agents = e.agents;
+          if (Array.isArray(e.mcp_servers)) mcp = e.mcp_servers;
+          if (e.claude_code_version) cli = e.claude_code_version;
+        }
+        if (e.type === 'assistant') {
+          for (const part of e.message?.content ?? []) {
+            if (part.type === 'tool_use' && part.name === 'Skill' && part.input?.skill) skills.push(part.input.skill);
+          }
+        }
+        if (e.type === 'result') {
+          cost = e.total_cost_usd ?? 0;
+          // Ошибка сессии (нет входа, недоступная модель) - не исход кейса: без неё near-miss
+          // при $0 и пустых вызовах давал бы ложный зелёный, а in-scope - «ни одного Skill».
+          if (e.is_error) sessionError = `${SESSION_ERROR}: ${String(e.result ?? e.subtype ?? '').replace(/\s+/g, ' ').slice(0, 160)}`;
+        }
+      }
+      resolvePromise({ skills, cost, listed, agents, mcp, missing, cli, ...(sessionError ? { error: sessionError } : {}) });
+    });
+  });
+}
+
+async function pool(items, worker, limit) {
+  const results = new Array(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+// --- Main ---------------------------------------------------------------
+
+/**
+ * Кейсы видимости строятся из дерева, а не хранятся файлом: перечень агентов меняется
+ * каждым PR, и хранимая копия разъехалась бы молча - ровно тем же способом, каким
+ * разъезжается витрина. Форма ожидания - `{plugin}:{name}`: имя плагина берётся из
+ * каталога, имя агента из frontmatter, и несовпадение файла с `name` ловит валидатор.
+ */
+function agentVisibilityCases() {
+  const out = [];
+  // Обход рекурсивный, и это предмет пробы, а не удобство: агент из подкаталога
+  // `agents/` поставляется трёхсегментным именем, и кейс на него обязан строиться -
+  // иначе перенос файла вглубь убирает разом и кейс, и ожидание, а прогон остаётся
+  // зелёным. Ожидание при этом всегда каноничной формы `{plugin}:{name}`: именно
+  // расхождение поставки с ней проба и судит.
+  function collect(dir, plugin) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { collect(full, plugin); continue; }
+      if (!e.name.endsWith('.md')) continue;
+      // Фронтматтер парсится gray-matter, а не регуляркой: `name: "x"` в кавычках
+      // YAML разрешает и валидатор не запрещает, а регулярка отдала бы имя вместе
+      // с кавычками и уронила бы кейс ложным провалом.
+      const fm = matter(readFileSync(full, 'utf8')).data || {};
+      const name = fm.name == null || String(fm.name).trim() === ''
+        ? e.name.slice(0, -3)
+        : String(fm.name).trim();
+      out.push({
+        id: `${name}-visible`,
+        kind: 'agent',
+        mode: 'in-scope',
+        expect: `${plugin}:${name}`,
+        prompt: 'ok',
+        maxTurns: 1,
+      });
+    }
+  }
+  // Корни плагинов берутся из того же индекса, что и `--plugin-dir`: он обходит
+  // `plugins/` целиком и ключует по имени манифеста. Обход по одной ветке дерева
+  // (`plugins/specialists/`) оставил бы агента из другой ветки без кейса - та же
+  // слепота, что была к подкаталогу `agents/`, только шире.
+  for (const [plugin, root] of PLUGIN_DIRS) {
+    const agentsDir = join(root, 'agents');
+    if (!existsSync(agentsDir) || !statSync(agentsDir).isDirectory()) continue;
+    collect(agentsDir, plugin);
+  }
+  return out.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+let cases;
+if (AGENTS_MODE) {
+  cases = agentVisibilityCases();
+} else {
+  try {
+    cases = JSON.parse(readFileSync(CASES_FILE, 'utf8'));
+  } catch (e) {
+    console.error(`Не прочитан ${CASES_FILE}: ${e.message}`);
+    process.exit(2);
+  }
+}
+if (FILTER) cases = cases.filter((k) => k.id.includes(FILTER));
+if (ONLY) {
+  const ids = new Set(ONLY.split(',').map((x) => x.trim()).filter(Boolean));
+  const known = new Set(cases.map((k) => k.id));
+  const unknown = [...ids].filter((x) => !known.has(x));
+  if (unknown.length) { console.error(`Неизвестные id в --only: ${unknown.join(', ')}`); process.exit(2); }
+  cases = cases.filter((k) => ids.has(k.id));
+}
+if (cases.length === 0) {
+  console.error('Кейсов под фильтр нет');
+  process.exit(2);
+}
+
+// Перечень кейсов без сети и без денег: сам перечень - предмет проверки не меньше,
+// чем исход прогона. Кейс, которого не построилось, ошибкой не выглядит нигде.
+if (LIST_ONLY) {
+  console.log(JSON.stringify(cases, null, 2));
+  process.exit(0);
+}
+
+// Требуемое кейсом без префикса `dex-` - сторонний плагин: в изоляции его нет по построению.
+const isThirdParty = (n) => !n.startsWith('dex-');
+
+const jobs = [];
+for (const kase of cases) for (let r = 0; r < RUNS; r++) jobs.push({ kase, run: r });
+
+console.log(`Прогон активации: ${cases.length} кейс(ов) x ${RUNS} = ${jobs.length} запуск(ов), модель ${MODEL}, параллельно ${CONCURRENCY}`);
+console.log(`Среда: ${ENV_LABEL}\n`);
+
+const started = Date.now();
+const outcomes = await pool(jobs, async ({ kase, run }) => {
+  const res = await runCase(kase);
+  const fired = res.skills ?? [];
+  // Скилла нет в листинге сессии - выбран быть не мог: in-scope дал бы ложный провал,
+  // near-miss - ложный зелёный. Прогон судит поле активации, поэтому такой кейс не проходит
+  // и не проваливается: он остаётся непроверенным с явным статусом. Причина - либо кейс
+  // ссылается на несуществующий плагин (опечатка в `expect`), либо имя скилла внутри
+  // плагина другое; и то и другое чинится в кейсе, не молчанием прогона.
+  // Плагин из `plugins` кейса не найден в дереве - конструкт поднялся неполным, и его исход
+  // не говорит ни о срабатывании, ни о его отсутствии: судится тем же статусом «не проверено».
+  const incomplete = (res.missing ?? []).length > 0;
+  // Кейс видимости судит листинг агентов сессии, а не выбор модели: агент либо назван в
+  // `init.agents` каноничной формой, либо нет. Промежуточного исхода тут не бывает, поэтому
+  // ветка отдельная - иначе «агента нет в сессии» попало бы в статус «не проверено», где
+  // ему не место: это и есть проверяемый факт.
+  if (kase.kind === 'agent') {
+    const listedAgents = res.agents;
+    const seen = Array.isArray(listedAgents) && listedAgents.includes(kase.expect);
+    const unchecked = res.error || incomplete || !Array.isArray(listedAgents);
+    const mark = unchecked ? c('yellow', 'ОШИБКА') : seen ? c('green', 'ok    ') : c('red', 'ПРОВАЛ');
+    const near = Array.isArray(listedAgents)
+      ? listedAgents.filter((a) => a.startsWith(`${kase.expect.split(':')[0]}:`))
+      : [];
+    // Изоляция проверяется и здесь: `init.skills` приходит в обоих родах прогона. Не пришёл - `null`
+    // («не проверялось»), а не `[]`: пустой перечень читался бы как «сторонних нет».
+    const foreignAgentRun = Array.isArray(res.listed) ? res.listed.filter((n) => !n.startsWith('dex-')) : null;
+    const detail = res.error ? res.error
+      : incomplete ? `плагин(ы) кейса не найдены: ${res.missing.join(', ')} - не проверено`
+      : !Array.isArray(listedAgents) ? 'листинг агентов не получен - не проверено'
+      : seen ? kase.expect
+      : near.length ? `плагин поднялся, но агент назван иначе: ${near.join(', ')}`
+      : 'плагина нет в листинге агентов сессии';
+    console.log(`${mark} ${kase.id}${RUNS > 1 ? `#${run + 1}` : ''} [видимость] -> ${c('gray', detail)}`);
+    return { id: kase.id, run, kind: 'agent', mode: kase.mode, expect: kase.expect, fired: listedAgents ?? [], pass: seen && !unchecked, bare: false, absent: Boolean(unchecked && !res.error), unmet: [], foreign: foreignAgentRun, listedCount: Array.isArray(res.listed) ? res.listed.length : null, mcp: res.mcp ?? null, cli: res.cli ?? null, contestedWon: null, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
+  }
+  // Кейс может требовать присутствия конкурента: он меряет не «работает ли поле», а величину
+  // перехвата, и прогон без конкурента даёт зелёный, который ничего не измеряет. Условие держится
+  // полем кейса, а не абзацем README про состояние чьей-то машины: непокрытое требование даёт тот
+  // же статус «не проверено», что и отсутствующий скилл, а не ложный зелёный.
+  const required = kase.requiresListed ?? [];
+  const unmet = Array.isArray(res.listed)
+    ? required.filter((n) => !res.listed.includes(n))
+    : required;
+  // Ошибка сессии - отдельный исход (ОШИБКА, провал прогона), а не «не проверено»: иначе она тонет в
+  // молчаливом статусе без кода возврата.
+  const absent = !res.error && (incomplete || unmet.length > 0
+    || (Array.isArray(res.listed) && !res.listed.includes(kase.expect)));
+  const exact = fired.includes(kase.expect);
+  // Голое имя плагина - тот же выбор артефакта, но нерезолвимая форма вызова: модель
+  // исправляется следующим ходом, который в лимит ходов не всегда помещается. Предмет
+  // пробы - сработало ли поле активации, поэтому это попадание, а не провал; форма
+  // помечается отдельно (`bare`), иначе дефект вызова тонет в зелёном.
+  const bare = !exact && fired.includes(kase.expect.split(':')[0]);
+  const hit = exact || bare;
+  // Режим `contested`: предмет кейса - не «сработало ли поле», а кто победил в конкуренции за
+  // предмет. Обе стороны исхода информативны, поэтому такой кейс не красит прогон в красное и не
+  // роняет код возврата: он записывает победителя. Иначе ожидаемый перехват печатался бы ПРОВАЛом,
+  // а единственным способом получить зелёный было бы выключить конкурента - ровно то, от чего
+  // страхует `requiresListed`.
+  const contested = kase.mode === 'contested';
+  const pass = res.error || absent ? false : contested ? true : kase.mode === 'near-miss' ? !hit : hit;
+  const mark = res.error ? c('yellow', 'ОШИБКА')
+    : absent ? c('gray', 'нет   ')
+    : contested ? (hit ? c('green', 'наш   ') : c('yellow', 'перехв'))
+    : pass ? (bare ? c('yellow', 'ok/гол') : c('green', 'ok    '))
+    : c('red', 'ПРОВАЛ');
+  const detail = res.error ? res.error
+    : incomplete ? `плагин(ы) кейса не найдены: ${res.missing.join(', ')} - не проверено`
+    : unmet.length ? `нет в сессии требуемого кейсом: ${unmet.join(', ')} - не проверено${!OPERATOR_ENV && unmet.some(isThirdParty) ? ' (сторонний плагин, в изоляции его нет: прогнать с --operator-env)' : ''}`
+    : absent ? 'скилла нет в сессии - не проверено'
+    : fired.length ? fired.join(', ') : 'ни одного Skill';
+  console.log(`${mark} ${kase.id}${RUNS > 1 ? `#${run + 1}` : ''} [${kase.mode}] -> ${c('gray', detail)}`);
+  // Сторонние скиллы листинга - это и есть среда конкуренции, в которой получен исход. Без записи
+  // «7/7 при живом конкуренте» и «7/7 при выключенном» неразличимы задним числом. Режим среды
+  // (`env`) пишется рядом, в корне `--json`: иначе «7/7 в изоляции» и «7/7 в среде оператора»
+  // различимы только по составу `foreign`, а он зависит от машины.
+  const foreign = Array.isArray(res.listed) ? res.listed.filter((n) => !n.startsWith('dex-')) : null;
+  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, unmet, foreign, listedCount: Array.isArray(res.listed) ? res.listed.length : null, mcp: res.mcp ?? null, cli: res.cli ?? null, contestedWon: contested ? hit : null, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
+}, CONCURRENCY);
+
+const absent = outcomes.filter((o) => o.absent);
+const failed = outcomes.filter((o) => !o.pass && !o.absent);
+const bareHits = outcomes.filter((o) => o.bare);
+const cost = outcomes.reduce((s, o) => s + o.cost, 0);
+const secs = Math.round((Date.now() - started) / 1000);
+
+// Сторонние (не `dex-`) скиллы листинга по плагинам. Скилл без префикса `плагин:` - встроенный
+// скилл CLI либо личный скилл оператора (`~/.claude/skills`); отдельно от плагинов он считается,
+// потому что в изоляции остаётся и составляет базовую линию листинга.
+const foreignByPlugin = new Map();
+const foreignBare = new Set();
+// `foreign: null` - листинг скиллов не пришёл: изоляция по этому исходу не проверялась, и в «сторонних
+// нет» он не входит.
+const foreignUnchecked = outcomes.filter((o) => o.foreign == null).length;
+const foreignChecked = outcomes.length - foreignUnchecked;
+for (const o of outcomes) {
+  for (const n of o.foreign ?? []) {
+    const i = n.indexOf(':');
+    if (i === -1) { foreignBare.add(n); continue; }
+    const plugin = n.slice(0, i);
+    if (!foreignByPlugin.has(plugin)) foreignByPlugin.set(plugin, new Set());
+    foreignByPlugin.get(plugin).add(n);
+  }
+}
+const foreignPlugins = [...foreignByPlugin].map(([plugin, names]) => ({ plugin, skills: names.size }));
+// MCP-серверы сессии: пользовательские и коннекторы claude.ai конкурируют со скиллами так же, как плагин.
+// `mcp: null` - событие `init` списка не принесло, как и у листинга, это «не проверялось».
+const mcpChecked = outcomes.filter((o) => Array.isArray(o.mcp)).length;
+const mcpServers = [...new Set(outcomes.flatMap((o) => (o.mcp ?? []).map((m) => m.name ?? String(m))))];
+// Факт изоляции, в отличие от `env` (запрошенного режима): в `--operator-env` не определён, а если
+// не проверено ни листинг, ни MCP, то и утверждать нечего.
+const isolationHeld = OPERATOR_ENV ? null
+  : foreignChecked + mcpChecked === 0 ? null
+  : foreignPlugins.length === 0 && mcpServers.length === 0;
+const listedCounts = outcomes.map((o) => o.listedCount).filter((n) => n != null);
+const clis = [...new Set(outcomes.map((o) => o.cli).filter(Boolean))];
+
+const checked = outcomes.length - absent.length;
+console.log(`\n${COLORS.bold}Итог:${COLORS.reset} ${checked} проверено из ${outcomes.length}, ${c('green', `${checked - failed.length} прошло`)}, ${failed.length ? c('red', `${failed.length} провал`) : '0 провалов'}, $${cost.toFixed(3)}, ${secs}s, модель ${MODEL}`);
+console.log(`Среда: ${ENV_LABEL}${clis.length ? `, CLI ${clis.join('/')}` : ''}`);
+if (listedCounts.length) console.log(`Листинг скиллов: ${Math.min(...listedCounts)}${Math.max(...listedCounts) !== Math.min(...listedCounts) ? `..${Math.max(...listedCounts)}` : ''}; сторонних плагинов: ${foreignPlugins.length ? foreignPlugins.map((p) => `${p.plugin} (${p.skills})`).join(', ') : 'нет'}; без префикса плагина (встроенные CLI и личные скиллы): ${foreignBare.size}`);
+console.log(`MCP-серверы сессии: ${mcpChecked ? (mcpServers.length ? mcpServers.join(', ') : 'нет') : 'не проверялось'}${foreignUnchecked ? `; листинг скиллов не пришёл (изоляция по плагинам не проверялась): ${foreignUnchecked}` : ''}`);
+if (!OPERATOR_ENV && (foreignPlugins.length || mcpServers.length)) console.log(c('yellow', `Изоляция не отработала: ${[foreignPlugins.length ? `в листинге сторонние плагины (${foreignPlugins.map((p) => p.plugin).join(', ')})` : '', mcpServers.length ? `в сессии MCP-серверы (${mcpServers.join(', ')})` : ''].filter(Boolean).join('; ')}. Исход не считать изолированным.`));
+const sessionErrors = outcomes.filter((o) => o.error && o.error.startsWith(SESSION_ERROR));
+if (sessionErrors.length) console.log(c('yellow', `Ошибка сессии: ${sessionErrors.length} - это не исход кейса, а несостоявшийся прогон.${OPERATOR_ENV ? '' : ' В изоляции авторизация и модель из пользовательских env и apiKeyHelper недоступны: если вход или модель заданы ими, прогнать с --operator-env.'}`));
+if (OPERATOR_ENV && foreignPlugins.length) console.log(c('gray', `Исход получен рядом с перечисленными плагинами: это «выживает ли поле рядом с соседом», а не «годно ли поле само по себе».`));
+if (absent.length && AGENTS_MODE) console.log(c('gray', `Не проверено - листинг агентов не получен либо плагин не найден: ${absent.length}. Это не вердикт о видимости, а несостоявшийся прогон.`));
+if (absent.length && !AGENTS_MODE) console.log(c('gray', `Не проверено - скилла нет в листинге сессии: ${absent.length} (${[...new Set(absent.map((o) => o.expect))].join(', ')}). Поле этих скиллов не проверено ничем. Причину называют строки ниже - нет плагина в `+'`plugins/`'+` либо не выполнено требование кейса; ни одной такой строки нет - значит плагин в дереве есть и имя верно, а в листинг сессии скилл не попал.`));
+const contests = outcomes.filter((o) => o.contestedWon !== null && !o.absent);
+if (contests.length) console.log(c('gray', `Спорных за предмет: ${contests.length}, из них наш скилл поднялся в ${contests.filter((o) => o.contestedWon).length}. Режим `+'`contested`'+` меряет величину перехвата и код возврата не роняет.`));
+const unmets = outcomes.filter((o) => o.unmet.length);
+// В изоляции сторонний плагин в листинг не попадёт при любом состоянии машины: совет «включить плагин»
+// там ничего не меняет, и подсказка называет флаг, а не предлагает вспомнить его.
+const hintUnmet = !OPERATOR_ENV && unmets.some((o) => o.unmet.some(isThirdParty))
+  ? 'требуемое - сторонний плагин, в изоляции его нет: прогнать с `--operator-env`'
+  : 'включить плагин и прогнать заново';
+if (unmets.length) console.log(c('gray', `Не проверено - в сессии нет требуемого кейсами: ${[...new Set(unmets.flatMap((o) => o.unmet))].join(', ')}. Поле `+'`requiresListed`'+` называет конкурента, без которого исход кейса ничего не измеряет - ${hintUnmet}.`));
+const incompletes = outcomes.filter((o) => o.missing.length);
+if (incompletes.length) console.log(c('gray', `Не проверено - плагины кейса отсутствуют в plugins/: ${[...new Set(incompletes.flatMap((o) => o.missing))].join(', ')}. Поле `+'`plugins`'+` кейса называет плагин, которого в дереве нет - конструкт судить нечем.`));
+if (bareHits.length) console.log(c('yellow', `Голым именем плагина (вызов не резолвится, попадание засчитано): ${bareHits.length} - ${bareHits.map((o) => o.id).join(', ')}`));
+
+if (JSON_OUT) {
+  writeFileSync(JSON_OUT, JSON.stringify({ model: MODEL, runs: RUNS, env: ENV_MODE, isolationHeld, cli: clis, foreignPlugins: foreignChecked ? foreignPlugins : null, mcpServers: mcpChecked ? mcpServers : null, outcomes }, null, 2) + '\n');
+  console.log(`JSON: ${JSON_OUT}`);
+}
+
+process.exit(failed.length ? 1 : 0);

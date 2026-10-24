@@ -1,0 +1,92 @@
+{
+  "id": "b45337",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.132471,
+    "durationMs": 18218,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11482,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2009,
+      "output_tokens_details": {
+        "thinking_tokens": 825
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11482,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2009,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11482,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11482
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "после проекции стоят `.Where(r => r.OffDay)` и `.OrderByDescending(r => r.Km)`. При трансляции выбрасывается `InvalidOperationException`",
+      "why": "Указано, что OffDay вычисляется клиентским WorkCalendar.IsWorkingDay, Where по нему EF не транслирует и отчёт всегда отвечает 500; предложено фильтровать в памяти после ToListAsync или передать нерабочие даты в SQL."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри подзапроса даёт синтаксическую ошибку PostgreSQL, то есть 500.",
+      "why": "Описано, что с vehicleId EF оборачивает SQL в подзапрос, а без фильтра запрос выполняется как есть и поэтому прошёл проверку; предложено убрать ';' и перенести ORDER BY в LINQ."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` загружает машину без `.Include(v => v.Equipment)`... `Clear()` ничего не удаляет",
+      "why": "Названы оба следствия: DbUpdateException на уникальном индексе (vehicle_id, code) и оставшиеся старые позиции; предложены Include или явное удаление."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "На prod PostgreSQL прервёт `ALTER` с ошибкой `value too long for type character varying(40)`, и выкатка bundle упадёт.",
+      "why": "Миграция признана дефектом со ссылкой на длинные названия из MR; предложено ограничивать длину в печатной форме, а данные переносить отдельной миграцией."
+    },
+    "GR-last-inspection": {
+      "verdict": "PASS",
+      "quote": "у всех осмотров пачки одинаковый `created_at`. Какой из них окажется «последним», не определено",
+      "why": "Названы неуникальный порядок из-за now() в одном SaveChanges и выпуск машины с блокирующей неисправностью, предложен ThenByDescending(Id); механизм расхождения запросов при SplitQuery не упомянут, но дефект назван по существу."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "`p.ValidUntil > today`. По требованию FLEET-107 допуск действует по указанную дату включительно, поэтому условие должно быть `>=`.",
+      "why": "Дефект назван вместе с последствием: в последний день допуска водителю отказывают."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "у endpoint нет `.RequireAuthorization(\"Mechanic\")`... водитель, сотрудник отдела кадров или любой пользователь с токеном может переписать комплектацию",
+      "why": "Отсутствие политики на PUT equipment отмечено как дефект."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "как это сделано в `DriverService.ReplacePermitsAsync`",
+      "why": "ReplacePermitsAsync приведён как правильный образец, а не как дефект."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

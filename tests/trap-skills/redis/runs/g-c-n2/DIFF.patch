@@ -1,0 +1,835 @@
+diff --git a/docker-compose.yml b/docker-compose.yml
+index f68f56e..26a9835 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -27,6 +27,10 @@ services:
+     ports: ["5672:5672", "15672:15672"]
+   redis:
+     image: redis:8.8.3
++    # В Redis лежат корзины, очередь писем и локи, а не только кэш: вытеснение недопустимо.
++    # noeviction - при заполнении записи отказывают явно; у кэша, лимитов и корзин есть TTL.
++    # AOF - очередь и корзины переживают рестарт Redis.
++    command: ["redis-server", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+     ports: ["6379:6379"]
+   mongodb:
+     image: mongo:8.0
+diff --git a/src/Fulfil/Ports/Ports.cs b/src/Fulfil/Ports/Ports.cs
+index 877025b..87a93d0 100644
+--- a/src/Fulfil/Ports/Ports.cs
++++ b/src/Fulfil/Ports/Ports.cs
+@@ -13,6 +13,22 @@ public interface IPriceSource
+     Task<decimal> GetPriceAsync(string sku, CancellationToken ct);
+ }
+ 
++// Пересчёт остатков (один проход 10-40 с, меняет данные в MongoDB). Вызывается под
++// распределённым локом. Записи в MongoDB должны быть условными по fencingToken:
++// принимаются, только если сохранённый токен не больше переданного, - так проход,
++// потерявший лок, не затрёт результат нового держателя.
++public interface IStockRecalculator
++{
++    Task RecalculateAsync(long fencingToken, CancellationToken ct);
++}
++
++// Отправка письма. Вызывается минимум один раз на задание, реализация должна быть
++// идемпотентной по MailJob.Id.
++public interface IEmailSender
++{
++    Task SendAsync(Redis.MailJob job, CancellationToken ct);
++}
++
+ // Каталог товаров, из которого строится поиск.
+ public interface ICatalogSource
+ {
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..f9d4689 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,8 +1,32 @@
+ using Fulfil.Options;
++using Fulfil.Ports;
++using Fulfil.Redis;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++builder.Services.AddFulfilRedis();
+ 
+ var app = builder.Build();
++app.UseWhen(
++    ctx => ctx.Request.Path.StartsWithSegments("/api"),
++    branch => branch.UseMiddleware<RateLimitMiddleware>());
++
+ app.MapGet("/health", () => Results.Ok());
++
++app.MapGet("/products/{sku}/price", async (string sku, PriceCache cache, CancellationToken ct) =>
++    Results.Ok(new { sku, price = await cache.GetAsync(sku, ct) }));
++
++app.MapPost("/internal/price-changed", async (PriceChanged body, PriceCache cache) =>
++{
++    if (string.IsNullOrWhiteSpace(body.Sku))
++    {
++        return Results.BadRequest();
++    }
++
++    await cache.InvalidateAsync(body.Sku);
++    return Results.NoContent();
++});
++
+ app.Run();
++
++internal sealed record PriceChanged(string Sku);
+diff --git a/src/Fulfil/Redis/MailQueue.cs b/src/Fulfil/Redis/MailQueue.cs
+new file mode 100644
+index 0000000..aebd76b
+--- /dev/null
++++ b/src/Fulfil/Redis/MailQueue.cs
+@@ -0,0 +1,214 @@
++using Fulfil.Ports;
++using StackExchange.Redis;
++
++namespace Fulfil.Redis;
++
++public sealed record MailJob(Guid Id, string To, string Subject, string Body);
++
++public interface IMailQueue
++{
++    Task EnqueueAsync(MailJob job);
++}
++
++public static class MailQueueNames
++{
++    public const string Stream = "mail:queue";
++    public const string Group = "mail-workers";
++    public const string DeadStream = "mail:dead";
++}
++
++// Очередь на Redis Streams с consumer group: задание остаётся в pending, пока воркер не
++// подтвердит отправку. Воркер, убитый при деплое, не теряет задание - его заберёт другой.
++public sealed class RedisMailQueue(IConnectionMultiplexer redis) : IMailQueue
++{
++    public Task EnqueueAsync(MailJob job) =>
++        redis.GetDatabase().StreamAddAsync(MailQueueNames.Stream,
++        [
++            new NameValueEntry("id", job.Id.ToString()),
++            new NameValueEntry("to", job.To),
++            new NameValueEntry("subject", job.Subject),
++            new NameValueEntry("body", job.Body),
++        ]);
++}
++
++// Доставка at-least-once: после падения между отправкой и подтверждением письмо уйдёт повторно,
++// поэтому IEmailSender должен быть идемпотентен по MailJob.Id.
++public sealed class MailWorker(IConnectionMultiplexer redis, IEnumerable<IEmailSender> senders, ILogger<MailWorker> log)
++    : BackgroundService
++{
++    private const int MaxDeliveries = 5;
++    private const int BatchSize = 10;
++    private static readonly TimeSpan IdleBeforeClaim = TimeSpan.FromMinutes(2);
++    private static readonly TimeSpan ReclaimEvery = TimeSpan.FromSeconds(30);
++    private static readonly TimeSpan PollDelay = TimeSpan.FromSeconds(1);
++    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
++
++    private readonly string _consumer = $"{Environment.MachineName}-{Guid.NewGuid():N}";
++
++    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
++    {
++        var sender = senders.FirstOrDefault();
++        if (sender is null)
++        {
++            log.LogWarning("IEmailSender не зарегистрирован, воркер рассылки отключён");
++            return;
++        }
++
++        var nextReclaim = DateTime.MinValue;
++        var groupReady = false;
++        while (!stoppingToken.IsCancellationRequested)
++        {
++            try
++            {
++                var db = redis.GetDatabase();
++                if (!groupReady)
++                {
++                    await EnsureGroupAsync(db);
++                    groupReady = true;
++                }
++
++                if (DateTime.UtcNow >= nextReclaim)
++                {
++                    foreach (var entry in await ReclaimAsync(db))
++                    {
++                        await HandleAsync(db, sender, entry, stoppingToken);
++                    }
++
++                    nextReclaim = DateTime.UtcNow + ReclaimEvery;
++                }
++
++                var entries = await db.StreamReadGroupAsync(
++                    MailQueueNames.Stream, MailQueueNames.Group, _consumer, ">", BatchSize);
++                foreach (var entry in entries)
++                {
++                    await HandleAsync(db, sender, entry, stoppingToken);
++                }
++
++                if (entries.Length == 0)
++                {
++                    await Task.Delay(PollDelay, stoppingToken);
++                }
++            }
++            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
++            {
++                return;
++            }
++            catch (Exception ex) when (ex is RedisException)
++            {
++                // Redis недоступен (в т.ч. при старте) - ждём и пробуем снова.
++                log.LogWarning(ex, "Воркер рассылки: ошибка Redis");
++                groupReady = false;
++                await DelayAsync(RetryDelay, stoppingToken);
++            }
++        }
++    }
++
++    private static async Task EnsureGroupAsync(IDatabase db)
++    {
++        try
++        {
++            // С начала потока, чтобы не потерять задания, поставленные до создания группы.
++            await db.StreamCreateConsumerGroupAsync(
++                MailQueueNames.Stream, MailQueueNames.Group, StreamPosition.Beginning, createStream: true);
++        }
++        catch (RedisServerException ex) when (ex.Message.StartsWith("BUSYGROUP", StringComparison.Ordinal))
++        {
++        }
++    }
++
++    // Забирает задания, зависшие у упавших/перезапущенных воркеров; ядовитые уносит в dead-стрим.
++    private async Task<List<StreamEntry>> ReclaimAsync(IDatabase db)
++    {
++        var pending = await db.StreamPendingMessagesAsync(
++            MailQueueNames.Stream, MailQueueNames.Group, BatchSize, RedisValue.Null,
++            minIdleTimeInMs: (long)IdleBeforeClaim.TotalMilliseconds);
++
++        var toClaim = new List<RedisValue>();
++        foreach (var message in pending)
++        {
++            if (message.DeliveryCount >= MaxDeliveries)
++            {
++                await DeadLetterAsync(db, message.MessageId);
++            }
++            else
++            {
++                toClaim.Add(message.MessageId);
++            }
++        }
++
++        var claimed = new List<StreamEntry>();
++        if (toClaim.Count > 0)
++        {
++            var entries = await db.StreamClaimAsync(
++                MailQueueNames.Stream, MailQueueNames.Group, _consumer,
++                (long)IdleBeforeClaim.TotalMilliseconds, toClaim.ToArray());
++            foreach (var entry in entries)
++            {
++                if (!entry.IsNull)
++                {
++                    claimed.Add(entry);
++                }
++            }
++        }
++
++        return claimed;
++    }
++
++    private static async Task DeadLetterAsync(IDatabase db, RedisValue id)
++    {
++        var range = await db.StreamRangeAsync(MailQueueNames.Stream, id, id);
++        if (range.Length > 0)
++        {
++            await db.StreamAddAsync(MailQueueNames.DeadStream, range[0].Values, maxLength: 10_000);
++        }
++
++        await AckAsync(db, id);
++    }
++
++    private async Task HandleAsync(IDatabase db, IEmailSender sender, StreamEntry entry, CancellationToken ct)
++    {
++        MailJob job;
++        try
++        {
++            var fields = entry.Values.ToDictionary(v => v.Name.ToString(), v => v.Value.ToString());
++            job = new MailJob(Guid.Parse(fields["id"]), fields["to"], fields["subject"], fields["body"]);
++        }
++        catch (Exception ex) when (ex is FormatException or KeyNotFoundException)
++        {
++            log.LogError(ex, "Некорректное задание {EntryId}, уходит в dead-стрим", entry.Id.ToString());
++            await DeadLetterAsync(db, entry.Id);
++            return;
++        }
++
++        try
++        {
++            await sender.SendAsync(job, ct);
++        }
++        catch (Exception ex) when (!ct.IsCancellationRequested)
++        {
++            // Остаётся в pending; повтор через ReclaimAsync после IdleBeforeClaim.
++            log.LogWarning(ex, "Не удалось отправить письмо {JobId}", job.Id);
++            return;
++        }
++
++        await AckAsync(db, entry.Id);
++    }
++
++    // Подтверждённое задание удаляется из потока, иначе поток растёт без предела.
++    private static async Task AckAsync(IDatabase db, RedisValue id)
++    {
++        await db.StreamAcknowledgeAsync(MailQueueNames.Stream, MailQueueNames.Group, id);
++        await db.StreamDeleteAsync(MailQueueNames.Stream, [id]);
++    }
++
++    private static async Task DelayAsync(TimeSpan delay, CancellationToken ct)
++    {
++        try
++        {
++            await Task.Delay(delay, ct);
++        }
++        catch (OperationCanceledException)
++        {
++        }
++    }
++}
+diff --git a/src/Fulfil/Redis/PriceCache.cs b/src/Fulfil/Redis/PriceCache.cs
+new file mode 100644
+index 0000000..b570c61
+--- /dev/null
++++ b/src/Fulfil/Redis/PriceCache.cs
+@@ -0,0 +1,113 @@
++using System.Collections.Concurrent;
++using System.Globalization;
++using Fulfil.Ports;
++using StackExchange.Redis;
++
++namespace Fulfil.Redis;
++
++// Cache-aside для цен. Защита от потери инвалидации: каждый sku имеет счётчик версии;
++// запись в кэш выполняется, только если версия не изменилась с момента начала чтения
++// из источника (иначе медленный ответ источника затёр бы свежую инвалидацию старой ценой).
++public sealed class PriceCache(IConnectionMultiplexer redis, IPriceSource source, ILogger<PriceCache> log)
++{
++    private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(10);
++    private static readonly TimeSpan VersionTtl = TimeSpan.FromHours(1);
++    private static readonly TimeSpan SourceTimeout = TimeSpan.FromSeconds(5);
++
++    private const string SetIfVersionScript = """
++        if (redis.call('GET', KEYS[2]) or '0') == ARGV[1] then
++            redis.call('SET', KEYS[1], ARGV[2], 'PX', ARGV[3])
++            return 1
++        end
++        return 0
++        """;
++
++    private const string InvalidateScript = """
++        redis.call('INCR', KEYS[1])
++        redis.call('PEXPIRE', KEYS[1], ARGV[1])
++        redis.call('DEL', KEYS[2])
++        return 1
++        """;
++
++    // Один запрос к источнику на sku в рамках процесса: сотня горячих товаров при 500 rps
++    // иначе в момент истечения ключа устроила бы лавину обращений к ценовому сервису.
++    private readonly ConcurrentDictionary<string, Lazy<Task<decimal>>> _inflight = new();
++
++    private static string PriceKey(string sku) => $"price:{sku}";
++    private static string VersionKey(string sku) => $"price:ver:{sku}";
++
++    public async Task<decimal> GetAsync(string sku, CancellationToken ct)
++    {
++        try
++        {
++            var cached = await redis.GetDatabase().StringGetAsync(PriceKey(sku));
++            if (cached.HasValue &&
++                decimal.TryParse((string?)cached, NumberStyles.Number, CultureInfo.InvariantCulture, out var price))
++            {
++                return price;
++            }
++        }
++        catch (RedisException ex)
++        {
++            log.LogWarning(ex, "Redis недоступен при чтении цены, читаем из источника");
++        }
++
++        var load = _inflight.GetOrAdd(sku, s => new Lazy<Task<decimal>>(() => LoadAsync(s))).Value;
++        return await load.WaitAsync(ct);
++    }
++
++    public async Task InvalidateAsync(string sku)
++    {
++        // Ошибку не глотаем: вызывающий вернёт 5xx, и ценовой сервис повторит уведомление.
++        await redis.GetDatabase().ScriptEvaluateAsync(
++            InvalidateScript,
++            [VersionKey(sku), PriceKey(sku)],
++            [(long)VersionTtl.TotalMilliseconds]);
++    }
++
++    private async Task<decimal> LoadAsync(string sku)
++    {
++        try
++        {
++            RedisValue version = RedisValue.Null;
++            var canCache = true;
++            try
++            {
++                version = await redis.GetDatabase().StringGetAsync(VersionKey(sku));
++            }
++            catch (RedisException)
++            {
++                canCache = false;
++            }
++
++            // Запрос общий для нескольких вызывающих, поэтому токен одного из них не используем.
++            using var cts = new CancellationTokenSource(SourceTimeout);
++            var price = await source.GetPriceAsync(sku, cts.Token);
++
++            if (canCache)
++            {
++                try
++                {
++                    // Джиттер, чтобы ключи горячих товаров не истекали одновременно.
++                    var ttl = Ttl * (0.8 + Random.Shared.NextDouble() * 0.4);
++                    await redis.GetDatabase().ScriptEvaluateAsync(
++                        SetIfVersionScript,
++                        [PriceKey(sku), VersionKey(sku)],
++                        [version.HasValue ? version.ToString() : "0",
++                         price.ToString(CultureInfo.InvariantCulture),
++                         (long)ttl.TotalMilliseconds]);
++                }
++                catch (RedisException ex)
++                {
++                    log.LogWarning(ex, "Не удалось записать цену в кэш");
++                }
++            }
++
++            return price;
++        }
++        finally
++        {
++            _inflight.TryRemove(sku, out _);
++        }
++    }
++}
+diff --git a/src/Fulfil/Redis/RedisCartStore.cs b/src/Fulfil/Redis/RedisCartStore.cs
+new file mode 100644
+index 0000000..6433dc4
+--- /dev/null
++++ b/src/Fulfil/Redis/RedisCartStore.cs
+@@ -0,0 +1,72 @@
++using StackExchange.Redis;
++
++namespace Fulfil.Redis;
++
++public sealed record Cart(IReadOnlyDictionary<string, int> Items, string? PromoCode);
++
++public interface ICartStore
++{
++    Task SetItemAsync(string customerId, string sku, int quantity);
++    Task SetPromoCodeAsync(string customerId, string? promoCode);
++    Task<Cart> GetAsync(string customerId);
++}
++
++// Корзина - hash: поле "i:{sku}" на позицию и поле "promo". Позиции и промокод меняются
++// независимыми HSET/HDEL без read-modify-write, корзина читается одним HGETALL.
++public sealed class RedisCartStore(IConnectionMultiplexer redis) : ICartStore
++{
++    // Брошенные корзины не копятся вечно (maxmemory не задан); каждая запись продлевает срок.
++    private static readonly TimeSpan Ttl = TimeSpan.FromDays(30);
++
++    private const string PromoField = "promo";
++    private const string ItemPrefix = "i:";
++
++    private static string Key(string customerId) => $"cart:{customerId}";
++
++    public async Task SetItemAsync(string customerId, string sku, int quantity)
++    {
++        var db = redis.GetDatabase();
++        if (quantity <= 0)
++        {
++            await db.HashDeleteAsync(Key(customerId), ItemPrefix + sku);
++            return;
++        }
++
++        await db.HashSetAsync(Key(customerId), ItemPrefix + sku, quantity);
++        await db.KeyExpireAsync(Key(customerId), Ttl);
++    }
++
++    public async Task SetPromoCodeAsync(string customerId, string? promoCode)
++    {
++        var db = redis.GetDatabase();
++        if (string.IsNullOrEmpty(promoCode))
++        {
++            await db.HashDeleteAsync(Key(customerId), PromoField);
++            return;
++        }
++
++        await db.HashSetAsync(Key(customerId), PromoField, promoCode);
++        await db.KeyExpireAsync(Key(customerId), Ttl);
++    }
++
++    public async Task<Cart> GetAsync(string customerId)
++    {
++        var entries = await redis.GetDatabase().HashGetAllAsync(Key(customerId));
++        var items = new Dictionary<string, int>();
++        string? promo = null;
++        foreach (var entry in entries)
++        {
++            var field = (string)entry.Name!;
++            if (field == PromoField)
++            {
++                promo = entry.Value;
++            }
++            else if (field.StartsWith(ItemPrefix, StringComparison.Ordinal))
++            {
++                items[field[ItemPrefix.Length..]] = (int)entry.Value;
++            }
++        }
++
++        return new Cart(items, promo);
++    }
++}
+diff --git a/src/Fulfil/Redis/RedisLeaseLock.cs b/src/Fulfil/Redis/RedisLeaseLock.cs
+new file mode 100644
+index 0000000..53a70f7
+--- /dev/null
++++ b/src/Fulfil/Redis/RedisLeaseLock.cs
+@@ -0,0 +1,141 @@
++using System.Diagnostics;
++using StackExchange.Redis;
++
++namespace Fulfil.Redis;
++
++// Распределённый лок с продлением и fencing-токеном. Лок может быть потерян до конца работы
++// (пауза процесса, сбой или рестарт Redis), поэтому держатель обязан:
++//  1. прекращать работу по LeaseLost;
++//  2. передавать FencingToken в защищаемое хранилище и отвергать записи с меньшим токеном.
++public sealed class RedisLeaseLock(IConnectionMultiplexer redis, ILogger<RedisLeaseLock> log)
++{
++    private const string AcquireScript = """
++        if redis.call('SET', KEYS[1], ARGV[1], 'NX', 'PX', ARGV[2]) then
++            return redis.call('INCR', KEYS[2])
++        end
++        return 0
++        """;
++
++    internal const string RenewScript = """
++        if redis.call('GET', KEYS[1]) == ARGV[1] then
++            return redis.call('PEXPIRE', KEYS[1], ARGV[2])
++        end
++        return 0
++        """;
++
++    internal const string ReleaseScript = """
++        if redis.call('GET', KEYS[1]) == ARGV[1] then
++            return redis.call('DEL', KEYS[1])
++        end
++        return 0
++        """;
++
++    // null - лок занят или Redis недоступен.
++    public async Task<Lease?> TryAcquireAsync(string name, TimeSpan ttl)
++    {
++        var token = Guid.NewGuid().ToString("N");
++        var key = $"lock:{name}";
++        try
++        {
++            var fence = (long)await redis.GetDatabase().ScriptEvaluateAsync(
++                AcquireScript,
++                [key, $"lock:{name}:fence"],
++                [token, (long)ttl.TotalMilliseconds]);
++            return fence == 0 ? null : new Lease(redis, log, key, token, fence, ttl);
++        }
++        catch (RedisException ex)
++        {
++            log.LogWarning(ex, "Не удалось взять лок {Lock}", name);
++            return null;
++        }
++    }
++
++    public sealed class Lease : IAsyncDisposable
++    {
++        private readonly IConnectionMultiplexer _redis;
++        private readonly ILogger _log;
++        private readonly string _key;
++        private readonly string _token;
++        private readonly TimeSpan _ttl;
++        private readonly CancellationTokenSource _lost = new();
++        private readonly CancellationTokenSource _stop = new();
++        private readonly Task _renewal;
++
++        public long FencingToken { get; }
++
++        // Срабатывает, когда владение больше нельзя подтвердить.
++        public CancellationToken LeaseLost => _lost.Token;
++
++        internal Lease(IConnectionMultiplexer redis, ILogger log, string key, string token, long fence, TimeSpan ttl)
++        {
++            _redis = redis;
++            _log = log;
++            _key = key;
++            _token = token;
++            _ttl = ttl;
++            FencingToken = fence;
++            _renewal = Task.Run(RenewLoopAsync);
++        }
++
++        private async Task RenewLoopAsync()
++        {
++            var lastConfirmed = Stopwatch.GetTimestamp();
++            while (!_stop.IsCancellationRequested)
++            {
++                try
++                {
++                    await Task.Delay(_ttl / 3, _stop.Token);
++                }
++                catch (OperationCanceledException)
++                {
++                    return;
++                }
++
++                try
++                {
++                    var renewed = (long)await _redis.GetDatabase().ScriptEvaluateAsync(
++                        RenewScript, [_key], [_token, (long)_ttl.TotalMilliseconds]);
++                    if (renewed == 1)
++                    {
++                        lastConfirmed = Stopwatch.GetTimestamp();
++                        continue;
++                    }
++
++                    _log.LogWarning("Лок {Key} потерян: ключ истёк или перехвачен", _key);
++                    _lost.Cancel();
++                    return;
++                }
++                catch (RedisException ex)
++                {
++                    _log.LogWarning(ex, "Не удалось продлить лок {Key}", _key);
++                }
++
++                // Не подтверждали владение дольше 2/3 TTL - считаем лок потерянным заранее,
++                // пока он реально не истёк и не достался другой реплике.
++                if (Stopwatch.GetElapsedTime(lastConfirmed) > _ttl * 2 / 3)
++                {
++                    _lost.Cancel();
++                    return;
++                }
++            }
++        }
++
++        public async ValueTask DisposeAsync()
++        {
++            _stop.Cancel();
++            await _renewal;
++            try
++            {
++                await _redis.GetDatabase().ScriptEvaluateAsync(ReleaseScript, [_key], [_token]);
++            }
++            catch (RedisException ex)
++            {
++                // Лок истечёт сам по TTL.
++                _log.LogWarning(ex, "Не удалось освободить лок {Key}", _key);
++            }
++
++            _stop.Dispose();
++            _lost.Dispose();
++        }
++    }
++}
+diff --git a/src/Fulfil/Redis/RedisServiceCollectionExtensions.cs b/src/Fulfil/Redis/RedisServiceCollectionExtensions.cs
+new file mode 100644
+index 0000000..263dff0
+--- /dev/null
++++ b/src/Fulfil/Redis/RedisServiceCollectionExtensions.cs
+@@ -0,0 +1,36 @@
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++using StackExchange.Redis;
++
++namespace Fulfil.Redis;
++
++public static class RedisServiceCollectionExtensions
++{
++    public static IServiceCollection AddFulfilRedis(this IServiceCollection services)
++    {
++        // Connect с AbortOnConnectFail=false не бросает при недоступном Redis: сервис стартует,
++        // мультиплексор подключается в фоне. FailFast - команды при разрыве падают сразу,
++        // а не копятся в очереди до таймаута.
++        services.AddSingleton<IConnectionMultiplexer>(sp =>
++        {
++            var options = sp.GetRequiredService<IOptions<FulfilOptions>>().Value;
++            var config = ConfigurationOptions.Parse(options.RedisConfiguration);
++            config.AbortOnConnectFail = false;
++            config.BacklogPolicy = BacklogPolicy.FailFast;
++            config.ConnectTimeout = 3000;
++            config.SyncTimeout = 1000;
++            config.AsyncTimeout = 1000;
++            return ConnectionMultiplexer.Connect(config);
++        });
++
++        services.AddSingleton<PriceCache>();
++        services.AddSingleton<RedisLeaseLock>();
++        services.AddSingleton<SlidingWindowRateLimiter>();
++        services.AddSingleton<ICartStore, RedisCartStore>();
++        services.AddSingleton<IMailQueue, RedisMailQueue>();
++
++        services.AddHostedService<StockRecalculationWorker>();
++        services.AddHostedService<MailWorker>();
++        return services;
++    }
++}
+diff --git a/src/Fulfil/Redis/SlidingWindowRateLimiter.cs b/src/Fulfil/Redis/SlidingWindowRateLimiter.cs
+new file mode 100644
+index 0000000..754e446
+--- /dev/null
++++ b/src/Fulfil/Redis/SlidingWindowRateLimiter.cs
+@@ -0,0 +1,74 @@
++using System.Security.Cryptography;
++using System.Text;
++using StackExchange.Redis;
++
++namespace Fulfil.Redis;
++
++public readonly record struct RateLimitResult(bool Allowed, TimeSpan RetryAfter);
++
++// Скользящее окно на sorted set: фиксированные окна пропускают до 2x лимита на стыке окон.
++// Время берётся из Redis (TIME), а не от реплики, поэтому расхождение часов реплик не влияет.
++public sealed class SlidingWindowRateLimiter(IConnectionMultiplexer redis, ILogger<SlidingWindowRateLimiter> log)
++{
++    public const int Limit = 100;
++    public static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
++
++    private const string Script = """
++        local t = redis.call('TIME')
++        local now = t[1] * 1000 + math.floor(t[2] / 1000)
++        local window = tonumber(ARGV[1])
++        redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
++        if redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[2]) then
++            local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
++            return {0, tonumber(oldest[2]) + window - now}
++        end
++        redis.call('ZADD', KEYS[1], now, ARGV[3])
++        redis.call('PEXPIRE', KEYS[1], window)
++        return {1, 0}
++        """;
++
++    public async Task<RateLimitResult> CheckAsync(string apiKey)
++    {
++        // В Redis не кладём сам ключ клиента.
++        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(apiKey)));
++        try
++        {
++            var result = (long[])(await redis.GetDatabase().ScriptEvaluateAsync(
++                Script,
++                [$"rl:{hash}"],
++                [(long)Window.TotalMilliseconds, Limit, Guid.NewGuid().ToString("N")]))!;
++            return new RateLimitResult(result[0] == 1, TimeSpan.FromMilliseconds(result[1]));
++        }
++        catch (RedisException ex)
++        {
++            // Fail-open: недоступность Redis не должна ронять публичный API.
++            log.LogWarning(ex, "Redis недоступен, ограничение запросов пропущено");
++            return new RateLimitResult(true, TimeSpan.Zero);
++        }
++    }
++}
++
++public sealed class RateLimitMiddleware(RequestDelegate next, SlidingWindowRateLimiter limiter)
++{
++    private const int MaxKeyLength = 128;
++
++    public async Task InvokeAsync(HttpContext context)
++    {
++        var apiKey = context.Request.Headers["X-Api-Key"].ToString();
++        if (apiKey.Length == 0 || apiKey.Length > MaxKeyLength)
++        {
++            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
++            return;
++        }
++
++        var result = await limiter.CheckAsync(apiKey);
++        if (!result.Allowed)
++        {
++            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
++            context.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(result.RetryAfter.TotalSeconds)).ToString();
++            return;
++        }
++
++        await next(context);
++    }
++}
+diff --git a/src/Fulfil/Redis/StockRecalculationWorker.cs b/src/Fulfil/Redis/StockRecalculationWorker.cs
+new file mode 100644
+index 0000000..6784eb0
+--- /dev/null
++++ b/src/Fulfil/Redis/StockRecalculationWorker.cs
+@@ -0,0 +1,64 @@
++using Fulfil.Ports;
++
++namespace Fulfil.Redis;
++
++// Запускается на всех репликах; пересчёт выполняет та, что взяла лок.
++public sealed class StockRecalculationWorker(
++    RedisLeaseLock locks,
++    IEnumerable<IStockRecalculator> recalculators,
++    ILogger<StockRecalculationWorker> log) : BackgroundService
++{
++    private static readonly TimeSpan Period = TimeSpan.FromMinutes(1);
++
++    // Проход длится до 40 с; TTL короче прохода допустим, т.к. лок продлевается.
++    private static readonly TimeSpan LockTtl = TimeSpan.FromSeconds(30);
++
++    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
++    {
++        var recalculator = recalculators.FirstOrDefault();
++        if (recalculator is null)
++        {
++            log.LogWarning("IStockRecalculator не зарегистрирован, пересчёт остатков отключён");
++            return;
++        }
++
++        using var timer = new PeriodicTimer(Period);
++        try
++        {
++            while (await timer.WaitForNextTickAsync(stoppingToken))
++            {
++                await RunOnceAsync(recalculator, stoppingToken);
++            }
++        }
++        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
++        {
++        }
++    }
++
++    private async Task RunOnceAsync(IStockRecalculator recalculator, CancellationToken stoppingToken)
++    {
++        await using var lease = await locks.TryAcquireAsync("stock-recalculation", LockTtl);
++        if (lease is null)
++        {
++            return;
++        }
++
++        using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, lease.LeaseLost);
++        try
++        {
++            await recalculator.RecalculateAsync(lease.FencingToken, cts.Token);
++        }
++        catch (OperationCanceledException) when (lease.LeaseLost.IsCancellationRequested)
++        {
++            log.LogWarning("Пересчёт остатков прерван: лок потерян");
++        }
++        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
++        {
++            throw;
++        }
++        catch (Exception ex)
++        {
++            log.LogError(ex, "Пересчёт остатков завершился ошибкой");
++        }
++    }
++}

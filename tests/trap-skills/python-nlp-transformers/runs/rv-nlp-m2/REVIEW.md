@@ -1,0 +1,19 @@
+src/shelfwatch/finetune.py:7 - peft импортируется на уровне модуля, а в образе сервиса разметки peft нет: `import shelfwatch.finetune` (classify_batch, load_for_serving) падает с ImportError, сервис не стартует - blocker
+src/shelfwatch/finetune.py:6 - `datasets` не объявлен в pyproject.toml зависимостях: импорт модуля падает на чистой установке - major
+src/shelfwatch/finetune.py:22 - токен HF захардкожен в коде и передаётся в from_pretrained (строки 31, 33); значение помечено как фейковое, но шаблон закрепляет секрет в репозитории, а с настоящим токеном он утечёт в историю git - minor
+src/shelfwatch/finetune.py:27 - токенизация по одному тексту в цикле, к тому же без truncation=True: max_length игнорируется, длинные отзывы дают последовательности длиннее 512 и падение на обучении/инференсе, пачкой было бы быстрее - major
+src/shelfwatch/finetune.py:35 - замораживается весь base_model, включая эмбеддинги, после resize_token_embeddings: строки для [PRODUCT]/[SHOP] остаются случайными и не обучаются, смысл новых спец-токенов теряется - major
+src/shelfwatch/finetune.py:42 - дообучение тональности без прогрева (нет warmup_steps) при 20 эпохах: нестабильные первые шаги, переобучение на замороженной базе - major
+src/shelfwatch/finetune.py:52 - сохраняется только модель, токенизатор со спец-токенами не сохраняется: в сервисе нет [PRODUCT]/[SHOP] и размер словаря расходится с обученной моделью - major
+src/shelfwatch/finetune.py:57 - classify_batch берёт токенизатор BERT без добавленных спец-токенов: [PRODUCT]/[SHOP] разобьются на подслова, тональность на проде отличается от обученной - major
+src/shelfwatch/finetune.py:57 - токенизатор и модель загружаются с диска на каждый вызов: сотни мс на вызов, p95 50 мс недостижим - major
+src/shelfwatch/finetune.py:59 - padding="max_length" до 512 на CPU: каждый короткий отзыв считается как 512 токенов, бюджет 50 мс на отзыв будет нарушен; нужен padding=True/динамический - major
+src/shelfwatch/finetune.py:65 - tokenizer(words) без is_split_into_words=True: список слов трактуется как пачка текстов, enc.word_ids() без batch_index падает или даёт неверное выравнивание, NER не обучится - blocker
+src/shelfwatch/finetune.py:72 - метка слова копируется всем подсловам: B-PROD/B-SHOP на продолжениях слова превращаются в несколько «начал» сущности, метрики и разбор сущностей искажаются (надо B-→I- или -100 для продолжений) - minor
+src/shelfwatch/finetune.py:80 - learning_rate=1e-3 для дообучения BERT: веса разрушаются, потеря расходится, NER получает мусор (типично 2e-5..5e-5) - major
+src/shelfwatch/finetune.py:89 - 4-битная загрузка без bnb_4bit_quant_type="nf4"/compute_dtype и без prepare_model_for_kbit_training перед get_peft_model: это не полноценный QLoRA, нестабильное обучение и лишняя память - minor
+src/shelfwatch/finetune.py:99 - жадное декодирование без ограничения повторов (нет repetition_penalty/no_repeat_ngram_size) и max_length=1000 вместе с промптом: сводка зацикливается и тянется до лимита - major
+src/shelfwatch/finetune.py:100 - decode(gen[0]) включает промпт: в сводку попадает исходный отзыв с «Кратко:», пользователь видит не сводку; плюс генерация по одному отзыву без батча - minor
+src/shelfwatch/finetune.py:106 - сохраняется только адаптер, базовая модель подтягивается по имени: сервису без peft адаптер не загрузить, а 4-битная база требует bitsandbytes/GPU; нужно слить (merge_and_unload) в полную точность и сохранить целиком - major
+src/shelfwatch/finetune.py:111 - модель в fp32 на CPU при бюджете p95 50 мс: BERT-base не уложится; нужна quantize_dynamic({nn.Linear}, qint8) и проверка задержки; токенизатор не возвращается вместе с моделью - major
+tests/test_finetune.py:4 - тест проверяет только align_labels на синтетике: encode_for_ner, токенизацию, сохранение/загрузку токенизатора и задержку не покрывает, дефекты выше пройдут CI - minor

@@ -1,0 +1,13 @@
+<<<<<<< src/app.js
+function postQuote(req) {
+  const parcel = parseParcel(req.body);
+  return { status: 200, body: { ...quote(parcel), deliveryDays: deliveryDays(parcel.zone) } };
+}
+=======
+function postQuote(req, ctx) {
+  const parcel = parseParcel(req.body);
+  const body = { ...quote(parcel), deliveryDays: deliveryDays(parcel.zone) };
+  ctx.log.info('quote', { zone: body.zone, billableKg: body.billableKg, price: body.price });
+  return { status: 200, body };
+}
+>>>>>>>

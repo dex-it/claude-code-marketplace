@@ -1,0 +1,34 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+      - run: dotnet test -c Release --logger trx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trx
+          path: '**/*.trx'
+          retention-days: 7
+  docs-links:
+    runs-on: ubuntu-latest
+    continue-on-error: true  # необязательная проверка ссылок в документации, не гейт
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./tools/check-links.sh docs/

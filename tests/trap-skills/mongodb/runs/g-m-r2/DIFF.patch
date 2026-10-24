@@ -1,0 +1,434 @@
+diff --git a/docker-compose.yml b/docker-compose.yml
+index f68f56e..a1e8a5a 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -31,6 +31,13 @@ services:
+   mongodb:
+     image: mongo:8.0
+     ports: ["27017:27017"]
++    # Один узел как replica set: нужен для транзакций и change streams.
++    command: ["--replSet", "rs0", "--bind_ip_all"]
++    healthcheck:
++      test: >
++        mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}).ok }"
++      interval: 5s
++      retries: 20
+   elasticsearch:
+     image: docker.elastic.co/elasticsearch/elasticsearch:9.5.3
+     ports: ["9200:9200"]
+diff --git a/src/Fulfil/Options/FulfilOptions.cs b/src/Fulfil/Options/FulfilOptions.cs
+index fb25fdf..c18a3c9 100644
+--- a/src/Fulfil/Options/FulfilOptions.cs
++++ b/src/Fulfil/Options/FulfilOptions.cs
+@@ -5,7 +5,7 @@ public sealed class FulfilOptions
+     public string KafkaBootstrapServers { get; set; } = "localhost:9092";
+     public string RabbitMqHost { get; set; } = "localhost";
+     public string RedisConfiguration { get; set; } = "localhost:6379";
+-    public string MongoConnectionString { get; set; } = "mongodb://localhost:27017";
++    public string MongoConnectionString { get; set; } = "mongodb://localhost:27017/?directConnection=true";
+     public string MongoDatabase { get; set; } = "fulfil";
+     public string ElasticUri { get; set; } = "http://localhost:9200";
+ }
+diff --git a/src/Fulfil/Ports/Ports.cs b/src/Fulfil/Ports/Ports.cs
+index 877025b..8f45136 100644
+--- a/src/Fulfil/Ports/Ports.cs
++++ b/src/Fulfil/Ports/Ports.cs
+@@ -13,6 +13,12 @@ public interface IPriceSource
+     Task<decimal> GetPriceAsync(string sku, CancellationToken ct);
+ }
+ 
++// Почта: адрес и имя получателя определяются по заказу в момент отправки.
++public interface IMailer
++{
++    Task SendShippedAsync(Guid orderId);
++}
++
+ // Каталог товаров, из которого строится поиск.
+ public interface ICatalogSource
+ {
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..b7d7fab 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,8 +1,13 @@
+ using Fulfil.Options;
++using Fulfil.Storage;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++builder.Services.AddSingleton<MongoContext>();
++builder.Services.AddSingleton<OrderRepository>();
++builder.Services.AddSingleton<StockTransfer>();
++builder.Services.AddHostedService<ShippedOrderWatcher>();
+ 
+-var app = builder.Build();
++var app =builder.Build();
+ app.MapGet("/health", () => Results.Ok());
+ app.Run();
+diff --git a/src/Fulfil/Storage/Documents.cs b/src/Fulfil/Storage/Documents.cs
+new file mode 100644
+index 0000000..42d22d7
+--- /dev/null
++++ b/src/Fulfil/Storage/Documents.cs
+@@ -0,0 +1,92 @@
++using MongoDB.Bson;
++using MongoDB.Bson.Serialization.Attributes;
++
++namespace Fulfil.Storage;
++
++// Документы в базе старше класса (и новее, при откате), поэтому лишние элементы игнорируются,
++// а новые поля должны иметь безопасные значения по умолчанию.
++
++[BsonIgnoreExtraElements]
++public sealed class DeliveryAddress
++{
++    public string Country { get; set; } = "";
++    public string City { get; set; } = "";
++    public string Street { get; set; } = "";
++    public string PostalCode { get; set; } = "";
++}
++
++[BsonIgnoreExtraElements]
++public sealed class OrderLineDocument
++{
++    public string Sku { get; set; } = "";
++    public int Quantity { get; set; }
++    public decimal UnitPrice { get; set; }
++}
++
++// Имя и email клиента не копируются: они меняются, а у клиента до 10 тысяч заказов.
++// Они читаются по CustomerId в момент отправки письма.
++[BsonIgnoreExtraElements]
++public sealed class OrderDocument
++{
++    [BsonId, BsonGuidRepresentation(GuidRepresentation.Standard)]
++    public Guid Id { get; set; }
++
++    [BsonGuidRepresentation(GuidRepresentation.Standard)]
++    public Guid CustomerId { get; set; }
++
++    [BsonRepresentation(BsonType.String)]
++    public Domain.OrderStatus Status { get; set; }
++
++    public DateTime PlacedAt { get; set; }
++
++    // Адрес не меняется и читается всегда вместе с заказом - вложен в документ.
++    public DeliveryAddress DeliveryAddress { get; set; } = new();
++
++    public List<OrderLineDocument> Lines { get; set; } = [];
++}
++
++// События - отдельная коллекция: у B2B-заказов их тысячи, во вложенном массиве документ рос бы без границ.
++[BsonIgnoreExtraElements]
++public sealed class OrderEventDocument
++{
++    [BsonId]
++    public ObjectId Id { get; set; }
++
++    [BsonGuidRepresentation(GuidRepresentation.Standard)]
++    public Guid OrderId { get; set; }
++
++    public DateTime At { get; set; }
++
++    // "StatusChanged" или "ManagerComment".
++    public string Kind { get; set; } = "";
++
++    public string? Status { get; set; }
++    public string? Text { get; set; }
++}
++
++[BsonIgnoreExtraElements]
++public sealed class CartDraftDocument
++{
++    [BsonId, BsonGuidRepresentation(GuidRepresentation.Standard)]
++    public Guid Id { get; set; }
++
++    // Поле для TTL-индекса: обновляется при каждом изменении черновика.
++    public DateTime UpdatedAt { get; set; }
++
++    public List<OrderLineDocument> Lines { get; set; } = [];
++}
++
++[BsonIgnoreExtraElements]
++public sealed class WarehouseStockDocument
++{
++    // Ключ "склад:товар".
++    [BsonId]
++    public string Id { get; set; } = "";
++
++    public string WarehouseId { get; set; } = "";
++    public string Sku { get; set; } = "";
++    public int Stock { get; set; }
++}
++
++// Номер заказа и статус для страницы «мои заказы».
++public sealed record OrderListItem(Guid Id, Domain.OrderStatus Status);
+diff --git a/src/Fulfil/Storage/MongoContext.cs b/src/Fulfil/Storage/MongoContext.cs
+new file mode 100644
+index 0000000..4dbda6f
+--- /dev/null
++++ b/src/Fulfil/Storage/MongoContext.cs
+@@ -0,0 +1,44 @@
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++using MongoDB.Driver;
++
++namespace Fulfil.Storage;
++
++public sealed class MongoContext
++{
++    public MongoContext(IOptions<FulfilOptions> options)
++    {
++        var o = options.Value;
++        Client = new MongoClient(o.MongoConnectionString);
++        Database = Client.GetDatabase(o.MongoDatabase);
++        Orders = Database.GetCollection<OrderDocument>("orders");
++        OrderEvents = Database.GetCollection<OrderEventDocument>("order_events");
++        CartDrafts = Database.GetCollection<CartDraftDocument>("cart_drafts");
++        WarehouseStock = Database.GetCollection<WarehouseStockDocument>("warehouse_stock");
++    }
++
++    public IMongoClient Client { get; }
++    public IMongoDatabase Database { get; }
++    public IMongoCollection<OrderDocument> Orders { get; }
++    public IMongoCollection<OrderEventDocument> OrderEvents { get; }
++    public IMongoCollection<CartDraftDocument> CartDrafts { get; }
++    public IMongoCollection<WarehouseStockDocument> WarehouseStock { get; }
++
++    // Идемпотентно; вызывается при старте любой реплики.
++    public async Task EnsureIndexesAsync(CancellationToken ct)
++    {
++        // Равенство (клиент, статус), затем сортировка и диапазон по дате: без сортировки в памяти.
++        await Orders.Indexes.CreateOneAsync(new CreateIndexModel<OrderDocument>(
++            Builders<OrderDocument>.IndexKeys
++                .Ascending(x => x.CustomerId).Ascending(x => x.Status).Descending(x => x.PlacedAt),
++            new CreateIndexOptions { Name = "customer_status_placed" }), cancellationToken: ct);
++
++        await OrderEvents.Indexes.CreateOneAsync(new CreateIndexModel<OrderEventDocument>(
++            Builders<OrderEventDocument>.IndexKeys.Ascending(x => x.OrderId).Ascending(x => x.At),
++            new CreateIndexOptions { Name = "order_at" }), cancellationToken: ct);
++
++        await CartDrafts.Indexes.CreateOneAsync(new CreateIndexModel<CartDraftDocument>(
++            Builders<CartDraftDocument>.IndexKeys.Ascending(x => x.UpdatedAt),
++            new CreateIndexOptions { Name = "ttl_updated", ExpireAfter = TimeSpan.FromDays(30) }), cancellationToken: ct);
++    }
++}
+diff --git a/src/Fulfil/Storage/OrderRepository.cs b/src/Fulfil/Storage/OrderRepository.cs
+new file mode 100644
+index 0000000..28fb836
+--- /dev/null
++++ b/src/Fulfil/Storage/OrderRepository.cs
+@@ -0,0 +1,62 @@
++using Fulfil.Domain;
++using MongoDB.Bson;
++using MongoDB.Driver;
++
++namespace Fulfil.Storage;
++
++public sealed class OrderRepository(MongoContext mongo)
++{
++    public const int PageSize = 50;
++
++    public Task InsertAsync(OrderDocument order, CancellationToken ct) =>
++        mongo.Orders.InsertOneAsync(order, cancellationToken: ct);
++
++    // Заказы клиента в статусе за период, сначала новые; под индекс customer_status_placed.
++    public async Task<IReadOnlyList<OrderDocument>> FindAsync(
++        Guid customerId, OrderStatus status, DateTime from, DateTime to, int page, CancellationToken ct)
++    {
++        var f = Builders<OrderDocument>.Filter;
++        var filter = f.Eq(x => x.CustomerId, customerId) & f.Eq(x => x.Status, status)
++                     & f.Gte(x => x.PlacedAt, from) & f.Lt(x => x.PlacedAt, to);
++        return await mongo.Orders.Find(filter)
++            .SortByDescending(x => x.PlacedAt)
++            .Skip(page * PageSize).Limit(PageSize)
++            .ToListAsync(ct);
++    }
++
++    // «Мои заказы»: проекция только на номер и статус, документ целиком не читается.
++    public async Task<IReadOnlyList<OrderListItem>> ListMineAsync(Guid customerId, int page, CancellationToken ct)
++    {
++        var rows = await mongo.Orders.Find(Builders<OrderDocument>.Filter.Eq(x => x.CustomerId, customerId))
++            .Project<BsonDocument>(Builders<OrderDocument>.Projection
++                .Include(x => x.Id).Include(x => x.Status))
++            .Sort(Builders<OrderDocument>.Sort.Descending(x => x.PlacedAt))
++            .Skip(page * PageSize).Limit(PageSize)
++            .ToListAsync(ct);
++        return rows.Select(r => new OrderListItem(
++            r["_id"].AsGuid, Enum.Parse<OrderStatus>(r["Status"].AsString))).ToList();
++    }
++
++    public async Task SetStatusAsync(Guid orderId, OrderStatus status, CancellationToken ct)
++    {
++        await mongo.Orders.UpdateOneAsync(x => x.Id == orderId,
++            Builders<OrderDocument>.Update.Set(x => x.Status, status), cancellationToken: ct);
++        await AddEventAsync(new OrderEventDocument
++        {
++            OrderId = orderId, At = DateTime.UtcNow, Kind = "StatusChanged", Status = status.ToString(),
++        }, ct);
++    }
++
++    public Task AddEventAsync(OrderEventDocument e, CancellationToken ct) =>
++        mongo.OrderEvents.InsertOneAsync(e, cancellationToken: ct);
++
++    // Лента событий постранично по времени (after - At последнего показанного).
++    public async Task<IReadOnlyList<OrderEventDocument>> GetEventsAsync(
++        Guid orderId, DateTime? after, int limit, CancellationToken ct)
++    {
++        var f = Builders<OrderEventDocument>.Filter;
++        var filter = f.Eq(x => x.OrderId, orderId);
++        if (after is { } a) filter &= f.Gt(x => x.At, a);
++        return await mongo.OrderEvents.Find(filter).SortBy(x => x.At).Limit(limit).ToListAsync(ct);
++    }
++}
+diff --git a/src/Fulfil/Storage/ShippedOrderWatcher.cs b/src/Fulfil/Storage/ShippedOrderWatcher.cs
+new file mode 100644
+index 0000000..bb234a8
+--- /dev/null
++++ b/src/Fulfil/Storage/ShippedOrderWatcher.cs
+@@ -0,0 +1,91 @@
++using Fulfil.Ports;
++using MongoDB.Bson;
++using MongoDB.Driver;
++
++namespace Fulfil.Storage;
++
++// Реагирует на смену статуса на Shipped через change stream (без опроса). Нужен replica set.
++// Реплик 3, и все слушают поток, поэтому письмо захватывается вставкой в shipped_mail с _id = orderId
++// (дубликат ключа - уже захвачено другой репликой). Позиция потока общая, в change_stream_state.
++public sealed class ShippedOrderWatcher(MongoContext mongo, IMailer mailer, ILogger<ShippedOrderWatcher> log) : BackgroundService
++{
++    private const string StateId = "shipped-orders";
++
++    private IMongoCollection<BsonDocument> State => mongo.Database.GetCollection<BsonDocument>("change_stream_state");
++    private IMongoCollection<BsonDocument> Claims => mongo.Database.GetCollection<BsonDocument>("shipped_mail");
++
++    protected override async Task ExecuteAsync(CancellationToken ct)
++    {
++        while (!ct.IsCancellationRequested)
++        {
++            try
++            {
++                await mongo.EnsureIndexesAsync(ct);
++                await WatchAsync(ct);
++            }
++            catch (OperationCanceledException) when (ct.IsCancellationRequested)
++            {
++            }
++            catch (Exception ex)
++            {
++                log.LogError(ex, "Change stream заказов прервался, повтор через 5 с");
++                try { await Task.Delay(TimeSpan.FromSeconds(5), ct); }
++                catch (OperationCanceledException) { }
++            }
++        }
++    }
++
++    private async Task WatchAsync(CancellationToken ct)
++    {
++        var stateDoc = await State.Find(new BsonDocument("_id", StateId)).FirstOrDefaultAsync(ct);
++        var options = new ChangeStreamOptions();
++        if (stateDoc is not null && stateDoc.TryGetValue("token", out var t))
++            options.ResumeAfter = t.AsBsonDocument;
++
++        // Смена статуса на Shipped: update с этим полем в updatedFields либо вставка/замена сразу в Shipped.
++        var shippedByUpdate = new BsonDocument("updateDescription.updatedFields.Status", "Shipped");
++        var shippedByWrite = new BsonDocument
++        {
++            { "operationType", new BsonDocument("$in", new BsonArray { "insert", "replace" }) },
++            { "fullDocument.Status", "Shipped" },
++        };
++        var pipeline = new EmptyPipelineDefinition<ChangeStreamDocument<OrderDocument>>().Match(
++            new BsonDocument("$or", new BsonArray { shippedByUpdate, shippedByWrite }));
++
++        using var cursor = await mongo.Orders.WatchAsync(pipeline, options, ct);
++        await cursor.ForEachAsync(async change =>
++        {
++            var orderId = change.DocumentKey["_id"].AsGuid;
++            var claimId = new BsonDocument("_id", new BsonBinaryData(orderId, GuidRepresentation.Standard));
++
++            var claimed = true;
++            try
++            {
++                await Claims.InsertOneAsync(
++                    new BsonDocument(claimId) { { "at", DateTime.UtcNow } }, cancellationToken: ct);
++            }
++            catch (MongoWriteException e) when (e.WriteError.Category == ServerErrorCategory.DuplicateKey)
++            {
++                claimed = false;
++            }
++
++            if (claimed)
++            {
++                try
++                {
++                    await mailer.SendShippedAsync(orderId);
++                }
++                catch
++                {
++                    // Снимаем захват, чтобы письмо не потерялось; позиция не сдвигается.
++                    await Claims.DeleteOneAsync(claimId, CancellationToken.None);
++                    throw;
++                }
++            }
++
++            await State.ReplaceOneAsync(new BsonDocument("_id", StateId),
++                new BsonDocument { { "_id", StateId }, { "token", change.ResumeToken } },
++                new ReplaceOptions { IsUpsert = true }, ct);
++        }, ct);
++    }
++}
+diff --git a/src/Fulfil/Storage/StockTransfer.cs b/src/Fulfil/Storage/StockTransfer.cs
+new file mode 100644
+index 0000000..008ed4e
+--- /dev/null
++++ b/src/Fulfil/Storage/StockTransfer.cs
+@@ -0,0 +1,35 @@
++using MongoDB.Driver;
++
++namespace Fulfil.Storage;
++
++public sealed class StockTransfer(MongoContext mongo)
++{
++    // Требует replica set (на standalone транзакций нет) - см. docker-compose.yml.
++    public async Task TransferAsync(string fromWarehouse, string toWarehouse, string sku, int quantity, CancellationToken ct)
++    {
++        using var session = await mongo.Client.StartSessionAsync(cancellationToken: ct);
++        await session.WithTransactionAsync(async (s, token) =>
++        {
++            var c = mongo.WarehouseStock;
++            var fromId = fromWarehouse + ":" + sku;
++            var toId = toWarehouse + ":" + sku;
++
++            var from = await c.UpdateOneAsync(s,
++                x => x.Id == fromId && x.Stock >= quantity,
++                Builders<WarehouseStockDocument>.Update.Inc(x => x.Stock, -quantity),
++                cancellationToken: token);
++            if (from.ModifiedCount != 1)
++                throw new InvalidOperationException($"Недостаточно остатка {sku} на складе {fromWarehouse}.");
++
++            await c.UpdateOneAsync(s,
++                x => x.Id == toId,
++                Builders<WarehouseStockDocument>.Update
++                    .Inc(x => x.Stock, quantity)
++                    .SetOnInsert(x => x.WarehouseId, toWarehouse)
++                    .SetOnInsert(x => x.Sku, sku),
++                new UpdateOptions { IsUpsert = true },
++                token);
++            return true;
++        }, cancellationToken: ct);
++    }
++}
+diff --git a/src/Fulfil/appsettings.json b/src/Fulfil/appsettings.json
+index 56eb014..8c5d778 100644
+--- a/src/Fulfil/appsettings.json
++++ b/src/Fulfil/appsettings.json
+@@ -3,7 +3,7 @@
+     "KafkaBootstrapServers": "localhost:9092",
+     "RabbitMqHost": "localhost",
+     "RedisConfiguration": "localhost:6379",
+-    "MongoConnectionString": "mongodb://localhost:27017",
++    "MongoConnectionString": "mongodb://localhost:27017/?directConnection=true",
+     "MongoDatabase": "fulfil",
+     "ElasticUri": "http://localhost:9200"
+   },

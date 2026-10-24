@@ -1,0 +1,61 @@
+{
+  "id": "a8607d",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0248034,
+    "durationMs": 4368,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2206,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 336,
+      "output_tokens_details": {
+        "thinking_tokens": 90
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2206,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 336,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2206,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2206
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = customerIds.Distinct().ToList();",
+      "why": "Id дедуплицируются до запроса и отправки, пачек нет, поэтому каждый клиент получает одно письмо."
+    },
+    "L5-h-chunk": {
+      "verdict": "NO",
+      "quote": "одним запросом (`Contains`)",
+      "why": "Запрос выполняется одним Contains и не режется на пачки."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var ids = customerIds.Distinct().ToList();",
+      "why": "customerIds перечисляется один раз и сразу материализуется в список, дальше используется только ids."
+    }
+  },
+  "stderr": ""
+}

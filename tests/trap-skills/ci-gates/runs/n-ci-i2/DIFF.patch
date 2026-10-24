@@ -1,0 +1,101 @@
+diff --git a/src/Depot.Api/AppVersion.cs b/src/Depot.Api/AppVersion.cs
+new file mode 100644
+index 0000000..5b30ab8
+--- /dev/null
++++ b/src/Depot.Api/AppVersion.cs
+@@ -0,0 +1,10 @@
++using System.Reflection;
++
++namespace Depot.Api;
++
++public static class AppVersion
++{
++    public static string Current { get; } =
++        typeof(AppVersion).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
++        ?? "unknown";
++}
+diff --git a/src/Depot.Api/Program.cs b/src/Depot.Api/Program.cs
+index f597612..bcd8b79 100644
+--- a/src/Depot.Api/Program.cs
++++ b/src/Depot.Api/Program.cs
+@@ -39,6 +39,8 @@ app.MapGet("/health", async (NpgsqlDataSource db) =>
+     return Results.Ok();
+ });
+ 
++app.MapGet("/version", () => Results.Json(new { version = AppVersion.Current }));
++
+ app.MapGet("/stock/{sku}", async (string sku, NpgsqlDataSource db) =>
+ {
+     await using var cmd = db.CreateCommand("select warehouse, quantity from stock where sku = $1");
+diff --git a/tests/Depot.Api.Tests/StockTests.cs b/tests/Depot.Api.Tests/StockTests.cs
+index dc675fe..d634338 100644
+--- a/tests/Depot.Api.Tests/StockTests.cs
++++ b/tests/Depot.Api.Tests/StockTests.cs
+@@ -1,5 +1,8 @@
+ using System.Net;
++using System.Text.Json;
+ using Depot.Contracts;
++using Microsoft.AspNetCore.Mvc.Testing;
++using Testcontainers.PostgreSql;
+ using Xunit;
+ 
+ namespace Depot.Api.Tests;
+@@ -9,6 +12,10 @@ public class ContractTests
+     [Fact, Trait("Category", "Contracts")]
+     public void StockDto_is_value_equal()
+         => Assert.Equal(new StockDto("A1", "msk", 3), new StockDto("A1", "msk", 3));
++
++    [Fact, Trait("Category", "Contracts")]
++    public void AppVersion_comes_from_build_and_starts_with_project_version()
++        => Assert.StartsWith("1.4.0", Depot.Api.AppVersion.Current);
+ }
+ 
+ // Интеграционные тесты: Postgres поднимается Testcontainers (нужен Docker на агенте).
+@@ -24,3 +31,47 @@ public class StockEndpointTests : IAsyncLifetime
+     public Task InitializeAsync() => Task.CompletedTask;
+     public Task DisposeAsync() => Task.CompletedTask;
+ }
++
++public class VersionEndpointTests : IAsyncLifetime
++{
++    private const string ApiKey = "test-key";
++    private readonly PostgreSqlContainer _db = new PostgreSqlBuilder().Build();
++    private WebApplicationFactory<Program> _factory = null!;
++
++    public async Task InitializeAsync()
++    {
++        await _db.StartAsync();
++        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
++        {
++            b.UseSetting("ConnectionStrings:Default", _db.GetConnectionString());
++            b.UseSetting("Auth:ApiKey", ApiKey);
++        });
++    }
++
++    public async Task DisposeAsync()
++    {
++        await _factory.DisposeAsync();
++        await _db.DisposeAsync();
++    }
++
++    [Fact, Trait("Category", "Integration")]
++    public async Task Version_with_key_returns_build_version()
++    {
++        var client = _factory.CreateClient();
++        client.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
++
++        var response = await client.GetAsync("/version");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
++        Assert.Equal(Depot.Api.AppVersion.Current, json.RootElement.GetProperty("version").GetString());
++    }
++
++    [Fact, Trait("Category", "Integration")]
++    public async Task Version_without_key_is_unauthorized()
++    {
++        var response = await _factory.CreateClient().GetAsync("/version");
++
++        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
++    }
++}

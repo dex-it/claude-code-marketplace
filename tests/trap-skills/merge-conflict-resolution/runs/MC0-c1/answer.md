@@ -1,0 +1,1 @@
+`main` слит в `feature/mc-clean` обычным merge без конфликтов. Мерж-коммит создан автоматически. Изменился только `tools/ordercli/src/money.js`: из `main` добавилась функция `parseMoney`, 7 строк. После мержа `npm test` в `tools/ordercli` прошёл: 5 тестов из 5.

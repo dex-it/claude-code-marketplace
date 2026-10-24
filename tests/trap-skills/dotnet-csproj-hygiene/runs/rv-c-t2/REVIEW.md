@@ -1,0 +1,18 @@
+src/Pricing.Contracts/QuoteContracts.cs:9 - публичное свойство GrandTotal удалено из опубликованного пакета, а версия поднята лишь до 1.4.0 (Pricing.Contracts.csproj:5): потребители, не перешедшие на Total, получат поломку компиляции при обычном обновлении минорной версии; нужен major (2.0.0) - major
+src/Pricing.Exports/PriceListExporter.cs:16 - CultureInfo.CurrentCulture при разделителе ";": десятичный разделитель в Price зависит от локали хоста (89,9 или 89.9), фид маркетплейсов получит разный формат на разных стендах; нужен InvariantCulture - major
+src/Pricing.Exports/PriceListExporter.cs:18 - CsvHelper запишет заголовок по свойствам PriceRow (Sku;Name;Category;Price), а в PRC-25 формат задан как sku;name;category;price: парсер маркетплейса не найдёт колонки; нужен явный маппинг/имена - major
+src/Pricing.Exports/PriceListExporter.cs:15 - ListAsync(0, int.MaxValue) грузит весь каталог в память, архивные отсеиваются уже после загрузки; на реальном хранилище выгрузка упрётся в память/время - minor
+src/Pricing.Exports/PriceListExporter.cs:9 - нет ни одного теста на экспортёр (формат, культура, фильтр архивных): регрессии формата фида уйдут незамеченными - minor
+src/Pricing.Exports/Pricing.Exports.csproj:22 - библиотека для внутреннего фида ссылается на Pricing.Infrastructure, хотя использует только Application и Domain: пакет потянет к команде маркетплейсов инфраструктуру (in-memory хранилище, HTTP-клиент поставщика) - major
+src/Pricing.Exports/Pricing.Exports.csproj:4 - LangVersion=preview расходится с решением: пакет собирается на preview-языке, сборка нестабильна между SDK, потребители могут не собрать - major
+src/Pricing.Exports/Pricing.Exports.csproj:3 - TargetFramework, Nullable, ImplicitUsings (строки 3, 5, 6) скопированы из Directory.Build.props: при смене в решении проект разойдётся - minor
+src/Pricing.Exports/Pricing.Exports.csproj:12 - CopyLocalLockFileAssemblies=true в библиотеке: в вывод попадут сторонние сборки, возможны конфликты версий у потребителей - minor
+src/Pricing.Exports/Pricing.Exports.csproj:11 - OutputPath переопределён в artifacts\exports\: сборка выходит из стандартного bin, ломает общие скрипты и может пересекаться с другими проектами - minor
+src/Pricing.Exports/Pricing.Exports.csproj:16 - Microsoft.Extensions.Http.Resilience подключён, но в проекте нет HTTP-вызовов: лишняя тяжёлая транзитивная зависимость в пакете - minor
+src/Pricing.Exports/Pricing.Exports.csproj:17 - Roslynator.Analyzers без PrivateAssets=all: анализатор потечёт потребителям пакета и будет давать им предупреждения - minor
+Directory.Packages.props:4 - версия CsvHelper вынесена в свойство CsvHelperVersion (строки 4, 13): лишняя косвенность, остальные пакеты так не оформлены - minor
+tools/Directory.Build.props:1 - файл не импортирует корневой Directory.Build.props (нет GetPathOfFileAbove), поэтому для tools пропадают Nullable/ImplicitUsings и прочие свойства решения: CLI собирается без nullable-проверок - major
+tools/Pricing.ExportCli/Pricing.ExportCli.csproj:6 - ManagePackageVersionsCentrally=false и CsvHelper Version="33.*" (строка 9) обходят центральное управление версиями: плавающая версия даёт невоспроизводимые сборки, а пакет CLI напрямую не нужен - major
+tools/Pricing.ExportCli/Pricing.ExportCli.csproj:4 - TargetFramework продублирован из решения без названной причины - minor
+tools/Pricing.ExportCli/Program.cs:13 - утилита выгружает не прайс сервиса, а пустой InMemoryStore с одним зашитым товаром "Молоко": на стенде всегда получится фиктивный файл с одной строкой, задача ручной выгрузки не решена - blocker
+tools/Pricing.ExportCli/Program.cs:17 - нет обработки ошибок ввода-вывода (недоступный путь): утилита упадёт необработанным исключением со стеком - minor

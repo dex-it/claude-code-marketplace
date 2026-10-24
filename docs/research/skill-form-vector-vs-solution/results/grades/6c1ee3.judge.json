@@ -1,0 +1,92 @@
+{
+  "id": "6c1ee3",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11441499999999999,
+    "durationMs": 16828,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9675,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1829,
+      "output_tokens_details": {
+        "thinking_tokens": 695
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9675,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1829,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9675,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9675
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "после проекции идёт `.Where(r => r.OffDay)` (и `OrderByDescending`). EF Core не может перевести фильтр по клиентскому значению",
+      "why": "Назван клиентский IsWorkingDay в ToRows и фильтр после проекции, из-за которых отчёт падает при каждом вызове; предложено фильтровать в памяти после ToListAsync."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри подзапроса — синтаксическая ошибка PostgreSQL, так что фильтр по машине не работает",
+      "why": "Описан механизм оборачивания в подзапрос при заданном vehicleId и причина, по которой локальная проверка ошибку не поймала; предложено убрать ';' и перенести ORDER BY в LINQ."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` не загружает `Equipment` (нет `Include`), поэтому `vehicle.Equipment` пуст и `Clear()` ничего не удаляет",
+      "why": "Названы оба последствия: DbUpdateException на уникальном индексе и накопление старых позиций; предложен Include."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "`ALTER COLUMN model TYPE varchar(40)` в PostgreSQL завершится ошибкой `value too long for type character varying(40)`",
+      "why": "Указано, что миграция упадёт на prod-данных из MR; предложено ограничивать длину при печати или сначала мигрировать данные."
+    },
+    "GR-last-inspection": {
+      "verdict": "PASS",
+      "quote": "У всех осмотров из одной пачки (один `SaveChanges`) `created_at` одинаковый, и какой из них «последний», решает случайный порядок",
+      "why": "Неуникальный порядок по CreatedAt внутри пачки и выпуск машины с блокирующим замечанием названы, предложен тай-брейк по Id; механизм SplitQuery не упомянут, но дефект по существу тот же."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "`p.ValidUntil > today`, а по требованию допуск действует **по указанную дату включительно**",
+      "why": "Дефект назван, предложено `>=`."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Комплектацию любой машины может перезаписать любой аутентифицированный пользователь (водитель, HR и т. п.)",
+      "why": "Отсутствие политики на PUT equipment названо дефектом."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "Нужно `Include(v => v.Equipment)`, как в `DriverService.ReplacePermitsAsync`",
+      "why": "ReplacePermitsAsync приведён как правильный образец, а не как дефект."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "Endpoint отдаёт сущность `Vehicle` напрямую",
+      "why": "По by-plate замечание только о сериализации сущности; инъекция и ошибка композиции FromSql не утверждаются."
+    }
+  },
+  "stderr": ""
+}

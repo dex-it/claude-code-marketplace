@@ -1,0 +1,58 @@
+docker exec <ctr> sh -c 'ls -la /work /work/src /work/app; ps aux | head -20; which dotnet-trace dotnet-counters dotnet-stack perf strace ltrace gdb lldb'
+docker exec <ctr> sh -c 'ls /work/logs; tail -5 /work/logs/*; top -H -b -n1 -p 11 | head -20; timeout 8 strace -c -f -p 11 2>&1 | head -20; perf record -F 199 -g -p 11 -o /tmp/p.data -- sleep 6 2>&1 | tail -2; perf report -i /tmp/p.data --no-children --sort dso,sym 2>&1 | head -30'
+docker exec <ctr> sh -c 'head -3 /work/logs/worker.log; cat /work/app/OrdersWorker.runtimeconfig.json; env | grep -i -E "dotnet|complus"; timeout 12 dotnet-counters collect -p 11 --counters System.Runtime --refresh-interval 2 -o /tmp/c --format csv 2>&1 | tail -3; grep -h -E "gc-heap|gen-[012]-gc|alloc-rate|gc-pause|threadpool-thread|monitor-lock|cpu-usage|gen-0-size|gen-0-gc" /tmp/c.csv | tail -14'
+docker exec <ctr> sh -c 'pkill -f OrdersWorker.dll; sleep 1; cd /work && DOTNET_PerfMapEnabled=1 nohup dotnet app/OrdersWorker.dll slow >/tmp/out.log 2>&1 &
+sleep 5; P=$(pgrep -f OrdersWorker.dll | head -1); echo pid $P; perf record -F 499 -g -p $P -o /tmp/p2.data -- sleep 8 2>&1 | tail -1; perf report -i /tmp/p2.data --no-children --sort sym -g none 2>&1 | grep -v "^#" | head -25; echo ---; perf report -i /tmp/p2.data --children --sort sym -g none 2>&1 | grep -v "^#" | head -25'
+docker exec <ctr> sh -c 'pgrep -a dotnet; ls /work/logs'
+cat <lab>/src/Program.cs | head -0; docker exec <ctr> sh -c 'cat > /tmp/run.sh <<EOF
+cd /work
+DOTNET_PerfMapEnabled=1 exec dotnet app/OrdersWorker.dll slow
+EOF
+echo ok'
+docker exec -d <ctr> sh /tmp/run.sh; sleep 5; docker exec <ctr> sh -c 'P=$(pgrep -x dotnet | tail -1); echo pid $P; perf record -F 499 -g -p $P -o /tmp/p2.data -- sleep 8 2>&1 | tail -1; perf report -i /tmp/p2.data --no-children --sort sym -g none 2>&1 | grep -v "^#" | head -20; echo ---; perf report -i /tmp/p2.data --children --sort sym -g none 2>&1 | grep -v "^#" | head -25'
+docker exec <ctr> sh -c 'nohup sh /tmp/run.sh >/tmp/out.log 2>&1 &
+sleep 5; P=$(pgrep -x dotnet | tail -1); echo pid $P; perf record -F 499 -g -p $P -o /tmp/p2.data -- sleep 8 2>&1 | tail -1; perf report -i /tmp/p2.data --no-children --sort sym -g none 2>&1 | grep -v "^#" | head -20; echo ---; perf report -i /tmp/p2.data --children --sort sym -g none 2>&1 | grep -v "^#" | head -25'
+docker exec <ctr> sh -c 'ls -la /tmp/perf-*.map | head; perf report -i /tmp/p2.data --children --sort sym -g none 2>&1 | grep -v "^#" | head -30'
+docker exec <ctr> sh -c 'cd /tmp; perf script -i p2.data -F ip,sym -G 2>/dev/null | head -0; perf script -i p2.data -F ip 2>/dev/null | awk "BEGIN{RS=\"\n\n\"} {split(\$0,a,\"\n\"); print a[1]}" > top.txt; wc -l top.txt; head -3 top.txt; head -3 perf-108.map'
+docker exec <ctr> sh -c 'cd /tmp; perf script -i p2.data -F ip,sym 2>/dev/null > s.txt; head -12 s.txt; which python3'
+docker exec <ctr> sh -c 'pkill -x dotnet; sleep 1; sed -i "s/^DOTNET_PerfMapEnabled=1/DOTNET_EnableWriteXorExecute=0 DOTNET_PerfMapEnabled=1/" /tmp/run.sh; cat /tmp/run.sh; nohup sh /tmp/run.sh >/tmp/out.log 2>&1 &
+sleep 5; P=$(pgrep -x dotnet | tail -1); perf record -F 499 -g -p $P -o /tmp/p3.data -- sleep 8 2>&1 | tail -1; perf report -i /tmp/p3.data --no-children --sort sym -g none 2>&1 | grep -v "^#" | head -15; echo ---; perf report -i /tmp/p3.data --children --sort sym -g none 2>&1 | grep -v "^#" | head -30'
+docker exec <ctr> sh -c 'grep -n -i -E "regex|Slugify" /work/src/Program.cs; tail -2 /work/logs/worker.log'
+sed -n 158,170p src/Program.cs && cat > REPORT.md <<'EOF'
+# Отчёт: orders-worker (режим slow)
+
+## Симптом
+После релиза p50 обработчика вырос с 0.2 до 3 мс. Процесс `dotnet app/OrdersWorker.dll slow` держит ~175% CPU на двух рабочих потоках. Узких мест по IO нет: `strace -c` показывает в основном futex и ожидание, диска и сети почти нет. Это CPU-bound.
+
+## Причина
+`TextUtils.Slugify` (`/work/src/Program.cs:160`) на каждый вызов создаёт новый объект `Regex` (строка 162):
+`new Regex(@"[^\p{L}\p{Nd}]+(?:[\s\p{P}]*)")`. Метод вызывается из горячего цикла (`Program.cs:98`, `Modes.Slow`).
+Каждый вызов заново разбирает и компилирует шаблон (RegexParser/RegexWriter), а затем прогоняет интерпретатор. Кэш не используется, `RegexOptions.Compiled` не задан. Классы Unicode `\p{L}`, `\p{Nd}`, `\p{P}` ещё и дороги при сопоставлении.
+
+## Улики
+Профиль `perf` с `DOTNET_PerfMapEnabled=1 DOTNET_EnableWriteXorExecute=0` (иначе JIT-символы не разрешаются), 8 с, 499 Гц, 7153 сэмпла:
+
+    perf record -F 499 -g -p <pid> -- sleep 8
+    perf report --children --sort sym -g none
+
+    99.72%  Modes+<>c::<Slow>b__6_1()
+    97.65%  TextUtils::Slugify(string)
+    47.90%  Regex.RegexReplacement::ReplaceSimpleText
+    45.17%  Regex::RunAllMatchesWithCallback
+    36.17%  Regex::.ctor(string, CultureInfo)        <- конструктор Regex на каждый вызов
+    28.60%  RegexParser::Parse
+     6.86%  RegexWriter::Write
+
+Self-время (`--no-children`): `RegexInterpreter::TryMatchAtCurrentPosition` 7.4%, `RegexCharClass::CharInCategoryGroup` 6.9%, `CharInClassRecursive` 5.6%, `TryFindNextStartingPositionLeftToRight` 5.1%. Всё это внутри System.Text.RegularExpressions.
+
+`dotnet-counters collect` завершился без файла и данных не дал.
+
+## Что предлагаю
+- Вынести регулярное выражение в `private static readonly Regex`, чтобы оно создавалось один раз. Либо использовать `[GeneratedRegex]`, либо `RegexOptions.Compiled`. Это уберёт примерно 36% (конструктор и разбор шаблона).
+- Заменить `\p{L}`/`\p{P}` на более простые проверки, например на ручной проход по символам, если допустим ASCII или упрощённая семантика. Это убрало бы и остальные ~45% на сопоставление.
+- Проверить, не перенесло ли релиз `Slugify` в горячий путь. Если результат зависит только от `title`, его можно кэшировать.
+- После правки повторить замер: p50 и профиль `perf` тем же способом.
+
+Код и конфигурацию я не менял. Сервис перезапускался, сейчас он работает с `DOTNET_PerfMapEnabled=1` и `DOTNET_EnableWriteXorExecute=0`, это замедляет его. Для штатного режима его нужно перезапустить без этих переменных.
+EOF
+[Write] <lab>/REPORT.md

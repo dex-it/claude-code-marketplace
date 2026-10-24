@@ -1,0 +1,30 @@
+{
+  "id": "G6",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "Domovoy.Housing - сервис управляющей компании: заявки жильцов, дома и квартиры, планы обслуживания домов; ASP.NET Core 8, EF Core 8 (EFCore.NamingConventions, snake_case), Npgsql, PostgreSQL 16, выкатка GitHub Actions с EF migrations bundle",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G6/Models.cs",
+      "to": "Models.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G6/HousingDbContext.cs",
+      "to": "HousingDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G6/HousingService.cs",
+      "to": "HousingService.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G6/PlanService.cs",
+      "to": "PlanService.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G6/deploy/release.yml",
+      "to": "deploy/release.yml"
+    }
+  ],
+  "task": "Задачи по сервису управляющей компании.\n(а) Реестр заявок: диспетчер хочет сортировать таблицу по клику на заголовок - дата (по умолчанию, новые сверху), адрес (дом, затем квартира), статус; фронт передаёт sort=date|address|status и dir=asc|desc. Остальные фильтры реестра работают как раньше.\n(б) Мастер закрывает заявку: статус Done и обязательный комментарий о выполненных работах; закрыть можно только заявку в статусе InProgress, иначе 409. Endpoint POST /requests/{id}/close.\n(в) Инженер присылает обновлённый план обслуживания дома целиком (список работ: код, название, периодичность в днях) - план дома должен стать таким, как прислано; история выполнения по работам, которые остаются в плане, сохраняется. Endpoint PUT /houses/{id}/plan.\n(г) В заявку добавить контактный телефон заявителя (необязательный): диспетчер вносит его при приёме заявки, мастер видит в карточке заявки."
+}

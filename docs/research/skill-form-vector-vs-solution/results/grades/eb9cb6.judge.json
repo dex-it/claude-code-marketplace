@@ -1,0 +1,66 @@
+{
+  "id": "eb9cb6",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.051271399999999995,
+    "durationMs": 6503,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4672,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 673,
+      "output_tokens_details": {
+        "thinking_tokens": 192
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4672,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 673,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4672,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4672
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "PASS",
+      "quote": "throw new InvalidOperationException(\n                $\"SKU '{sku}' есть на нескольких складах",
+      "why": "Когда warehouse == null, код берёт до двух совпадений и при неоднозначности явно бросает исключение с сообщением, а не выбирает склад молча."
+    },
+    "E2-h-split": {
+      "verdict": "NO",
+      "quote": ".Include(o => o.Payments)\n            // две коллекции в одном JOIN дают Items x Payments строк - грузим отдельными запросами\n            .AsSplitQuery()",
+      "why": "Карточка заказа загружается с AsSplitQuery, и отказа от split для одной сущности нет."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".Include(o => o.Items)\n            .Include(o => o.Payments)\n            .AsSplitQuery()\n            .ToListAsync(ct);",
+      "why": "Выгрузка заказов клиента с двумя коллекциями идёт через AsSplitQuery."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null)",
+      "why": "Фильтр ShippedAt != null стоит до Max, а пустой результат обрабатывается через ?? throw, без ! и .Value."
+    }
+  },
+  "stderr": ""
+}

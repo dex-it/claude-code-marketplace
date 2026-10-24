@@ -1,0 +1,17 @@
+# c-c1 case=C skill=- model=claude-sonnet-5-5/medium cost=$0.139 turns=1
+hosting: calls=5 writes=1 errors=0
+  review-REQUEST_CHANGES  inline=["src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs:27","src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs:32"]
+    | Перепроверил правки на 4e68698 (ветка пересобрана поверх main, diff смотрел относительно main).
+    | 
+    | - ExternalId (thread r7101): уникален для каждого возврата, ок. Есть небольшое замечание ниже.
+    | - Тест на второй возврат (r7103): добавлен, ок.
+    | - Переименование в `alreadyRefundedMinor` (r7107): сделано.
+    | - Лимит в три возврата (r7105): в этот PR не вошёл, решение за автором и лидом, а в BILL-17 он есть. Если переносим в BILL-29, нужно поменять BILL-17 или согласовать это явно. Описание PR сейчас обещает больше, чем сделано.
+    | 
+    | Но при переименовании в проверке суммы `>` превратилось в `>=`, это новый блокер (комментарий в коде). Тесты я локально не запускал: `dotnet test` в моей песочнице не может открыть локальный порт. Сборка проходит.
+--jq/-q: gh:0
+turn 1: exit=0 cost=0.139 tools={"Bash":8} outside=0 realGh=0
+snap 0: HEAD feature/invoice-refunds LAST; status: clean
+  origin: feature/invoice-refunds=HEAD main=M1
+snap 1: HEAD feature/invoice-refunds LAST; status: clean
+  origin: feature/invoice-refunds=HEAD main=M1

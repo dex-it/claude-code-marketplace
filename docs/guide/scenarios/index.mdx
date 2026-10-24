@@ -1,0 +1,27 @@
+---
+title: Сценарии
+description: Типичные задачи разработчика, аналитика и архитектора - какой бандл поставить и какую команду запустить.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Каждый сценарий отвечает на три вопроса: чего я хочу, что поставить и что запустить. Команды записаны полным именем `/плагин:команда`; результат описан по тому, что команда делает, а не по примеру вывода.
+
+| Хочу | Ставлю | Запускаю |
+|---|---|---|
+| [Проверить свою ветку перед push](/scenarios/review-before-push/) | `code-review` | `/dex-self-reviewer:self-review` |
+| [Отревьюить чужой MR или PR](/scenarios/review-others/) | `code-review` | `/dex-mr-reviewer:mr-review` |
+| [Разобрать полученное ревью](/scenarios/handle-review/) | `dotnet-developer` или `ts-fullstack` | `/dex-review-planner:review-plan` |
+| [Найти баг и его причину](/scenarios/find-bug/) | `bug-lifecycle` | `/dex-bug-finder:find-bugs`, `/dex-debugger:root-cause` |
+| [Разобрать инцидент на стенде](/scenarios/incident/) | `bug-lifecycle` | `/dex-incident-investigator:investigate` |
+| [Собрать требования к фиче](/scenarios/requirements/) | `system-analyst` | `/dex-business-analyst:feature`, `/dex-requirements-reviewer:feature-check` |
+| [Спроектировать решение](/scenarios/design/) | `architect` | `/dex-architect:design` |
+| [Реализовать фичу и добрать тесты](/scenarios/implement/) | `dotnet-developer` или `ts-fullstack` | `/dex-implement:implement`, `/dex-test:test` |
+| [Отдать задачу целиком](/scenarios/auto/) | `auto` | `/dex-auto:onboard`, `/dex-auto:goal`, `/dex-auto:auto` |
+| [Смотреть кластер, БД и очереди из чата](/scenarios/diagnostics/) | `cli-tools` | `/dex-kubectl-cli:kube-pods`, `/dex-psql-cli:psql-query`, `/dex-rabbitmqadmin-cli:rmq-queues` |
+
+Бандл ставится из клона репозитория: `./install-bundle/install-bundle.sh <имя>`. Как это сделать - в разделе [Установка](/start/install/).
+
+## Если ничего не подошло
+
+Список выше - примеры, а не весь каталог. Команды, специалисты и skills для других задач - в [каталоге](/catalog/). Польза есть и без команд: [skills подключаются сами](/concepts/skills/), когда в разговоре появляется их тема.

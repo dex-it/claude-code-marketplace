@@ -1,0 +1,121 @@
+{
+  "id": "c8aff8",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0959314,
+    "durationMs": 15135,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7237,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1880,
+      "output_tokens_details": {
+        "thinking_tokens": 483
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7237,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1880,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7237,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7237
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "appsettings.Staging.json: `\"MaxInFlight\": 20` ← ВЫШЕ",
+      "why": "Находка №9 прямо указывает, что MaxInFlight в Staging (20) выше, чем в Production (5)."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Дублирование MaxRetries 5 в Staging и Production при том же дефолте нигде не упомянуто."
+    },
+    "CFG-h-required": {
+      "verdict": "YES",
+      "quote": "`required` ловит отсутствие на компиляции",
+      "why": "Находка №12 предлагает required для SmtpOptions как способ поймать отсутствующее значение конфигурации вместо валидации опций."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароли БД и API-ключи SMTP сохранены в открытом виде в репозитории",
+      "why": "Находка №1 называет секреты БД и SMTP в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "GetValue вернёт 0 (не найдёт ключ), потом `60_000 / 0` = DivisionByZero",
+      "why": "Находка №10 называет неверный ключ MessagesPerMinute против PerMinute и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "OutboxOptionsValidator существует, но не добавлен в контейнер",
+      "why": "Находки №5 и №6 называют незарегистрированный валидатор и отсутствие ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "Но `IOptions<T>` — это singleton, изменения в appsettings.json не видны. Нужно `IOptionsMonitor<OutboxOptions>`.",
+      "why": "Находка №7 связывает IOptions в воркере с требованием менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "при нарушении инварианта код молча не выполняется, фича отключается без сигнала",
+      "why": "Находка №8 описывает тихое отключение adaptive batching при Min=200 и Max=100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "При текущем коде `TimeSpan.FromSeconds(500)` = 500 секунд (~8 минут)",
+      "why": "Находка №3 называет паузу в 500 секунд вместо полусекунды."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "Реально `null` доезжает до первого использования (SmtpMailSender.cs строка 14: `o.FromAddress`) и даёт NRE",
+      "why": "Находка №12 называет non-nullable Host/FromAddress без значения и проверки как дефект, хотя предлагает неверное исправление."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против IOptions<SmtpOptions> в SmtpMailSender находок нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "использовать `TimeSpan LockTimeout` как образец",
+      "why": "LockTimeout как TimeSpan приведён как положительный образец, а не как дефект."
+    },
+    "CFG-O1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Установка SentAt до отправки письма не упомянута."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "Код ищет секцию `\"Mail\"`, а в конфиге везде `\"Smtp\"`",
+      "why": "Находка №2 называет неверную секцию, из-за которой SmtpOptions остаются пустыми."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие подстановки ${NOTIFY_DB_PASSWORD} в конфигурации .NET для Staging не упомянуто."
+    }
+  },
+  "stderr": ""
+}

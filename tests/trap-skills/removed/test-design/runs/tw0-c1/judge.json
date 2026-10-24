@@ -1,0 +1,167 @@
+{
+  "repo": "<run>/ws/parcel",
+  "base": "009870eb10d53814805c2aa636b3abe5bd888eb1",
+  "testFiles": [
+    "test/courier-service.test.js",
+    "test/eta.test.js",
+    "test/order.test.js",
+    "test/orders-api.test.js",
+    "test/sms.test.js",
+    "test/store.test.js",
+    "test/tariff.test.js",
+    "web/test/order-view.test.js"
+  ],
+  "baselineGreen": 131,
+  "baselineFailing": [
+    "test/tariff.test.js > zoneForPostcode > 150000 -> C",
+    "test/tariff.test.js > zoneForPostcode > 180000 -> C",
+    "test/tariff.test.js > zoneForPostcode > 189999 -> C",
+    "test/tariff.test.js > zoneForPostcode > 190000 -> B",
+    "test/tariff.test.js > zoneForPostcode > 199999 -> B",
+    "test/tariff.test.js > quote > ставки зон за 0,5 кг",
+    "test/tariff.test.js > quote > лояльность на целых рублях: 0,5 кг зона B -> 135 ₽",
+    "test/tariff.test.js > quote > экспресс на нечётной ставке: 0,5 кг зона B -> 225 ₽"
+  ],
+  "mutants": {
+    "w-max": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > billableUnits > 30 кг -> 60 ед.",
+        "test/tariff.test.js > quote > максимальный вес 30 кг"
+      ]
+    },
+    "w-min": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > billableUnits > 0.1 кг -> 1 ед.",
+        "test/tariff.test.js > quote > минимальный вес тарифицируется как 0,5 кг",
+        "test/tariff.test.js > quote > сумма - целое число копеек, кратное рублю"
+      ]
+    },
+    "ret-14": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > returnOrder > ровно 14 суток - принимается",
+        "test/order.test.js > returnOrder > 14 суток 23 ч 59 мин - принимается (полных суток 14)"
+      ]
+    },
+    "w-nan": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > billableUnits > NaN (number) -> WEIGHT_TYPE"
+      ]
+    },
+    "w-str": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > billableUnits > 1 (string) -> WEIGHT_TYPE",
+        "test/tariff.test.js > billableUnits > null (object) -> WEIGHT_TYPE",
+        "test/tariff.test.js > billableUnits >  (object) -> WEIGHT_TYPE",
+        "test/tariff.test.js > billableUnits > true (boolean) -> WEIGHT_TYPE",
+        "test/tariff.test.js > quote > ошибки пробрасываются"
+      ]
+    },
+    "pc-5": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > zoneForPostcode > невалидный индекс \"12345\" -> POSTCODE"
+      ]
+    },
+    "zone-x": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > deliveryDays > неизвестная зона D -> ZONE",
+        "test/tariff.test.js > deliveryDays > неизвестная зона undefined -> ZONE",
+        "test/tariff.test.js > deliveryDays > неизвестная зона null -> ZONE",
+        "test/tariff.test.js > deliveryDays > неизвестная зона  -> ZONE",
+        "test/tariff.test.js > deliveryDays > неизвестная зона a -> ZONE",
+        "test/tariff.test.js > deliveryDays > неизвестная зона toString -> ZONE",
+        "test/tariff.test.js > deliveryDays > неизвестная зона __proto__ -> ZONE"
+      ]
+    },
+    "skip-pack": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > переходы > paid -> shipped запрещён (TRANSITION), заказ не меняется"
+      ]
+    },
+    "cancel-shipped": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > cancel > shipped: CANCEL_FORBIDDEN, ничего не трогается"
+      ]
+    },
+    "ret-shipped": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > returnOrder > из created - RETURN_FORBIDDEN",
+        "test/order.test.js > returnOrder > из paid - RETURN_FORBIDDEN",
+        "test/order.test.js > returnOrder > из packed - RETURN_FORBIDDEN",
+        "test/order.test.js > returnOrder > из shipped - RETURN_FORBIDDEN",
+        "test/order.test.js > returnOrder > из cancelled - RETURN_FORBIDDEN",
+        "test/order.test.js > returnOrder > из returned - RETURN_FORBIDDEN",
+        "test/order.test.js > returnOrder > повторный возврат запрещён"
+      ]
+    },
+    "no-refund-packed": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > cancel > packed: возврат суммы заказа и снятие резерва"
+      ]
+    },
+    "no-release-created": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > cancel > created: только снимает резерв, без возврата денег"
+      ]
+    },
+    "ef": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > createOrder > опции влияют на сумму",
+        "test/tariff.test.js > quote > хрупкое + экспресс: надбавка 600 ₽"
+      ]
+    },
+    "el": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote > лояльность не действует при экспрессе"
+      ]
+    },
+    "fl": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote > лояльность считается после надбавки за хрупкость"
+      ]
+    },
+    "efl": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote > лояльность не действует при экспрессе"
+      ]
+    },
+    "none": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > createOrder > новый заказ: статус, сумма и зона по тарифу",
+        "test/order.test.js > cancel > paid: возврат суммы заказа и снятие резерва",
+        "test/order.test.js > cancel > packed: возврат суммы заказа и снятие резерва",
+        "test/order.test.js > returnOrder > успешный возврат: деньги, статус, история",
+        "test/tariff.test.js > quote > пример из требований: 1,2 кг, зона A -> 360 ₽",
+        "test/tariff.test.js > quote > минимальный вес тарифицируется как 0,5 кг"
+      ]
+    },
+    "exp-ignored": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > deliveryDays > зона B",
+        "test/tariff.test.js > deliveryDays > зона C"
+      ]
+    }
+  },
+  "summary": {
+    "total": 18,
+    "killed": 18,
+    "alive": []
+  }
+}

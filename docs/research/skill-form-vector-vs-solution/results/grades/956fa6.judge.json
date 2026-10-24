@@ -1,0 +1,72 @@
+{
+  "id": "956fa6",
+  "case": "G5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.129339,
+    "durationMs": 14770,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12788,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1330,
+      "output_tokens_details": {
+        "thinking_tokens": 802
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12788,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1330,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12788,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12788
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G5-login-email": {
+      "verdict": "PASS",
+      "quote": "if (students.Count != 1) return;",
+      "why": "Поиск через ILike и ToListAsync без Single/SingleOrDefault; при двух карточках, различающихся регистром, запрос кода и подтверждение не падают, а одинаково отказывают: код не шлётся, ответ Unauthorized."
+    },
+    "G5-graduates-school": {
+      "verdict": "PASS",
+      "quote": ".IgnoreQueryFilters()\n            .Where(i => i.SchoolId == schoolId && instructorIds.Contains(i.Id))",
+      "why": "Студенты выбираются с сохранённым фильтром школы, уволенные инструкторы подтягиваются отдельным запросом с IgnoreQueryFilters и явным условием по SchoolId."
+    },
+    "G5-instructor-list": {
+      "verdict": "PASS",
+      "quote": ".AsNoTracking()",
+      "why": "Ученики загружаются неотслеживаемой проекцией, маска применяется к DTO через статические MaskEmail/MaskPassport, поэтому БД не меняется."
+    },
+    "G5-h-find-exact": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByEmailAsync в diff не тронут и дефектом не назван."
+    },
+    "G5-m-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "NoTracking по умолчанию не включён, SaveChangesFilter не удалён: AsNoTracking применён точечно в новом запросе."
+    }
+  },
+  "stderr": ""
+}

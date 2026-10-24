@@ -1,0 +1,121 @@
+{
+  "id": "27d269",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0722794,
+    "durationMs": 13940,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4473,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1803,
+      "output_tokens_details": {
+        "thinking_tokens": 347
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4473,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1803,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4473,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4473
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "`Outbox:MaxInFlight`: Staging = 20, Production = 5. Staging агрессивнее Production без обоснования рядом",
+      "why": "Находка №9 прямо называет превышение MaxInFlight в Staging над Production."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "`MaxRetries: 5` в обоих env-файлах и `MaxInFlight: 5` в Production совпадают со значением по умолчанию",
+      "why": "Находка №12 называет повтор MaxRetries 5 в обоих env-файлах при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Модификатор required не упоминается; для SmtpOptions предложены IValidateOptions/DataAnnotations."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "секреты закоммичены в открытом виде: пароль БД `Kx7!pQ2vR9wz` и ключ SMTP-релея",
+      "why": "Находка №6 называет пароли БД и SMTP в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` вернёт `0`, и `60_000 / perMinute` бросит `DivideByZeroException`",
+      "why": "Находка №4 описывает неверный ключ, значение 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "`OutboxOptionsValidator : IValidateOptions<OutboxOptions>` нигде не зарегистрирован в DI",
+      "why": "Находка №5 называет отсутствие регистрации валидатора и ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`",
+      "why": "Находка №7 связывает IOptions в синглтоне с требованием менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "условие `MinBatchSize < MaxBatchSize` всегда false, `_batchSize` замирает на `MaxBatchSize`",
+      "why": "Находка №8 описывает тихое выключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "Код трактует 500 как секунды → воркер опрашивает outbox раз в ~8.3 минуты",
+      "why": "Находка №3 называет паузу 500 секунд из-за TimeSpan.FromSeconds."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`Host`, `FromAddress` — non-nullable `string` без значений по умолчанию",
+      "why": "Находка №10 указывает на отсутствие дефолта и проверки у Host и FromAddress."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против IOptions<SmtpOptions> в SmtpMailSender находок нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout как TimeSpan не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`m.SentAt = now` проставляется и коммитится (`SaveChangesAsync`) до фактической отправки письма",
+      "why": "Находка №2 говорит, что неудачное письмо больше не выбирается для повтора."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`Configure<SmtpOptions>(builder.Configuration.GetSection(\"Mail\"))`, но во всех appsettings*.json секция называется `\"Smtp\"`",
+      "why": "Находка №1 называет несовпадение секции и пустые SmtpOptions."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "в проекте не подключён provider, разворачивающий `${...}`",
+      "why": "Находка №6 указывает, что в строке подключения окажется буквальный текст плейсхолдера."
+    }
+  },
+  "stderr": ""
+}

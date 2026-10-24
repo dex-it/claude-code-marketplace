@@ -1,0 +1,97 @@
+{
+  "id": "d05fd9",
+  "case": "V1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.127771,
+    "durationMs": 12018,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12507,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1364,
+      "output_tokens_details": {
+        "thinking_tokens": 205
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12507,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1364,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12507,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12507
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V1-hold-late-payment": {
+      "verdict": "FOUND",
+      "quote": "Ссылка на оплату живёт 24 часа, а удержание места — 30 минут. Если оплата пришла после истечения удержания, `RegisterPayment` всё равно подтверждает бронь.",
+      "why": "Связывает истечение 30-минутного удержания с 24-часовой ссылкой и безусловное подтверждение в RegisterPayment; называет итог: две подтверждённые брони на одном месте."
+    },
+    "V1-kopecks-cast": {
+      "verdict": "FOUND",
+      "quote": "`(long)rubles * 100` сначала отбрасывает копейки, потом умножает: 1234,56 ₽ превращается в 123400 коп.",
+      "why": "Указан приоритет приведения и его последствия: бронь не подтверждается, место теряется, возврат занижен."
+    },
+    "V1-extend-long-stay": {
+      "verdict": "FOUND",
+      "quote": "Скидка 10 % от 7 ночей смотрит только на ночи продления: 2 ночи + 5 ночей дают 7 ночей без скидки.",
+      "why": "Названо, что скидка за длительность при продлении не учитывает всю стоянку."
+    },
+    "V1-beam-not-checked": {
+      "verdict": "FOUND",
+      "quote": "Проверяется только длина судна, ширина (`BeamM` против `MaxBeamM`) нет.",
+      "why": "Прямо указано, что ширина судна не сравнивается с шириной места."
+    },
+    "V1-calendar-vessel-pii": {
+      "verdict": "FOUND",
+      "quote": "Анонимный эндпоинт отдаёт полный `VesselDto`: имя и телефон шкипера, номер полиса, бортовой номер.",
+      "why": "Анонимный календарь связан с персональными полями VesselDto."
+    },
+    "V1-tariff-singleton-state": {
+      "verdict": "FOUND",
+      "quote": "У синглтона общий изменяемый `List<NightCharge> _nights`. Параллельные расчёты портят друг другу разбивку, `Total` и `Deposit` или падают с исключением.",
+      "why": "Изменяемое поле связано с регистрацией singleton и параллельными вызовами."
+    },
+    "V1-seasonal-rates-not-loaded": {
+      "verdict": "PASS",
+      "quote": "Место загружается через `FromSql` без `SeasonalRates`, а lazy loading не настроен. Поэтому при создании брони сезонные ставки не применяются",
+      "why": "Дефект назван, указаны последствия (занижены Total и Deposit, цена расходится с Quote и ExtendAsync) и предложена догрузка ставок."
+    },
+    "V1-h-fromsql-interpolated": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FromSql с интерполяцией не названа SQL-инъекцией, FromSqlRaw не требуется."
+    },
+    "V1-h-xmin-timestamp": {
+      "verdict": "NO",
+      "quote": "`xmin` обнаруживает конфликт, но `DbUpdateConcurrencyException` нигде не ловится.",
+      "why": "Механизм xmin признан рабочим, претензия только к необработанному исключению."
+    },
+    "V1-h-dateonly-mapping": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Отображение DateOnly дефектом не объявлено, конвертер не требуется."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,84 @@
+diff --git a/src/shelfwatch/metrics.py b/src/shelfwatch/metrics.py
+index a8520ec..89831b3 100644
+--- a/src/shelfwatch/metrics.py
++++ b/src/shelfwatch/metrics.py
+@@ -13,3 +13,35 @@ def macro_f1(y_true: Sequence[int], y_pred: Sequence[int]) -> float:
+         denom = 2 * tp + fp + fn
+         scores.append(2 * tp / denom if denom else 0.0)
+     return sum(scores) / len(scores)
++
++
++def weighted_f1(y_true: Sequence[int], y_pred: Sequence[int]) -> float:
++    """F1 по классам, взвешенный числом объектов класса в y_true."""
++    if not y_true:
++        raise ValueError("y_true must not be empty")
++    total = 0.0
++    for label in set(y_true):
++        tp = sum(1 for t, p in zip(y_true, y_pred) if t == label and p == label)
++        fp = sum(1 for t, p in zip(y_true, y_pred) if t != label and p == label)
++        fn = sum(1 for t, p in zip(y_true, y_pred) if t == label and p != label)
++        support = tp + fn
++        total += support * 2 * tp / (2 * tp + fp + fn)
++    return total / len(y_true)
++
++
++def top_k_accuracy(
++    y_true: Sequence[int], scores: Sequence[Sequence[float]], k: int
++) -> float:
++    """Доля объектов, у которых истинный класс входит в k классов с наибольшей оценкой.
++
++    Индекс столбца в строке scores - номер класса. При равных оценках класс
++    считается попавшим в top-k, если строго больших оценок меньше k.
++    """
++    if k < 1:
++        raise ValueError("k must be >= 1")
++    if not y_true:
++        raise ValueError("y_true must not be empty")
++    hits = 0
++    for t, row in zip(y_true, scores):
++        hits += sum(1 for s in row if s > row[t]) < k
++    return hits / len(y_true)
+diff --git a/tests/test_metrics.py b/tests/test_metrics.py
+index 2be18a8..3d66fb1 100644
+--- a/tests/test_metrics.py
++++ b/tests/test_metrics.py
+@@ -1,4 +1,4 @@
+-from shelfwatch.metrics import macro_f1
++from shelfwatch.metrics import macro_f1, top_k_accuracy, weighted_f1
+ 
+ 
+ def test_macro_f1_perfect() -> None:
+@@ -7,3 +7,33 @@ def test_macro_f1_perfect() -> None:
+ 
+ def test_macro_f1_all_wrong() -> None:
+     assert macro_f1([0, 0, 1], [1, 1, 0]) == 0.0
++
++
++def test_weighted_f1_perfect() -> None:
++    assert weighted_f1([0, 1, 1], [0, 1, 1]) == 1.0
++
++
++def test_weighted_f1_weights_by_support() -> None:
++    # класс 0: F1 = 2/3 (support 1), класс 1: F1 = 0.8 (support 3)
++    y_true = [0, 1, 1, 1]
++    y_pred = [0, 1, 1, 0]
++    assert abs(weighted_f1(y_true, y_pred) - (1 * 2 / 3 + 3 * 0.8) / 4) < 1e-9
++
++
++def test_weighted_f1_ignores_unseen_predicted_class() -> None:
++    # класс 2 отсутствует в y_true, его вес 0; класс 0: F1 = 2/3
++    assert abs(weighted_f1([0, 0], [0, 2]) - 2 / 3) < 1e-9
++
++
++def test_top_k_accuracy_k1_is_accuracy() -> None:
++    scores = [[0.1, 0.9], [0.8, 0.2], [0.6, 0.4]]
++    assert abs(top_k_accuracy([1, 0, 1], scores, 1) - 2 / 3) < 1e-9
++
++
++def test_top_k_accuracy_k2() -> None:
++    scores = [[0.5, 0.3, 0.2], [0.1, 0.3, 0.6]]
++    assert top_k_accuracy([1, 0], scores, 2) == 0.5
++
++
++def test_top_k_accuracy_k_covers_all_classes() -> None:
++    assert top_k_accuracy([0, 1], [[0.1, 0.9], [0.9, 0.1]], 2) == 1.0

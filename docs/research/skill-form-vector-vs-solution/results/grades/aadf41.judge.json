@@ -1,0 +1,81 @@
+{
+  "id": "aadf41",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0623874,
+    "durationMs": 8616,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5334,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 964,
+      "output_tokens_details": {
+        "thinking_tokens": 202
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5334,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 964,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5334,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5334
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "Для установленной версии `pydantic==1.10.13` это неверно — в Pydantic v1 `Optional[X]` без явного `= None` получает **неявный default `None`**",
+      "why": "Находка опровергает утверждение комментария для pydantic 1.10 и указывает, что старый клиент без поля молча спишет весь баланс без 422."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "Для pydantic v1 (используемая версия 1.10.13) поведение по умолчанию — `Config.extra = \"ignore\"`",
+      "why": "Находка опровергает утверждение про отклонение лишних полей: опечатка в имени поля будет молча проигнорирована."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход нигде не требует заменить req.dict() на model_dump(); req.dict() упоминается только в контексте содержимого аудита."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "без блокировки строки (`SELECT ... FOR UPDATE`) ... итоговый баланс может уйти в минус (double-spend)",
+      "why": "Названа гонка: чтение баланса и UPDATE выполняются без блокировки, что ведёт к двойному списанию."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`Decimal(POINT_VALUE)` создаёт `Decimal` из двоичного приближения 0.1",
+      "why": "Названа неточная стоимость балла из-за Decimal от float."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "при отрицательном `amount` **увеличивает** баланс баллов клиента",
+      "why": "Назван дефект: отрицательный confirm_amount начисляет баллы вместо списания."
+    },
+    "FVB-OB4": {
+      "verdict": "FOUND",
+      "quote": "`member_id` берётся напрямую из тела запроса без каких-либо auth-зависимостей в роутере",
+      "why": "Назван IDOR: любой вызывающий может списать баллы произвольного участника, зная его member_id."
+    }
+  },
+  "stderr": ""
+}

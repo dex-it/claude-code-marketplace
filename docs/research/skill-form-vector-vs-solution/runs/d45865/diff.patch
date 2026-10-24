@@ -1,0 +1,43 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..6f18d0c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,37 @@
++# Ревью MR !87: Результаты
++
++## Дефекты
++
++### 1. BatchService.ListAsync (строка 49)
++**Файл:** BatchService.cs  
++**Метод:** ListAsync  
++**Проблема:** Ошибка расчёта Skip для пагинации. Параметр `page` описан как "начиная с 1", но используется `Skip(page * pageSize)`. Это вернёт неправильную страницу: page=1 пропустит 20 строк вместо 0.  
++**Severity:** HIGH  
++**Решение:** Изменить на `Skip((page - 1) * pageSize)`
++
++### 2. BatchService.CompliancePercentAsync (строка 107)
++**Файл:** BatchService.cs  
++**Метод:** CompliancePercentAsync  
++**Проблема:** Целочисленное деление. Выражение `compliant / total * 100` выполняет целочисленное деление, что для большинства значений даёт 0. Пример: 5 / 11 * 100 = 0 * 100 = 0. По правилам SKILL нарушает п.5 (агрегаты после материализации) и логику вычисления.  
++**Severity:** HIGH  
++**Решение:** Использовать `compliant * 100 / total` или `(decimal)compliant / total * 100`
++
++### 3. BatchService.RetagAsync (строки 93–94)
++**Файл:** BatchService.cs  
++**Метод:** RetagAsync  
++**Проблема:** Вызов `Clear()` на required коллекции Tags без явной конфигурации DeleteBehavior. Согласно SKILL п.20 (разрыв required-связи), если FK настроен с ClientSetNull или Restrict, то SaveChanges может выбросить InvalidOperationException. Текущая конфигурация (LabDbContext:27) не указывает явно .OnDelete(), что может привести к проблемам при изменении настроек.  
++**Severity:** HIGH  
++**Решение:** Явно настроить `.OnDelete(DeleteBehavior.Cascade)` для связи Tags, либо переписать RetagAsync через RemoveRange(_db.SampleTags.Where(...))
++
++### 4. BatchService.CompliancePercentAsync (строка 105)
++**Файл:** BatchService.cs  
++**Метод:** CompliancePercentAsync  
++**Проблема:** Потенциально нетранслируемое условие фильтра. Выражение `s.Results.All(r => r.Value <= r.Limit)` в CountAsync может не быть полностью переведено в SQL в зависимости от версии EF Core и конфигурации, что нарушает SKILL п.6 (нетранслируемое условие должно быть до материализации). Требует проверки генерируемого SQL.  
++**Severity:** MEDIUM  
++**Решение:** Проверить SQL при выполнении; при необходимости переписать без .All() или явно указать AsEnumerable() для материализации перед фильтром
++
++## Дополнительные замечания
++
++- **PlannedLocal и timestamp:** Конфигурация `"timestamp without time zone"` для PlannedLocal (LabDbContext:25) согласует с `day.ToDateTime(time)` в PlanSampleAsync, которая возвращает `Kind=Unspecified` — правильно по SKILL п.18.
++- **GetRecentBySiteAsync:** Использование FromSql с FormattableString параметризирует значения корректно; OrderBy после FromSql приемлемо.
++- **GetCardAsync:** Правильно использует `AsSplitQuery()` для двух коллекций одного уровня (Instruments и Samples) — согласно SKILL п.23.

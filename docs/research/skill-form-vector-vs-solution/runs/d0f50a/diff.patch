@@ -1,0 +1,91 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..ca95a80 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,13 +14,14 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
+-public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } }
+-public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } }
++public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public virtual Order Order { get; set; } = null!; public Guid ProductId { get; set; } public int Qty { get; set; } }
++public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public virtual Order Order { get; set; } = null!; public decimal Amount { get; set; } }
+ 
+ public class Product
+ {
+@@ -44,7 +45,28 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => v.ToUniversalTime(),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
++            );
++
++        b.Entity<Order>().Property(o => o.Complexity)
++            .HasDefaultValue(1);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne(i => i.Order)
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne(p => p.Order)
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..dee082d 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,14 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order != null)
++        {
++            order.Items.Clear();
++            await _db.SaveChangesAsync();
++        }
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..acfe089
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,15 @@
++# Решение задач по расширению Order
++
++## Изменённые файлы:
++- Model.cs
++- OrderRepository.cs
++
++## Решения:
++
++**(а) Complexity**: Добавлено целое число свойство `int Complexity` к классу Order с конфигурацией значения по умолчанию 1 в OnModelCreating.
++
++**(б) CreatedAt UTC**: Применен `HasConversion()` с `ToUniversalTime()` при записи и `DateTime.SpecifyKind(v, DateTimeKind.Utc)` при чтении, обеспечивая работу в коде всегда с UTC-временем, а в БД остаётся "timestamp without time zone" без изменений.
++
++**(в) Мягкое удаление связей**: Явно настроены связи Order → Items и Order → Payments через `HasMany().WithOne()` с `OnDelete(DeleteBehavior.Cascade)`, что корректно обрабатывает удаление связанных записей при удалении заказа.
++
++**(г) ClearItems**: Добавлен метод `ClearItems(Guid orderId)` в OrderRepository, загружающий заказ с items через Include, очищающий коллекцию и сохраняющий изменения.

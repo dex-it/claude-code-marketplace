@@ -1,0 +1,92 @@
+{
+  "id": "4e17ec",
+  "case": "V4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.12951500000000002,
+    "durationMs": 9636,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 13435,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1080,
+      "output_tokens_details": {
+        "thinking_tokens": 198
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13435,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1080,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 13435,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13435
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V4-container-count": {
+      "verdict": "FOUND",
+      "quote": "Формула `net = gross - container.TareKg` не учитывает `ContainerCount`.",
+      "why": "Названо вычитание тары одной единицы при нескольких флягах, предложено умножать на ContainerCount."
+    },
+    "V4-honeytype-moisture": {
+      "verdict": "FOUND",
+      "quote": "Пороги 18.5 и 20 захардкожены, а `HoneyType.MaxMoistureGradeA/B` не используются.",
+      "why": "Указано, что нормы влажности берутся не из HoneyType, приведён пример верескового мёда."
+    },
+    "V4-correction-after-payout": {
+      "verdict": "FOUND",
+      "quote": "Исправление проходит и для партии, которая уже в выплате или уже оплачена.",
+      "why": "Назван дефект исправления партии в выплате, предложен ответ 409 или 422."
+    },
+    "V4-delete-draft-advance": {
+      "verdict": "FOUND",
+      "quote": "Удержанный аванс не возвращается в `Member.AdvanceBalance`.",
+      "why": "Связаны удаление черновика и невосстановленный AdvanceBalance при повторном расчёте."
+    },
+    "V4-adjust-four-eyes": {
+      "verdict": "FOUND",
+      "quote": "Утверждающий бухгалтер может сам добавить премию и сам утвердить.",
+      "why": "Связаны ручная корректировка без фиксации автора и проверка только CreatedBy."
+    },
+    "V4-registry-upload-swallowed": {
+      "verdict": "FOUND",
+      "quote": "Выплаты помечаются выгруженными до отправки, а `BankGatewayException` только пишется в лог, и метод всё равно отвечает 200.",
+      "why": "Связаны пометка до отправки, проглоченная ошибка и ответ 200."
+    },
+    "V4-temp-key-fk": {
+      "verdict": "PASS",
+      "quote": "`PriceListEntryId = entry.Id` берётся до `SaveChanges`, то есть равен 0.",
+      "why": "Механизм с временным ключом, падение на FK и исправление через навигацию указаны верно."
+    },
+    "V4-h-decimal-numeric": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "О точности decimal и HasPrecision в выходе ничего не сказано."
+    },
+    "V4-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка 12 касается момента перевода в Paid, а не атомарности ExecuteUpdate или необходимости SaveChanges."
+    }
+  },
+  "stderr": ""
+}

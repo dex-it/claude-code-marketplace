@@ -1,0 +1,18 @@
+{
+  "id": "E4",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "Shop (EF Core 8 + Npgsql 8, .NET 8)",
+  "inputs": [
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/Model.cs",
+      "to": "Model.cs"
+    },
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/OrderRepository.cs",
+      "to": "OrderRepository.cs"
+    }
+  ],
+  "task": "(а) у Order появляется \"сложность комплектации\" - одно целое число 1..5, бизнес называет его Complexity; добавь в модель и конфигурацию; (б) CreatedAt пишется из кода как DateTime.UtcNow; клиенты в разных таймзонах. Настрой маппинг CreatedAt так, чтобы в коде всегда был UTC; колонку менять нельзя - она timestamp without time zone, на неё смотрят отчёты DBA; (в) заказы удаляются мягко (IsDeleted). Настрой связи Order -> Items и Order -> Payments в OnModelCreating; (г) метод ClearItems(Guid orderId): убрать все позиции из заказа, сохранить."
+}

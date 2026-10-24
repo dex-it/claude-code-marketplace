@@ -1,0 +1,14 @@
+src/Fulfil/Kafka/OrderPlacedConsumer.cs:86 - сумма заказа считается как `Quantity + UnitPrice` вместо `Quantity * UnitPrice`: `totalSpent` клиентов копит неверные значения - blocker
+src/Fulfil/Kafka/OrderImportConsumer.cs:59 - в `finally` смещения пачки попадают в `done` даже когда `WriteBatchAsync` упал (и ошибка только логируется на :57): следующий коммит подтвердит непрочитанную в БД пачку, заказы импорта теряются безвозвратно - blocker
+src/Fulfil/Kafka/OrderImportConsumer.cs:80 - одно битое сообщение (исключение десериализации или `Items == null`) валит всю пачку из 100 заказов, а с учётом :59 пачка ещё и помечается обработанной - major
+src/Fulfil/Kafka/OrderPlacedConsumer.cs:61 - бесконечный retry без ограничения и DLQ: невалидный JSON (`JsonException`) никогда не пройдёт, партиция `orders.placed` встанет навсегда - major
+src/Fulfil/Kafka/OrderPlacedConsumer.cs:87 - `Inc(OrdersCount/TotalSpent)` неидемпотентен, а HandleAsync повторяется целиком (retry при сбое публикации, редоставка после рестарта): заказ учитывается у клиента несколько раз - major
+src/Fulfil/Kafka/OrderPlacedConsumer.cs:38 - включён автокоммит по умолчанию, смещение сохраняется сразу после `Consume`, до обработки: при падении процесса сообщение теряется (нет учёта клиента и статуса); нужен `EnableAutoCommit=false` + ручной коммит после обработки - major
+src/Fulfil/Kafka/OrderStatusPublisher.cs:28 - `Produce` без колбэка делега и без проверки результата, возвращает `Task.CompletedTask`: ошибки доставки не видны, retry в консьюмере не срабатывает, сообщение теряется при сбое брокера, `ProduceException` (очередь полна) уходит в retry с повторным учётом - major
+src/Fulfil/Kafka/OrderStatusPublisher.cs:46 - `Dispose` не делает `Flush`: буферизованные (LingerMs=5) статусы и касания теряются при остановке сервиса - major
+src/Fulfil/Kafka/OrderStatusPublisher.cs:30 - ключ статуса `Guid.NewGuid()` вместо `OrderId`: события одного заказа расходятся по партициям, порядок статусов не гарантирован - major
+src/Fulfil/Contracts/OrderEvents.cs:4 - переименование `Lines`→`Items` и новые обязательные поля ломают совместимость с уже опубликованными/витринными сообщениями: у них `Items == null`, `OrderDocument.From` (Documents.cs:44) падает NRE, в связке с retry это блокирует партицию - major
+src/Fulfil/Kafka/OrderPlacedConsumer.cs:90 - в лог пишется `ContactEmail` (персональные данные) - minor
+src/Fulfil/Kafka/OrderImportConsumer.cs:57 - в лог идёт только имя типа исключения, без сообщения и смещений пачки: причину потери пачки не найти - minor
+src/Fulfil/Kafka/OrderImportConsumer.cs:85 - ошибки дубликатов глушатся без логов, а `ReplaceOne` в OrderPlacedConsumer перезапишет импортированный заказ при совпадении Id: нет единой политики для одного `orders` - minor
+src/Fulfil/Kafka/Documents.cs:36 - `PlacedAt` как `DateTime` без `[BsonDateTimeOptions(Kind = Utc)]`: при чтении Mongo вернёт Local, время съедет - minor

@@ -1,0 +1,71 @@
+{
+  "repo": "<run>/ws/parcel",
+  "mainUsesSqlite": true,
+  "dataChanged": false,
+  "cases": [
+    {
+      "q": "котова",
+      "k": true,
+      "status": 200,
+      "ids": [
+        1047,
+        1040,
+        1044
+      ],
+      "pass": true,
+      "order": true
+    },
+    {
+      "q": "Котова",
+      "k": true,
+      "status": 200,
+      "ids": [
+        1047,
+        1040,
+        1044
+      ],
+      "pass": true,
+      "order": true
+    },
+    {
+      "q": "КОТОВА",
+      "k": true,
+      "status": 200,
+      "ids": [
+        1047,
+        1040,
+        1044
+      ],
+      "pass": true,
+      "order": true
+    },
+    {
+      "q": "белова",
+      "k": true,
+      "status": 200,
+      "ids": [
+        1042,
+        1043
+      ],
+      "pass": true,
+      "order": true
+    },
+    {
+      "q": "анна котова",
+      "k": false,
+      "status": 200,
+      "ids": [
+        1047,
+        1040,
+        1044
+      ],
+      "pass": true,
+      "order": true
+    }
+  ],
+  "extra": {
+    "shortQueryStatus": 400
+  },
+  "log": "Parcel API: http://127.0.0.1:61255\n",
+  "pass": true
+}

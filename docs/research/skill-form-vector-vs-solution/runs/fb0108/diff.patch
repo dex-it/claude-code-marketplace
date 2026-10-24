@@ -1,0 +1,50 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..27657c3
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,44 @@
++# Ревью MR !238
++
++## Critical
++
++### 1. `VehicleService.cs` — `ReplaceEquipmentAsync` не заменяет комплектацию, а ломается на первом же повторном вызове
++`FindVehicleAsync` грузит `Vehicle` без `.Include(v => v.Equipment)`, поэтому `vehicle.Equipment` — это не данные из БД, а пустой список по умолчанию из инициализатора свойства. `vehicle.Equipment.Clear()` ничего не удаляет (EF не знает про существующие строки), а добавленные элементы трактуются как новые INSERT'ы. В результате:
++- старые строки `vehicle_equipment` в БД не удаляются (комплектация никогда реально не "заменяется", как того требует FLEET-104);
++- при повторной присылке того же набора кодов (а механик всегда шлёт полный список) вставка упадёт по уникальному индексу `(vehicle_id, code)` — `DbUpdateException` на втором и всех последующих вызовах.
++
++Правильный паттерн уже есть в этом же MR-соседе: `DriverService.ReplacePermitsAsync` делает `.Include(d => d.Permits)` перед `Clear()`/`Add()` — тут этого нет.
++**Исправление:** грузить `Vehicle` с `.Include(v => v.Equipment)` в `ReplaceEquipmentAsync` (или отдельным запросом подтягивать `Equipment`).
++
++### 2. `TripService.cs` — `OffDayTripsAsync` / `TripRows.ToRows()` упадёт в рантайме (ошибка трансляции LINQ в SQL)
++`ToRows()` проецирует `OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` — метод, использующий `TimeZoneInfo.ConvertTimeFromUtc` и `HashSet<DateOnly>`, не транслируемый в SQL. В `GetVehicleTripsAsync` `ToRows()` — последняя операция перед `ToListAsync()`, это ещё работает (EF Core разрешает клиентское вычисление в финальной проекции). Но в `OffDayTripsAsync` после `ToRows()` идут ещё `.Where(r => r.OffDay)` и `.OrderByDescending(r => r.Km)`, то есть проекция с клиентским вычислением перестаёт быть терминальной операцией запроса — EF Core не умеет скомпоновать такой `Where`/`OrderBy` поверх непереводимого вызова и бросит `InvalidOperationException` ("could not be translated") при каждом обращении к отчёту FLEET-109.
++В разделе "Проверено локально" в MR.md этот отчёт не упомянут — похоже, реально не тестировался.
++**Исправление:** вычислять "выходной/праздничный" на стороне БД (например, через параметризованный список дат/выражение, транслируемое в SQL) либо материализовать поездки (`ToListAsync()`) до применения `Where`/`OrderByDescending` по `OffDay`.
++
++### 3. `VehicleService.cs` — `GetLastInspectionAsync` сортирует по `CreatedAt`, а не по `InspectedAt`, что может пропустить машину с блокирующим замечанием (FLEET-107)
++Планшеты механиков копят осмотры офлайн и шлют пачками (см. комментарий в `SyncInspectionsAsync`), поэтому `CreatedAt` (время приёма сервером) и `InspectedAt` (реальное время осмотра) могут сильно расходиться и идти не по порядку между собой при батч-синхронизации. Если более ранний по факту осмотр (без замечаний) синхронизировался позже, чем более поздний осмотр (с блокирующим замечанием), `OrderByDescending(i => i.CreatedAt)` вернёт как "последний" именно безопасный, но фактически устаревший осмотр — `StartTripAsync` выпустит машину на линию, хотя самый свежий реальный осмотр её заблокировал. Это напрямую подрывает требование FLEET-107.
++**Исправление:** сортировать по `InspectedAt` (и соответствующий индекс `(VehicleId, InspectedAt)` вместо/в дополнение к `(VehicleId, CreatedAt)`).
++
++## High
++
++### 4. `TripService.cs` — `StartTripAsync`: допуск водителя проверяется со строгим неравенством `p.ValidUntil > today`
++По описанию FLEET-107 "допуск действует по указанную в нём дату включительно". Код использует `>`, а не `>=`, поэтому в последний день действия допуска (включительно) `StartTripAsync` будет ошибочно выбрасывать `TripDeniedException`, блокируя легитимный выпуск машины.
++**Исправление:** `p.ValidUntil >= today`.
++
++### 5. `TripService.cs` — `GetOpenWaybillsAsync`: `FromSqlRaw` с завершающим `;` ломается при фильтре по машине
++SQL в `FromSqlRaw` заканчивается `ORDER BY t.started_at;`. Когда передан `vehicleId`, к `IQueryable` добавляется `.Where(t => t.VehicleId == id)`, и EF Core оборачивает исходный raw SQL в подзапрос (`SELECT ... FROM (<raw sql>) AS t WHERE ...`). Точка с запятой внутри скобок подзапроса — синтаксическая ошибка SQL, запрос с фильтром упадёт с исключением на уровне БД. Без фильтра (`vehicleId == null`) запрос выполняется как есть и ошибки не возникает — это совпадает с тем, что в MR.md протестирован только вариант "по всему парку", а "с фильтром по машине" (прямое требование FLEET-112) — нет.
++**Исправление:** убрать `;` из raw SQL (и/или не полагаться на ORDER BY внутри SQL, которую EF всё равно может не сохранить при оборачивании в подзапрос — сортировать на уровне LINQ).
++
++### 6. `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs` — сужение `model` до 40 символов без обработки существующих данных
++`AlterColumn` меняет `character varying(200)` → `character varying(40)` "в лоб". Если в проде уже есть значения `model` длиннее 40 символов (а MR прямо говорит, что длинные названия моделей уже существуют и обрезаются принтером — то есть такие строки в БД вполне вероятны), PostgreSQL откажет в выполнении `ALTER COLUMN ... TYPE varchar(40)` с ошибкой "value too long for type character varying(40)", и миграция на prod упадёт посреди релиза.
++**Исправление:** перед `AlterColumn` выполнить `UPDATE vehicles SET model = left(model, 40) WHERE length(model) > 40` (с явным проговариванием этого в MR/ревью), либо сначала проверить данные на проде.
++
++## Medium
++
++### 7. `Program.cs` — `PUT /api/vehicles/{id}/equipment` без ограничения по роли
++В отличие от всех остальных мутирующих эндпоинтов (`.RequireAuthorization("Hr"/"FleetManager"/"Mechanic"/"Dispatcher")`), у `PUT /api/vehicles/{id}/equipment` нет `.RequireAuthorization(...)` с конкретной политикой — любой аутентифицированный пользователь (например, HR) сможет перезаписать комплектацию безопасности машины (аптечка/огнетушитель/трос), хотя по смыслу FLEET-104 это должно делать только механик (`"Mechanic"` policy, как у `/inspections/sync`).
++**Исправление:** добавить `.RequireAuthorization("Mechanic")` (или другую подходящую политику).
++
++---
++
++Файлы без замечаний (не менялись по сути или не содержат новых дефектов): `DriverService.cs`, `Infrastructure/WorkCalendar.cs`, индексы/типы в `Models.cs`/`FleetDbContext.cs` помимо отмеченного.

@@ -1,0 +1,16 @@
+---
+name: dotnet-api-development
+description: ASP.NET Core Web API - тонкий контроллер, тип ответа action, модель запроса, маршруты и параметры, enum в схеме Swagger. Активируется при web api, controller, endpoint, REST, route, FromQuery, FromRoute, path, query parameter, ActionResult, ProducesResponseType, swagger, enum, DTO запроса
+---
+
+# ASP.NET Core Web API - чек-лист
+
+Пункт называет ситуацию, которую изменение проверяет.
+
+- Бизнес-логика в action контроллера
+- `IActionResult` вместо `ActionResult<T>`
+- Поле модели запроса, которое никто не читает
+- Путь целиком на каждом методе вместо `[Route]` на контроллере
+- Обязательные идентификаторы ресурса в query вместо path
+- Фильтры и пагинация в path вместо query
+- Значения enum, близкие по смыслу, без описания в схеме API

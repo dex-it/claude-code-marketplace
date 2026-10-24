@@ -1,0 +1,31 @@
+{
+  "name": "claude-code-marketplace-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Сайт документации Claude Code Marketplace (Starlight)",
+  "license": "GPL-3.0",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "npm run catalog && astro dev",
+    "catalog": "node scripts/build-catalog.mjs",
+    "build": "npm run catalog && astro build",
+    "verify": "node scripts/check-dist.mjs",
+    "preview": "astro preview",
+    "check": "npm run catalog && astro check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/markdown-satteri": "0.4.3",
+    "@astrojs/starlight": "0.42.6",
+    "astro": "7.3.8",
+    "satteri": "0.10.5",
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.11",
+    "typescript": "6.0.3"
+  }
+}

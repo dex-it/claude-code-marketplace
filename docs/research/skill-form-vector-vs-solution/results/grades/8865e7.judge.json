@@ -1,0 +1,66 @@
+{
+  "id": "8865e7",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.049163399999999996,
+    "durationMs": 6208,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4391,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 680,
+      "output_tokens_details": {
+        "thinking_tokens": 154
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4391,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 680,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4391,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4391
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "PASS",
+      "quote": "_ => new(ProductLookupStatus.Ambiguous, null, matches.Select(p => p.Warehouse).ToList()),",
+      "why": "При warehouse == null и нескольких совпадениях метод не выбирает склад молча, а возвращает статус Ambiguous со списком складов-кандидатов."
+    },
+    "E2-h-split": {
+      "verdict": "NO",
+      "quote": "// (а) Две коллекции одного уровня - split законен и на одной сущности",
+      "why": "Карточка заказа грузит Items и Payments с AsSplitQuery, одним JOIN-запросом без split она их не грузит."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId)\n            .OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)\n            .Select(ToCard)\n            .AsSplitQuery()",
+      "why": "Выгрузка заказов клиента использует проекцию с AsSplitQuery, поэтому одного запроса с двумя коллекциями нет."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null)\n            .MaxAsync(o => o.ShippedAt, ct);",
+      "why": "До агрегата стоит фильтр ShippedAt != null, а null обрабатывается через ?? throw, без ! и без .Value."
+    }
+  },
+  "stderr": ""
+}

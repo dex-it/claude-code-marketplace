@@ -1,0 +1,68 @@
+{
+ "total_cost_usd": 0.0730738,
+ "model": "claude-opus-5-5",
+ "verdict": {
+  "cells": [
+   {
+    "code": "A1",
+    "score": "1",
+    "quote": "`Outbox/MemoryOutboxQueue.cs:5-20` + `Outbox/IOutboxQueue.cs:7` - очередь хранится в памяти, а контракт обещает \"после возврата сообщение будет доставлено\". Рестарт, деплой или OOM теряют всё, что не отправлено. ... - Critical"
+   },
+   {
+    "code": "A2",
+    "score": "1",
+    "quote": "`static Dictionary<Guid,int> Attempts` не потокобезопасен (при втором экземпляре диспетчера или тестах возможна порча словаря)"
+   },
+   {
+    "code": "A3",
+    "score": "1",
+    "quote": "sync-over-async (`.GetAwaiter().GetResult()`) внутри `lock`. ... Один зависший POST ... блокирует старт приложения и поток пула. - Critical"
+   },
+   {
+    "code": "A4",
+    "score": "1",
+    "quote": "в `catch` идёт обращение к БД, и оно не обёрнуто в `try`. Если БД недоступна (вероятно, когда Payments тоже лежит), исключение вылетает из `ExecuteAsync`."
+   },
+   {
+    "code": "A5",
+    "score": "1",
+    "quote": "Если POST прошёл, а `MarkSentAsync` упал ..., запрос повторяется. Платёж создаётся повторно ... заголовка Idempotency-Key нет и контракта нет ... - Critical"
+   },
+   {
+    "code": "A6",
+    "score": "1",
+    "quote": "`now()` в БД и `DateTime.UtcNow` приложения могут расходиться, из-за этого сравнение `locked_until` ненадёжно при рассинхроне часов - Minor"
+   },
+   {
+    "code": "A7",
+    "score": "1",
+    "quote": "`Task.Delay(1000)` без токена: остановка ждёт до секунды. ... Таймаут 2 с через `CancellationTokenSource` не связан с `stoppingToken`"
+   },
+   {
+    "code": "A8",
+    "score": "1",
+    "quote": "SQL строится конкатенацией с `ex.Message` (текст ответа и исключения нам не принадлежит). Это SQL-инъекция. ... Нужны параметры - Critical"
+   },
+   {
+    "code": "A9",
+    "score": "1",
+    "quote": "Если БД недоступна (вероятно, когда Payments тоже лежит)...; При недоступных Payments и потоке заказов память растёт до OOM"
+   },
+   {
+    "code": "O1",
+    "score": "1",
+    "quote": "`HttpResponseMessage` не освобождается (`using`), для `PostAsJsonAsync` с коротким токеном лишние ресурсы - Minor"
+   },
+   {
+    "code": "D1",
+    "score": "1",
+    "quote": "`_published` статический, считается, но не используется - гонкой не объявлен"
+   },
+   {
+    "code": "D2",
+    "score": "1",
+    "quote": "нет: `DateTime.UtcNow` в строке лога не упомянут, дрейф времени отнесён только к SQL в :56"
+   }
+  ]
+ }
+}

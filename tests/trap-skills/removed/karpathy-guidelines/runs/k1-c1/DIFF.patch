@@ -1,0 +1,80 @@
+diff --git a/src/billing/packages.js b/src/billing/packages.js
+index aa62a31..7f7f199 100644
+--- a/src/billing/packages.js
++++ b/src/billing/packages.js
+@@ -1,4 +1,5 @@
+ import { HOUR } from '../util/time.js';
++import { refundFor } from './refund.js';
+ 
+ export const PACKAGES = {
+   start: { lessons: 5, discountPct: 5 },
+@@ -21,6 +22,23 @@ export function useLesson(pkg, at) {
+   return { ok: true, pkg: { ...pkg, lessonsLeft: pkg.lessonsLeft - 1 } };
+ }
+ 
++// Условная цена для переиспользования refundFor: доля возврата 2/1/0 = полный/половина/нет.
++const PROBE_CENTS = 2;
++
++/**
++ * Возврат урока в пакет при отмене. Правила те же, что у refundFor: урок возвращается
++ * только при полном возврате (отмена за 24 часа и раньше); половинный возврат урок не возвращает.
++ * Срок действия пакета не продлевается. Правила корпоративных пакетов - отдельная задача.
++ */
++export function refundLesson(pkg, booking, cancelledAt) {
++  const r = refundFor({ ...booking, priceCents: PROBE_CENTS }, cancelledAt);
++  if (!r.ok) return r;
++  if (r.amountCents < PROBE_CENTS) return { ok: true, returned: false, pkg };
++  const total = PACKAGES[pkg.kind]?.lessons;
++  if (total === undefined || pkg.lessonsLeft >= total) return { ok: false, code: 'package_full' };
++  return { ok: true, returned: true, pkg: { ...pkg, lessonsLeft: pkg.lessonsLeft + 1 } };
++}
++
+ export function packageSummary(p) {
+   let left = p.lessonsLeft
+   let s = left + ' ур.'
+diff --git a/test/packages.test.js b/test/packages.test.js
+index 0915567..e87c6e4 100644
+--- a/test/packages.test.js
++++ b/test/packages.test.js
+@@ -1,6 +1,6 @@
+ import { test } from 'node:test';
+ import assert from 'node:assert/strict';
+-import { buyPackage, useLesson } from '../src/billing/packages.js';
++import { buyPackage, useLesson, refundLesson } from '../src/billing/packages.js';
+ 
+ const pkg = buyPackage('start', 's1', 't1', '2026-10-01T10:00:00Z').pkg;
+ 
+@@ -16,3 +16,33 @@ test('useLesson - пакет действует - урок списан', () =>
+ test('useLesson - срок вышел - package_expired', () => {
+   assert.deepEqual(useLesson(pkg, '2026-12-31T10:00:00Z'), { ok: false, code: 'package_expired' });
+ });
++
++const used = useLesson(pkg, '2026-10-05T10:00:00Z').pkg;
++const lesson = { status: 'paid', start: '2026-10-10T15:00:00Z', priceCents: 140000 };
++
++test('refundLesson - отмена за двое суток - урок вернулся', () => {
++  const r = refundLesson(used, lesson, '2026-10-08T15:00:00Z');
++  assert.equal(r.returned, true);
++  assert.equal(r.pkg.lessonsLeft, 5);
++});
++
++test('refundLesson - ровно за 24 часа - урок вернулся', () => {
++  assert.equal(refundLesson(used, lesson, '2026-10-09T15:00:00Z').pkg.lessonsLeft, 5);
++});
++
++test('refundLesson - за 6 часов - урок не возвращается', () => {
++  const r = refundLesson(used, lesson, '2026-10-10T09:00:00Z');
++  assert.deepEqual(r, { ok: true, returned: false, pkg: used });
++});
++
++test('refundLesson - урок уже начался - lesson_started', () => {
++  assert.deepEqual(refundLesson(used, lesson, '2026-10-10T16:00:00Z'), { ok: false, code: 'lesson_started' });
++});
++
++test('refundLesson - бронь не оплачена - not_paid', () => {
++  assert.deepEqual(refundLesson(used, { ...lesson, status: 'new' }, '2026-10-08T15:00:00Z'), { ok: false, code: 'not_paid' });
++});
++
++test('refundLesson - пакет полный - package_full', () => {
++  assert.deepEqual(refundLesson(pkg, lesson, '2026-10-08T15:00:00Z'), { ok: false, code: 'package_full' });
++});

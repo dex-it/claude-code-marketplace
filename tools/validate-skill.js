@@ -16,20 +16,37 @@
  *   1 - at least one error found
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, dirname } from 'node:path';
+import { readFileSync, readdirSync, lstatSync, existsSync } from 'node:fs';
+import { join, relative, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
+import { buildPluginArtifactMap, danglingSkillHalves, skillHalfMessage } from './plugin-artifacts.js';
+import { isCommandSkillFile } from './command-skills.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const REPO_ROOT = resolve(__dirname, '..');
+// MARKETPLACE_ROOT переносит валидатор на дерево-песочницу: tools/test-rules.js
+// прогоняет правило на фикстуре, а не на живом каталоге.
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
+
+// Обход дерева не проходит по symlink и спецфайлам: цикл ссылок ронял прогон стектрейсом ELOOP, FIFO вешал
+// чтение, а ссылка наружу судила чужой файл как свой. Такой узел - отказ с кодом 1, а не тихий пропуск.
+function statPlain(full) {
+  const stat = lstatSync(full);
+  if (stat.isSymbolicLink() || !(stat.isFile() || stat.isDirectory())) {
+    console.error(`Not a regular file or directory (symlinks and special files are not followed): ${relative(REPO_ROOT, full)}`);
+    process.exit(1);
+  }
+  return stat;
+}
 // Сканируем весь plugins/ (не только plugins/skills): скиллы живут и в других
-// группах-папках (например plugins/ai-sdlc). Обход по SKILL.md покрывает
+// группах-папках, не только в plugins/skills. Обход по SKILL.md покрывает
 // любую папку без правки валидатора при переносе плагина.
 const SKILLS_DIR = join(REPO_ROOT, 'plugins');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
@@ -64,6 +81,60 @@ function loadMarketplacePlugins() {
   }
 }
 
+// Голое имя плагина в теле - указатель на соседа: «этим ведает вон тот», «подробнее там». Загрузкой
+// оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
+// даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
+// в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
+// сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило; вторую половину адреса
+// судит `skill-reference-unknown` ниже, но только при известном плагине. Замыкание бандла фильтрует цели
+// по плагинам репозитория и имя, которого нет, из графа теряет.
+let catalogPluginsCache = null;
+function catalogPlugins() {
+  if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
+  return catalogPluginsCache;
+}
+
+// Половина «скилл» полной формы `{plugin}:{skill}`: плагин известен, а такого артефакта в нём нет -
+// адрес ведёт в никуда так же, как неизвестный плагин. Перечень и суд общие для трёх валидаторов
+// (tools/plugin-artifacts.js, #423).
+let pluginArtifactsCache = null;
+function validateSkillReferences(text, findings, where = '') {
+  if (!pluginArtifactsCache) pluginArtifactsCache = buildPluginArtifactMap(SKILLS_DIR, statPlain);
+  for (const d of danglingSkillHalves(text, pluginArtifactsCache, catalogPlugins())) {
+    findings.push({ level: ERROR, rule: 'skill-reference-unknown', message: skillHalfMessage(d, where) });
+  }
+}
+
+function validatePluginNameMentions(text, findings, where = '') {
+  const known = catalogPlugins();
+  if (known.size === 0) return; // каталога нет - имя не «неизвестно», а непроверяемо: сверять не с чем
+  const seen = new Set();
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+)`/g)) {
+    const name = match[1];
+    if (name.endsWith('-')) continue; // не имя, а префикс-шаблон: `dex-skill-`
+    if (known.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere, and a name that leads nowhere rots silently; this rule is the guard of the bare form, and the plugin half of the full form plugin:skill is judged by the same rule`,
+    });
+  }
+  // Полная форма `plugin:skill`: половина «плагин» судится тем же правилом. Загрузка с именем плагина,
+  // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` неизвестный плагин
+  // пропускает (судит вторую половину адреса только у известного).
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
+    const [, plugin, skill] = match;
+    if (known.has(plugin) || seen.has(plugin)) continue;
+    seen.add(plugin);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${plugin}:${skill}" - plugin "${plugin}" is not in the catalogue. A full form is a load, and a load through a plugin that does not exist fails at run time; this rule is the guard of the plugin half of the full form`,
+    });
+  }
+}
+
 // --- File discovery -----------------------------------------------------
 
 function findAllSkillFiles() {
@@ -72,9 +143,9 @@ function findAllSkillFiles() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      const stat = statSync(full);
+      const stat = statPlain(full);
       if (stat.isDirectory()) walk(full);
-      else if (entry === 'SKILL.md') result.push(full);
+      else if (entry === 'SKILL.md' && !isCommandSkillFile(full)) result.push(full);
     }
   }
   walk(SKILLS_DIR);
@@ -86,13 +157,19 @@ function findAllSkillFiles() {
 // Пороги размера парны с docs/SKILL_FRAMEWORK.md, раздел "Размер skill" - это их нормативный дом.
 // Прозаическую копию числа держит только он; меняешь порог - правишь оба места одним коммитом.
 const CLAUDE_CODE_HARD_LIMIT = 500; // Anthropic recommendation ("Keep SKILL.md under 500 lines") - not an enforced platform truncation limit
-const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline (trap-skill: цель 80-120)
-// Process-skill - другой жанр: движок/правило-оркестрация, единый нормативный костяк не дробится
-// на каталог-ловушек размером. Проектный потолок для них поднят выше платформенной рекомендации,
-// т.к. костяк (правила + mandatory-Read список) не режется ради формального лимита; деталь по
-// требованию всё равно выносится в смежные файлы, не раздувается бесконтрольно.
-const PROCESS_SKILL_RECOMMENDED_MAX = 600;
+const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline
+// Верхний порог общий для обоих типов: рекомендация Anthropic названа в строках и типа skill не
+// различает. Process-skill освобождён только от проектного trap-порога (250) - костяк движка не
+// дробится на каталог ловушек; от платформенного потолка не освобождён никто, деталь по требованию
+// выносится в references/ (файлы оттуда в счёт не идут и контекст не тратят, пока не прочитаны).
 const PROJECT_TARGET_MAX = 120; // ideal range
+
+// Мера в строках цену окна не ограничивает: плотность строки в каталоге различается кратно.
+// После компакта возвращаются первые 5000 токенов скилла, и обрубок неотличим от целого.
+// Числа назначены оператором; замер плотности и основание порога - docs/SKILL_FRAMEWORK.md,
+// раздел «Размер skill».
+const CHARS_HARD_LIMIT = 42000;
+const CHARS_RECOMMENDED_MAX = 30000;
 
 // --- Frontmatter validation ---------------------------------------------
 
@@ -107,7 +184,7 @@ const MIN_TRIGGER_KEYWORDS = 10;
 /**
  * Process / orchestration skills encode a workflow rule (e.g. "new project ->
  * inherit solution rules") or a registry, not a catalogue of API traps. The trap
- * heuristics (count + Плохо/Правильно/Почему triad) don't apply, so validateTraps
+ * heuristic (Плохо/Правильно/Почему triad) doesn't apply, so validateTraps
  * skips them entirely; instead validateProcessStructure enforces a content floor
  * (a table or >=2 H2 sections) so the exemption can't shelter a stub. Keyword-count,
  * size and description limits stay strict - activation must still be reliable.
@@ -119,20 +196,93 @@ const MIN_TRIGGER_KEYWORDS = 10;
  * this allowlist is the source of truth. See docs/SKILL_FRAMEWORK.md "Типы skill".
  */
 const PROCESS_SKILLS = new Set([
-  'dotnet-project-baseline',
+  'project-baseline',
   'stack-registry',
   'completeness-mapping',
   'optimize-for-llm',
   'node-contract',
-  'autonomous-task',
   'test-coverage',
   'legacy-reconstruction',
   'project-docs-map',
+  'docs-layout',
   'artifact-review',
+  'business-analysis-29148',
+  'system-requirements-29148',
+  'architecture-definition-42010',
+  'interface-definition-openapi',
+  'verification-planning-29119',
+  'use-cases-cockburn',
+  'bdd-gherkin',
+  'opportunity-canvas',
+  'issue-tracking',
+  'idea-forming',
+  'project-rulebook',
+  'defect-classification',
+  'norm-writing',
+  'review-evidence',
+  'review-threads',
+  'review-step-by-step',
+  'root-cause-analysis',
+  'change-correlation',
+  'post-merge-remediation',
+  'decision-log',
+  'unit-identity',
+  'artifact-naming',
+  'requirement-quality',
+  'requirement-set-quality',
+  'implementation-plan',
 ]);
+
+// Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не
+// подмешиваются: иначе реальный скилл, названный так же, молча получил бы послабление
+// process-skill и снятие правила orchestrator-unregistered. Подмешиваются только когда
+// валидатор натравлен на дерево фикстуры (`MARKETPLACE_ROOT` задан явно).
+const FIXTURE_ONLY_SKILLS = new Set(['orchestrator-fixture']);
+const FIXTURE_TREE = Boolean(process.env.MARKETPLACE_ROOT);
+if (FIXTURE_TREE) for (const n of FIXTURE_ONLY_SKILLS) PROCESS_SKILLS.add(n);
 
 function isProcessSkill(parsed) {
   return PROCESS_SKILLS.has(parsed.data && parsed.data.name);
+}
+
+// SKILL_FRAMEWORK.md "оркестрация - у главного потока, исполнение - в агенте": обычному
+// process-skill спавнить агентов не положено. Ручной allowlist, как PROCESS_SKILLS.
+// Реального скилла-оркестратора в каталоге после демонтажа движка не осталось, поэтому
+// перечень пуст: гасящая ветка проверяется фикстурой, чьё имя подмешивается только на
+// дереве фикстур (см. FIXTURE_ONLY_SKILLS выше).
+const ORCHESTRATOR_SKILLS = new Set();
+if (FIXTURE_TREE) for (const n of FIXTURE_ONLY_SKILLS) ORCHESTRATOR_SKILLS.add(n);
+
+// Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent
+// в одном блоке. Молчание не значит "не оркестрирует": глагол вне словаря либо короткое
+// имя агента без dex-plugin:-префикса эвристику не поднимают.
+// Префикс dex-skill- исключён: агентов в этих плагинах нет ни одного, значит совпадение
+// с ним - всегда ссылка на скилл, и глагол делегирования рядом с ней даёт ложное
+// срабатывание (unit-identity 2.1.2, SKILL.md:45).
+const ORCHESTRATION_VERB_RE = /спавн|делегир|вызыва[ею]т|чинит/i;
+const AGENT_MENTION_RE = /`(?:dex-(?!skill-)[a-z0-9-]+:[a-z0-9-]+|Agent)`/;
+
+function validateOrchestratorRegistration(parsed, markdownBody, findings, isProcess) {
+  const name = parsed.data && parsed.data.name;
+  if (ORCHESTRATOR_SKILLS.has(name)) return;
+
+  const tree = parseMarkdown(markdownBody);
+  const lines = markdownBody.split('\n');
+  let fired = false;
+
+  visit(tree, (node) => node.type === 'paragraph' || node.type === 'heading', (node) => {
+    if (fired || !node.position) return;
+    const text = lines.slice(node.position.start.line - 1, node.position.end.line).join('\n');
+    if (ORCHESTRATION_VERB_RE.test(text) && AGENT_MENTION_RE.test(text)) fired = true;
+  });
+
+  if (fired) {
+    findings.push({
+      level: ERROR,
+      rule: 'orchestrator-unregistered',
+      message: `${isProcess ? 'Process skill' : 'Skill'} "${name}" reads as spawning/delegating to an agent (delegation verb next to an agent/Agent-tool reference) but is not in ORCHESTRATOR_SKILLS - register it if it genuinely orchestrates the zone, or reword to remove the delegation language if it doesn't`,
+    });
+  }
 }
 
 function validateFrontmatter(parsed, findings, isProcess = false) {
@@ -233,30 +383,250 @@ function validateFrontmatter(parsed, findings, isProcess = false) {
 function validateSize(rawContent, findings, isProcess = false) {
   const lineCount = rawContent.split('\n').length;
 
-  if (isProcess) {
-    if (lineCount > PROCESS_SKILL_RECOMMENDED_MAX) {
-      findings.push({
-        level: ERROR,
-        rule: 'size-exceeds-recommended',
-        message: `File is ${lineCount} lines - exceeds process-skill project cap of ${PROCESS_SKILL_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
-      });
-    }
-    return;
-  }
-
   if (lineCount > CLAUDE_CODE_HARD_LIMIT) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-hard-limit',
-      message: `File is ${lineCount} lines - exceeds Anthropic recommendation of ${CLAUDE_CODE_HARD_LIMIT}`,
+      message: `File is ${lineCount} lines - exceeds Anthropic recommendation of ${CLAUDE_CODE_HARD_LIMIT} ("Keep SKILL.md under 500 lines"). Move detailed material to references/ - those files are not counted`,
     });
-  } else if (lineCount > PROJECT_RECOMMENDED_MAX) {
+    return;
+  }
+
+  if (!isProcess && lineCount > PROJECT_RECOMMENDED_MAX) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-recommended',
       message: `File is ${lineCount} lines - exceeds project recommendation of ${PROJECT_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
     });
   }
+
+  const charCount = rawContent.length;
+
+  if (charCount > CHARS_HARD_LIMIT) {
+    findings.push({
+      level: ERROR,
+      rule: 'chars-exceed-hard-limit',
+      message: `File is ${charCount} characters (~${Math.round(charCount / 3000)}k tokens) - exceeds ${CHARS_HARD_LIMIT}. The line limit does not bound window cost: move detailed material to references/, those files are not counted`,
+    });
+    return;
+  }
+
+  if (charCount > CHARS_RECOMMENDED_MAX) {
+    findings.push({
+      level: WARNING,
+      rule: 'chars-exceed-recommended',
+      message: `File is ${charCount} characters (~${Math.round(charCount / 3000)}k tokens) - above the ${CHARS_RECOMMENDED_MAX} guideline. Cut or move to references/ before it reaches the ${CHARS_HARD_LIMIT} hard limit`,
+    });
+  }
+}
+
+// --- references/ size check ----------------------------------------------
+
+// Файл references/ читается по требованию и в счёт тела не идёт: мера отдельная, только
+// предупреждающая - жёсткого потолка у неё нет. Состав выноса согласуется с владельцем
+// артефакта, счётчик его не режет.
+function validateReferenceSize(skillFilePath, findings) {
+  const dir = join(dirname(skillFilePath), 'references');
+  if (!existsSync(dir)) return;
+  let dirChars = 0;
+  let fileCount = 0;
+  for (const entry of readdirSync(dir).sort()) {
+    const full = join(dir, entry);
+    if (!statPlain(full).isFile() || !entry.endsWith('.md')) continue;
+    const body = readFileSync(full, 'utf8');
+    validateCatalogDocsLink(body, full, findings, `references/${entry} `);
+    validatePluginNameMentions(body, findings, `references/${entry} `);
+    validateSkillReferences(body, findings, `references/${entry}: `);
+    validateLinkEscapesPlugin(body, full, findings, `references/${entry} `);
+    const charCount = body.length;
+    dirChars += charCount;
+    fileCount += 1;
+    if (charCount <= CHARS_RECOMMENDED_MAX) continue;
+    findings.push({
+      level: WARNING,
+      rule: 'reference-chars-exceed-recommended',
+      message: `references/${entry} is ${charCount} characters (~${Math.round(charCount / 3000)}k tokens) - above the ${CHARS_RECOMMENDED_MAX} guideline. Not counted in the body limit and not blocking: raise it at review`,
+    });
+  }
+  // Пофайловая мера обходится разбиением: тот же материал в двух файлах молчит,
+  // а цена чтения лежит на директории. Порог тот же, своего числа у суммы нет.
+  if (dirChars > CHARS_RECOMMENDED_MAX) {
+    findings.push({
+      level: WARNING,
+      rule: 'reference-dir-chars-exceed-recommended',
+      message: `references/ holds ${dirChars} characters (~${Math.round(dirChars / 3000)}k tokens) across ${fileCount} file(s) - above the same ${CHARS_RECOMMENDED_MAX} guideline the body uses. Splitting a file does not lower the cost: raise the directory at review`,
+    });
+  }
+}
+
+// --- link escapes the plugin ---------------------------------------------
+
+// Соседний плагин у пользователя ставится сам по себе: `../<плагин>/...` из тела
+// артефакта не резолвится ровно так же, как `docs/` каталога. Внутриплагинный
+// подъём (`../<соседний скилл>/`) законен и правилом не трогается - решает не
+// число `../`, а то, вышел ли разрешённый путь за корень плагина.
+const ESCAPING_LINK_RE = /\]\((\.\.\/[^)\s]+)\)/g;
+
+function pluginRootOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  for (let i = 0; i < 8; i += 1) {
+    if (existsSync(join(dir, '.claude-plugin'))) return dir;
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+  return null;
+}
+
+function validateLinkEscapesPlugin(text, filepath, findings, where = '') {
+  const pluginRoot = pluginRootOf(filepath);
+  if (!pluginRoot) return;
+  const baseDir = dirname(resolve(filepath));
+  const hits = [];
+  ESCAPING_LINK_RE.lastIndex = 0;
+  for (const m of text.matchAll(ESCAPING_LINK_RE)) {
+    if (relative(pluginRoot, resolve(baseDir, m[1])).startsWith('..')) hits.push(m[1]);
+  }
+  if (hits.length === 0) return;
+  const shown = hits.slice(0, 3).join(', ');
+  findings.push({
+    level: ERROR,
+    rule: 'link-escapes-plugin',
+    message: `${where}link leaves the plugin directory (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - a neighbouring plugin is installed on its own, so the path does not resolve at runtime. Name the neighbour instead: {plugin}:{skill}`,
+  });
+}
+
+// --- catalog docs link ---------------------------------------------------
+
+// `docs/` каталога - дизайн-тайм: он нормирует авторство артефактов и в установленный плагин не
+// входит. Адрес такого документа в теле хуже отсутствия адреса: он выглядит валидным, а исполнитель
+// либо молча его не открывает, либо сочиняет содержимое. Норма, нужная в рантайме, живёт в самом
+// артефакте либо в скилле, который у пользователя установлен.
+
+// Ключ у правила один - адресат: документ, который РЕАЛЬНО существует в `docs/` каталога. Форма
+// записи ключом не служит - код-спан и проза уводят исполнителя туда же, куда markdown-ссылка.
+// Шаблоны формы работают на текст сообщения: назвать место в тексте и то, что относительная ссылка
+// не разрешается даже в клоне. Обратная сторона того же ключа: путь, которого в `docs/` каталога нет
+// (`docs/discover/README.md` как выход агента в проекте пользователя), не покрыт ни в одной форме -
+// он адресует чужой корпус.
+const CATALOG_DOCS_LINK_FORMS = [
+  /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/[^\s)\]]+/g,
+  /\]\((?:\.{1,2}\/)*docs\/[^)\s]+\)/g,
+];
+
+// Каталоги, которые каталог сам раздаёт пользователю: `project-docs-map` несёт дефолты
+// `product: docs/product/` и `domain: docs/domain/` как адрес корпуса уровня 0 ЕГО проекта. Путь под
+// ними в теле артефакта именует чужой документ, а не наш, - из-под правила выведен.
+const USER_CORPUS_DIRS = new Set(['product', 'domain']);
+
+let catalogDocTargetsCache = null;
+function catalogDocTargets() {
+  if (catalogDocTargetsCache) return catalogDocTargetsCache;
+  const paths = new Set();
+  const names = new Set();
+  const walk = (dir, rel) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir).sort()) {
+      const full = join(dir, entry);
+      const relPath = rel ? `${rel}/${entry}` : entry;
+      if (statPlain(full).isDirectory()) {
+        if (!rel && USER_CORPUS_DIRS.has(entry)) continue;
+        walk(full, relPath);
+        continue;
+      }
+      if (!entry.endsWith('.md')) continue;
+      paths.add(`docs/${relPath}`);
+      // Голым именем адресуются доки-фреймворки каталога, а они лежат на верхнем уровне `docs/`.
+      // Ниже - внутренние дизайн-доки (`ARCHITECTURE.md`, `PIPELINE.md`), и такое имя носит документ
+      // пользователя не реже нашего: на нём правило ловило бы чужой файл.
+      if (!rel && /^[A-Z][A-Z0-9_]*\.md$/.test(entry) && entry !== 'README.md') names.add(entry);
+    }
+  };
+  walk(join(REPO_ROOT, 'docs'), '');
+  catalogDocTargetsCache = { paths: [...paths], names: [...names] };
+  return catalogDocTargetsCache;
+}
+
+// Матч по границе, а не подстрокой: `MY_PIPELINE.md` не адресует `PIPELINE.md`. Слева у пути `/`
+// допустим (адрес внутри URL), у голого имени - нет: там `/` значит, что имя уже часть пути и
+// посчитано путём.
+function mentionsTarget(text, target, slashBefore) {
+  const before = slashBefore ? '(?<![\\w.-])' : '(?<![\\w./-])';
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${before}${escaped}(?![\\w])`).test(text);
+}
+
+// Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
+// адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
+// бандла автора (`includes[]` плюс `dependencies[]`): в составе стоят и плагины, которые едут
+// пользователю бандлами ролей, где `docs/` каталога нет, - исключение даёт только запись в
+// `authorOnly[]`, а не место записи в одном из двух списков. Разъезд `authorOnly[]` с составами
+// бандлов ловит `validate-bundle.js` (`author-only-*`).
+const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
+let authorPluginsCache = null;
+function authorPlugins() {
+  if (authorPluginsCache) return authorPluginsCache;
+  authorPluginsCache = new Set();
+  try {
+    const json = JSON.parse(readFileSync(join(REPO_ROOT, AUTHOR_BUNDLE_JSON), 'utf8'));
+    for (const name of json.authorOnly || []) authorPluginsCache.add(name);
+  } catch {
+    // бандла нет (песочница фикстур, урезанное дерево) - исключений нет
+  }
+  return authorPluginsCache;
+}
+
+// Имя плагина, которому принадлежит файл: ближайший вверх каталог с `.claude-plugin/plugin.json`.
+function pluginNameOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  while (dir !== dirname(dir)) {
+    const manifest = join(dir, '.claude-plugin', 'plugin.json');
+    if (existsSync(manifest)) {
+      try {
+        return JSON.parse(readFileSync(manifest, 'utf8')).name || basename(dir);
+      } catch {
+        return basename(dir);
+      }
+    }
+    dir = dirname(dir);
+  }
+  return null;
+}
+
+function validateCatalogDocsLink(text, filepath, findings, where = '') {
+  if (authorPlugins().has(pluginNameOf(filepath))) return;
+
+  const { paths, names } = catalogDocTargets();
+  const named = [];
+  for (const target of paths) {
+    if (mentionsTarget(text, target, true)) named.push(target);
+  }
+  for (const target of names) {
+    if (!mentionsTarget(text, target, false)) continue;
+    if (named.some((t) => t.endsWith(`/${target}`))) continue;
+    named.push(target);
+  }
+  if (named.length === 0) return;
+
+  const forms = [];
+  for (const re of CATALOG_DOCS_LINK_FORMS) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) {
+      // Хвостовая пунктуация предложения в адрес не входит.
+      const form = m[0].replace(/[.,;:]+$/, '');
+      if (named.some((t) => form.includes(t))) forms.push(form);
+    }
+  }
+  const shown = named.slice(0, 3).join(', ');
+  const asLink =
+    forms.length > 0
+      ? ` Here it is written as a link (${forms.slice(0, 2).join(', ')}), which misses even in a clone - a relative link resolves from the artifact's own directory.`
+      : '';
+  findings.push({
+    level: ERROR,
+    rule: 'catalog-docs-link',
+    message: `${where}names a catalog docs/ document (${shown}${named.length > 3 ? `, +${named.length - 3} more` : ''}) - naming it in any form (code span, prose, link) sends the executor to a file the plugin does not ship.${asLink} Carry the norm in the artifact itself or in a skill the user has installed; author-only artifacts belong in dex-bundle-market-editor`,
+  });
 }
 
 // --- Markdown parsing ---------------------------------------------------
@@ -325,19 +695,25 @@ function trapBodyText(trap) {
 
 function validateTraps(markdownBody, findings, isProcess = false) {
   // Process skills encode orchestration rules (registry, decision forks), not a
-  // catalogue of API traps. The trap heuristics (count + Плохо/Правильно/Почему
-  // triad) don't apply to them - structure is checked by validateProcessStructure
+  // catalogue of API traps. The trap heuristic (Плохо/Правильно/Почему triad)
+  // doesn't apply to them - structure is checked by validateProcessStructure
   // instead. Triads remain *allowed* in a process skill (e.g. decision forks in
-  // dotnet-project-baseline), just not *required*.
+  // project-baseline), just not *required*.
   if (isProcess) return;
 
   const traps = extractTraps(markdownBody);
 
-  if (traps.length < 5) {
+  // Floor of a trap skill: a checklist item or an H3 trap. Without either the
+  // skill carries nothing to apply - the trap-side counterpart of process-empty.
+  let hasListItem = false;
+  visit(parseMarkdown(markdownBody), 'listItem', () => {
+    hasListItem = true;
+  });
+  if (traps.length === 0 && !hasListItem) {
     findings.push({
       level: ERROR,
-      rule: 'too-few-traps',
-      message: `Skill has only ${traps.length} H3 sections - framework recommends 10-15 traps per skill`,
+      rule: 'trap-empty',
+      message: 'Trap skill has neither a checklist item nor an H3 trap - nothing for the executor to apply',
     });
   }
 
@@ -366,7 +742,7 @@ function validateTraps(markdownBody, findings, isProcess = false) {
 // --- Process structure validation ---------------------------------------
 
 /**
- * A process skill is exempt from trap heuristics, so it needs its own floor to
+ * A process skill is exempt from the trap triad, so it needs its own floor to
  * stop an empty/under-built skill from slipping through on the exemption alone.
  * It must carry actual orchestration content: a registry table OR at least two
  * H2 rule/decision sections. Below that it's not a process skill - it's a stub.
@@ -473,8 +849,16 @@ function validateFile(filepath) {
 
   validateFrontmatter(parsed, findings, isProcess);
   validateSize(raw, findings, isProcess);
+  validateCatalogDocsLink(raw, filepath, findings);
+  validatePluginNameMentions(raw, findings);
+  validateSkillReferences(raw, findings);
+  validateLinkEscapesPlugin(raw, filepath, findings);
+  validateReferenceSize(filepath, findings);
   validateTraps(parsed.content, findings, isProcess);
-  if (isProcess) validateProcessStructure(parsed.content, findings);
+  if (isProcess) {
+    validateProcessStructure(parsed.content, findings);
+  }
+  validateOrchestratorRegistration(parsed, parsed.content, findings, isProcess);
   validateCodeFences(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
 
@@ -533,6 +917,10 @@ function main() {
     const abs = resolve(target);
     if (!existsSync(abs)) {
       console.error(`File not found: ${target}`);
+      process.exit(1);
+    }
+    if (isCommandSkillFile(abs)) {
+      console.error(`${target} is a command in skill form (COMMAND_SKILLS) - validate it with tools/validate-command.js`);
       process.exit(1);
     }
     files = [abs];

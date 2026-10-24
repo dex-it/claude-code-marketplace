@@ -1,0 +1,92 @@
+{
+  "id": "45961d",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.110875,
+    "durationMs": 11117,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10815,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1196,
+      "output_tokens_details": {
+        "thinking_tokens": 281
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10815,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1196,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10815,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10815
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "Помечать его `Utc` **не нужно**: это противоречит README и смысл времени исказило бы.",
+      "why": "Исполнитель признал запись Unspecified-значений в timestamp without time zone верной и не стал требовать UTC."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "`AsSplitQuery` для двух коллекций одного уровня здесь оправдан",
+      "why": "Split прямо назван уместным; замечание о сортировке касается порядка строк, а не подмешивания данных."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsNoTracking не предлагается ни в проекциях, ни в методах, которые меняют сущность."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefault` опирается на уникальный индекс по `ChipNumber`",
+      "why": "SingleOrDefault признан корректным."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Значение передано параметром через интерполированный `FromSql`, SQL-инъекции нет.",
+      "why": "Инъекция в обоих методах явно отвергнута, о несовпадении алиасов ничего не утверждается."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "`FindByTitleAsync`: фильтр целиком транслируется в SQL, результат — проекция.",
+      "why": "Трансляция ToLower/Contains признана серверной."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "Сам `Consumables.Remove` при required-FK с каскадом по умолчанию корректно удаляет сироту, исключения тут нет.",
+      "why": "Исполнитель подтвердил корректность Remove; в находке речь о гонке с закрытием и лишней загрузке, а не о сироте или FK."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "По контракту страницы нумеруются с 1, а код делает `Skip(page * PageSize)`. При `page=1` пропускаются первые 30 процедур дня",
+      "why": "Дефект назван точно, исправление предложено."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "`doseMg = weightGrams * drugMgPerKg`. Вес берётся в граммах (`Pet.WeightGrams`), а доза задана в мг/**кг**",
+      "why": "Найдено завышение дозы в 1000 раз из-за отсутствия перевода граммов в килограммы."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,15 @@
+<<<<<<< src/quote.js
+    price = round2(price * rate);
+=======
+    price = Math.ceil(price * rate * 20) / 20; // наличные CHF - шаг 0,05
+>>>>>>>
+<<<<<<< test/quote.test.js
+test('реальный тариф: 1 кг в зону A - 4.50', () => {
+=======
+test('CHF - вверх до 0,05', () => {
+  const t = { zones: { X: { bands: [{ maxGrams: 1000, price: 9.99 }], express: 0 } } };
+  assert.equal(quote({ weightGrams: 900, zone: 'X', currency: 'CHF' }, t).price, 9.4);
+});
+
+test('реальный тариф: 1 кг в зону A - 4.50', () => {
+>>>>>>>

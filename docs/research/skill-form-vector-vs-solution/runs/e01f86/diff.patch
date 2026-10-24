@@ -1,0 +1,52 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..beb1209
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,46 @@
++# Результаты ревью MR !238
++
++## Дефекты найдены: 5
++
++### 1. CRITICAL: VehicleService.ReplaceEquipmentAsync - коллекция не загружена явно
++- **Файл**: VehicleService.cs
++- **Метод**: ReplaceEquipmentAsync (строки 35-44)
++- **Проблема**: `FindVehicleAsync()` загружает Vehicle без явного Include коллекции Equipment. Вызов `vehicle.Equipment.Clear()` не гарантирует удаление старых записей из БД, т.к. EF Core не отслеживает изменения незагруженных коллекций.
++- **Сравнение**: В `DriverService.ReplacePermitsAsync()` используется правильный паттерн с `.Include(d => d.Permits)` перед модификацией.
++- **Последствие**: Дублирование или потеря данных Equipment при замене комплектации.
++- **Исправление**: Добавить `.Include(v => v.Equipment)` в FindVehicleAsync или явно загрузить Equipment перед вызовом Clear().
++
++### 2. CRITICAL: TripService.StartTripAsync - неправильная проверка допуска
++- **Файл**: TripService.cs
++- **Метод**: StartTripAsync, строка 111
++- **Проблема**: Условие `p.ValidUntil > today` исключает день истечения. По описанию FLEET-107: "допуск действует по указанную в нём дату включительно". Необходимо `p.ValidUntil >= today`.
++- **Последствие**: Водитель не сможет выехать в последний день действия допуска, хотя по регламенту должен мочь.
++- **Исправление**: Изменить `>` на `>=`.
++
++### 3. HIGH: Program.cs - отсутствует авторизация на endpoint ReplaceEquipmentAsync
++- **Файл**: Program.cs
++- **Метод**: Endpoint PUT /vehicles/{id:int}/equipment (строки 53-57)
++- **Проблема**: Endpoint не имеет `.RequireAuthorization()`, тогда как все остальные API endpoint-ы защищены. По логике (механик отправляет комплектацию машины), должна быть роль "Mechanic" (как в `/inspections/sync`).
++- **Последствие**: Неавторизованный пользователь может изменять комплектацию машин.
++- **Исправление**: Добавить `.RequireAuthorization("Mechanic");` после вызова ReplaceEquipmentAsync.
++
++### 4. MEDIUM: TripService.OffDayTripsAsync - неоптимальное использование Select с клиентским кодом
++- **Файл**: TripService.cs
++- **Метод**: OffDayTripsAsync (строки 72-79)
++- **Проблема**: `.ToRows()` содержит Select с клиентским кодом `WorkCalendar.IsWorkingDay(t.StartedAt)`, который не может быть переведён в SQL. Это приводит к загрузке ВСЕХ поездок за месяц в памяти перед фильтрацией по OffDay, что неэффективно.
++- **Практика**: Select с клиентским кодом должен применяться ПОСЛЕ материализации через `.ToListAsync()`.
++- **Исправление**: Материализовать запрос перед ToRows: `var trips = await ...Where(...).ToListAsync(); return trips.AsEnumerable().ToRows()...`
++
++### 5. MEDIUM: TripService.GetOpenWaybillsAsync - неправильное использование FromSqlRaw с LINQ Where
++- **Файл**: TripService.cs
++- **Метод**: GetOpenWaybillsAsync (строки 82-96)
++- **Проблема**: Комбинирование `.FromSqlRaw()` с последующим `.Where()` может привести к неоптимальному или некорректному SQL. Хардкодированный запрос из дашборда + динамический LINQ фильтр - это антипаттерн.
++- **Последствие**: Возможна загрузка лишних данных в памяти или неправильная фильтрация.
++- **Исправление**: Использовать `FromSqlInterpolated` с параметром vehicleId или включить условие в исходный SQL.
++
++## Резюме
++- 2 критических дефекта (логика и данные)
++- 1 high дефект (безопасность)
++- 2 medium дефекта (производительность/практика)
++
++MR требует исправления всех критических дефектов перед мержем.

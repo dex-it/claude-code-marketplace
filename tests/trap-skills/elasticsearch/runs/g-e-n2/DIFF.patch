@@ -1,0 +1,502 @@
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..1f9cc43 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,8 +1,11 @@
+ using Fulfil.Options;
++using Fulfil.Search;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++builder.Services.AddProductSearch();
+ 
+ var app = builder.Build();
+ app.MapGet("/health", () => Results.Ok());
++app.MapProductSearch();
+ app.Run();
+diff --git a/src/Fulfil/Search/CatalogReindexService.cs b/src/Fulfil/Search/CatalogReindexService.cs
+new file mode 100644
+index 0000000..8ed34ff
+--- /dev/null
++++ b/src/Fulfil/Search/CatalogReindexService.cs
+@@ -0,0 +1,64 @@
++using Elastic.Clients.Elasticsearch;
++
++namespace Fulfil.Search;
++
++// Ночная пересборка. Реплик сервиса три, поэтому исполнитель выбирается блокировкой-документом в ES.
++public sealed class CatalogReindexService(
++    ProductIndexer indexer, ElasticsearchClient client, ILogger<CatalogReindexService> log) : BackgroundService
++{
++    private const string LockIndex = "fulfil-locks";
++    private const string LockId = "catalog-rebuild";
++    private static readonly TimeSpan LockTtl = TimeSpan.FromHours(3);
++    private static readonly TimeSpan RunAt = TimeSpan.FromHours(2); // 02:00 UTC
++
++    private sealed class LockDoc { public DateTime AcquiredAt { get; set; } }
++
++    protected override async Task ExecuteAsync(CancellationToken ct)
++    {
++        // Первый запуск или новая версия схемы: собрать индекс сразу, не дожидаясь ночи.
++        await TryRunAsync(onlyIfStale: true, ct);
++
++        while (!ct.IsCancellationRequested)
++        {
++            var now = DateTime.UtcNow;
++            var next = now.Date + RunAt;
++            if (next <= now) next = next.AddDays(1);
++            try { await Task.Delay(next - now, ct); }
++            catch (OperationCanceledException) { return; }
++            await TryRunAsync(onlyIfStale: false, ct);
++        }
++    }
++
++    private async Task TryRunAsync(bool onlyIfStale, CancellationToken ct)
++    {
++        try
++        {
++            if (onlyIfStale && await indexer.IsCurrentAsync(ct)) return;
++            if (!await TryAcquireAsync(ct)) return;
++            try { await indexer.RebuildAsync(ct); }
++            finally { await client.DeleteAsync(LockIndex, LockId, CancellationToken.None); }
++        }
++        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
++        catch (Exception e)
++        {
++            log.LogError(e, "Catalog rebuild failed; the previous index keeps serving");
++        }
++    }
++
++    private async Task<bool> TryAcquireAsync(CancellationToken ct)
++    {
++        for (var attempt = 0; attempt < 2; attempt++)
++        {
++            var created = await client.CreateAsync(new LockDoc { AcquiredAt = DateTime.UtcNow }, LockIndex, LockId, ct);
++            if (created.IsValidResponse) return true;
++            if (created.ApiCallDetails.HttpStatusCode != 409)
++                throw new InvalidOperationException($"Lock failed: {created.DebugInformation}");
++
++            // Блокировка занята; протухшую (упавший исполнитель) снимаем и пробуем ещё раз.
++            var existing = await client.GetAsync<LockDoc>(LockIndex, LockId, ct);
++            if (existing.Source is { } doc && DateTime.UtcNow - doc.AcquiredAt < LockTtl) return false;
++            await client.DeleteAsync(LockIndex, LockId, ct);
++        }
++        return false;
++    }
++}
+diff --git a/src/Fulfil/Search/ProductDoc.cs b/src/Fulfil/Search/ProductDoc.cs
+new file mode 100644
+index 0000000..17402e2
+--- /dev/null
++++ b/src/Fulfil/Search/ProductDoc.cs
+@@ -0,0 +1,25 @@
++namespace Fulfil.Search;
++
++public sealed class ProductDoc
++{
++    public string Sku { get; set; } = "";
++    public string Name { get; set; } = "";
++    public string Description { get; set; } = "";
++    public string Category { get; set; } = "";
++    public decimal Price { get; set; }
++    public int Stock { get; set; }
++
++    public static ProductDoc From(Domain.Product p) => new()
++    {
++        Sku = p.Sku, Name = p.Name, Description = p.Description,
++        Category = p.Category, Price = p.Price, Stock = p.Stock
++    };
++}
++
++public sealed record SearchQuery(
++    string? Q, string? Category, decimal? MinPrice, decimal? MaxPrice, string? Sort, int Page);
++
++public sealed record CategoryCount(string Category, long Count);
++
++public sealed record SearchResult(
++    long Total, int Page, int PageSize, IReadOnlyList<ProductDoc> Items, IReadOnlyList<CategoryCount> Categories);
+diff --git a/src/Fulfil/Search/ProductIndexer.cs b/src/Fulfil/Search/ProductIndexer.cs
+new file mode 100644
+index 0000000..aa8046a
+--- /dev/null
++++ b/src/Fulfil/Search/ProductIndexer.cs
+@@ -0,0 +1,174 @@
++using System.Threading.Channels;
++using Elastic.Clients.Elasticsearch;
++using Elastic.Clients.Elasticsearch.Core.Bulk;
++using Elastic.Clients.Elasticsearch.IndexManagement;
++using Elastic.Clients.Elasticsearch.Mapping;
++using Fulfil.Ports;
++
++namespace Fulfil.Search;
++
++// Пересборка индекса: каждый раз новый индекс, поиск читает алиас и переключается атомарно,
++// поэтому витрина не останавливается, а смена схемы не требует изменения "живого" индекса.
++public sealed class ProductIndexer(ElasticsearchClient client, ICatalogSource catalog, ILogger<ProductIndexer> log)
++{
++    // Увеличивать при смене маппинга/анализатора: приложение пересоберёт индекс при старте.
++    public const int SchemaVersion = 1;
++    public const string Alias = "products";
++    public static string IndexPrefix => $"{Alias}-v{SchemaVersion}-";
++
++    private const int BatchSize = 2000;
++    private const int Workers = 4;
++    private const int MaxAttempts = 4;
++
++    public async Task<bool> IsCurrentAsync(CancellationToken ct)
++    {
++        var names = await GetAliasedIndicesAsync(ct);
++        return names.Any(n => n.StartsWith(IndexPrefix, StringComparison.Ordinal));
++    }
++
++    public async Task RebuildAsync(CancellationToken ct)
++    {
++        var index = IndexPrefix + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
++        log.LogInformation("Rebuilding catalog index {Index}", index);
++        try
++        {
++            await CreateIndexAsync(index, ct);
++            var total = await LoadAsync(index, ct);
++
++            await client.Indices.RefreshAsync(index, ct);
++            await client.Indices.PutSettingsAsync(index, new IndexSettings { RefreshInterval = "1s" }, ct);
++            await SwitchAliasAsync(index, ct);
++            log.LogInformation("Catalog index {Index} is live, {Total} products", index, total);
++        }
++        catch
++        {
++            // Старый индекс остаётся под алиасом, недостроенный убираем.
++            await client.Indices.DeleteAsync(index, CancellationToken.None);
++            throw;
++        }
++    }
++
++    private async Task CreateIndexAsync(string index, CancellationToken ct)
++    {
++        var request = new CreateIndexRequest(index)
++        {
++            Settings = new IndexSettings
++            {
++                NumberOfShards = 1,
++                // Узел один; реплики недостижимы, а при загрузке только замедляют её.
++                NumberOfReplicas = 0,
++                // Во время загрузки поиск по этому индексу не ведётся, refresh не нужен.
++                RefreshInterval = "-1",
++                Analysis = new IndexSettingsAnalysis
++                {
++                    Normalizers = new Normalizers { { "lc", new LowercaseNormalizer() } }
++                }
++            },
++            Mappings = new TypeMapping
++            {
++                Properties = new Properties
++                {
++                    { "sku", new KeywordProperty() },
++                    // Русский текст - анализатор russian (стемминг, стоп-слова); английский - подполе .en.
++                    { "name", new TextProperty
++                        {
++                            Analyzer = "russian",
++                            Fields = new Properties
++                            {
++                                { "en", new TextProperty { Analyzer = "english" } },
++                                { "raw", new KeywordProperty { Normalizer = "lc", IgnoreAbove = 256 } }
++                            }
++                        }
++                    },
++                    { "description", new TextProperty
++                        {
++                            Analyzer = "russian",
++                            Fields = new Properties { { "en", new TextProperty { Analyzer = "english" } } }
++                        }
++                    },
++                    { "category", new KeywordProperty() },
++                    { "price", new ScaledFloatNumberProperty { ScalingFactor = 100 } },
++                    { "stock", new IntegerNumberProperty() }
++                }
++            }
++        };
++        var response = await client.Indices.CreateAsync(request, ct);
++        if (!response.IsValidResponse)
++            throw new InvalidOperationException($"Cannot create index {index}: {response.DebugInformation}");
++    }
++
++    // Один читатель каталога, несколько параллельных bulk-записей.
++    private async Task<long> LoadAsync(string index, CancellationToken ct)
++    {
++        var channel = Channel.CreateBounded<List<ProductDoc>>(Workers * 2);
++        long total = 0;
++
++        var writers = Enumerable.Range(0, Workers).Select(async _ =>
++        {
++            await foreach (var batch in channel.Reader.ReadAllAsync(ct))
++                await BulkWithRetryAsync(index, batch, ct);
++        }).ToList();
++
++        try
++        {
++            var batch = new List<ProductDoc>(BatchSize);
++            await foreach (var p in catalog.ReadAllAsync(ct))
++            {
++                batch.Add(ProductDoc.From(p));
++                total++;
++                if (batch.Count < BatchSize) continue;
++                await channel.Writer.WriteAsync(batch, ct);
++                batch = new List<ProductDoc>(BatchSize);
++            }
++            if (batch.Count > 0) await channel.Writer.WriteAsync(batch, ct);
++            channel.Writer.Complete();
++        }
++        catch (Exception e)
++        {
++            channel.Writer.TryComplete(e);
++            throw;
++        }
++        await Task.WhenAll(writers);
++        return total;
++    }
++
++    private async Task BulkWithRetryAsync(string index, List<ProductDoc> batch, CancellationToken ct)
++    {
++        var ops = batch.Select(d => (IBulkOperation)new BulkIndexOperation<ProductDoc>(d) { Id = d.Sku }).ToList();
++        for (var attempt = 1; ; attempt++)
++        {
++            var response = await client.BulkAsync(new BulkRequest(index) { Operations = ops }, ct);
++            if (response.IsValidResponse && !response.Errors) return;
++            if (attempt == MaxAttempts)
++                throw new InvalidOperationException($"Bulk into {index} failed: {response.DebugInformation}");
++            log.LogWarning("Bulk into {Index} failed, attempt {Attempt}", index, attempt);
++            await Task.Delay(TimeSpan.FromSeconds(attempt * 2), ct);
++        }
++    }
++
++    private async Task SwitchAliasAsync(string index, CancellationToken ct)
++    {
++        var old = await GetAliasedIndicesAsync(ct);
++        var actions = new List<IndexUpdateAliasesAction>
++        {
++            new() { Add = new AddAction { Index = index, Alias = Alias } }
++        };
++        actions.AddRange(old.Select(o => new IndexUpdateAliasesAction
++        {
++            Remove = new RemoveAction { Index = o, Alias = Alias }
++        }));
++        var response = await client.Indices.UpdateAliasesAsync(new UpdateAliasesRequest { Actions = actions }, ct);
++        if (!response.IsValidResponse)
++            throw new InvalidOperationException($"Cannot switch alias: {response.DebugInformation}");
++
++        foreach (var o in old)
++            await client.Indices.DeleteAsync(o, ct);
++    }
++
++    private async Task<IReadOnlyList<string>> GetAliasedIndicesAsync(CancellationToken ct)
++    {
++        var response = await client.Indices.GetAliasAsync(new GetAliasRequest(Alias), ct);
++        if (!response.IsValidResponse) return []; // 404: алиаса ещё нет
++        return response.Aliases.Keys.Select(k => k.ToString()).ToList();
++    }
++}
+diff --git a/src/Fulfil/Search/ProductSearchService.cs b/src/Fulfil/Search/ProductSearchService.cs
+new file mode 100644
+index 0000000..16ef892
+--- /dev/null
++++ b/src/Fulfil/Search/ProductSearchService.cs
+@@ -0,0 +1,147 @@
++using System.Runtime.CompilerServices;
++using Elastic.Clients.Elasticsearch;
++using Elastic.Clients.Elasticsearch.Aggregations;
++using Elastic.Clients.Elasticsearch.QueryDsl;
++
++namespace Fulfil.Search;
++
++public sealed class ProductSearchService(ElasticsearchClient client)
++{
++    public const int PageSize = 20;
++    public const int ExportLimit = 200_000;
++    private const int ExportPageSize = 1000;
++    private const int MaxResultWindow = 10_000;
++    private const int MaxCategories = 100;
++
++    public async Task<SearchResult> SearchAsync(SearchQuery query, CancellationToken ct)
++    {
++        var page = Math.Max(query.Page, 1);
++        if ((long)page * PageSize > MaxResultWindow)
++            throw new ArgumentException("Страница вне допустимого диапазона; для полной выгрузки есть /search/export.");
++
++        var request = new SearchRequest(ProductIndexer.Alias)
++        {
++            From = (page - 1) * PageSize,
++            Size = PageSize,
++            // Запрос и цена определяют и выдачу, и счётчики категорий; категория - только выдачу
++            // (post_filter), иначе в списке остались бы одни выбранные категории.
++            Query = BuildQuery(query.Q, query.MinPrice, query.MaxPrice),
++            PostFilter = string.IsNullOrWhiteSpace(query.Category)
++                ? null
++                : new TermQuery(new Field("category")) { Value = query.Category },
++            Sort = BuildSort(query.Sort),
++            Aggregations = new Dictionary<string, Aggregation>
++            {
++                ["categories"] = new TermsAggregation { Field = "category", Size = MaxCategories }
++            },
++            TrackTotalHits = new TrackHits(true)
++        };
++
++        var response = await client.SearchAsync<ProductDoc>(request, ct);
++        if (!response.IsValidResponse)
++            throw new InvalidOperationException($"Search failed: {response.DebugInformation}");
++
++        var categories = response.Aggregations?.GetStringTerms("categories")?.Buckets
++            .Select(b => new CategoryCount(b.Key.ToString(), b.DocCount))
++            .ToList() ?? [];
++
++        return new SearchResult(
++            response.Total,
++            page,
++            PageSize,
++            response.Documents.ToList(),
++            categories);
++    }
++
++    // Потоковая выгрузка: point-in-time + search_after, без from/size и без накопления в памяти.
++    public async IAsyncEnumerable<ProductDoc> ExportAsync(
++        string? q, [EnumeratorCancellation] CancellationToken ct)
++    {
++        var pit = await client.OpenPointInTimeAsync(
++            new Elastic.Clients.Elasticsearch.OpenPointInTimeRequest(ProductIndexer.Alias) { KeepAlive = "2m" }, ct);
++        if (!pit.IsValidResponse)
++            throw new InvalidOperationException($"Cannot open PIT: {pit.DebugInformation}");
++
++        try
++        {
++            var query = BuildQuery(q, null, null);
++            ICollection<FieldValue>? after = null;
++            var sent = 0;
++
++            while (sent < ExportLimit)
++            {
++                var request = new SearchRequest
++                {
++                    Size = Math.Min(ExportPageSize, ExportLimit - sent),
++                    Query = query,
++                    Pit = new PointInTimeReference { Id = pit.Id, KeepAlive = "2m" },
++                    // sku уникален - достаточный tiebreaker для search_after.
++                    Sort = new List<SortOptions> { SortOptions.Field("sku", new FieldSort { Order = SortOrder.Asc }) },
++                    SearchAfter = after,
++                    TrackTotalHits = new TrackHits(false)
++                };
++                var response = await client.SearchAsync<ProductDoc>(request, ct);
++                if (!response.IsValidResponse)
++                    throw new InvalidOperationException($"Export failed: {response.DebugInformation}");
++                if (response.Hits.Count == 0) yield break;
++
++                foreach (var hit in response.Hits)
++                {
++                    if (hit.Source is null) continue;
++                    sent++;
++                    yield return hit.Source;
++                }
++                after = response.Hits.Last().Sort;
++                if (after is null) yield break;
++            }
++        }
++        finally
++        {
++            await client.ClosePointInTimeAsync(
++                new ClosePointInTimeRequest { Id = pit.Id }, CancellationToken.None);
++        }
++    }
++
++    private static Query BuildQuery(string? q, decimal? min, decimal? max)
++    {
++        var must = new List<Query>();
++        if (!string.IsNullOrWhiteSpace(q))
++        {
++            must.Add(new MultiMatchQuery
++            {
++                Query = q,
++                // Название весит втрое больше описания; .en - английская морфология.
++                Fields = new[] { "name^3", "name.en^3", "description", "description.en" },
++                Type = TextQueryType.MostFields
++            });
++        }
++
++        var filter = new List<Query>();
++        if (min is not null || max is not null)
++        {
++            filter.Add(new NumberRangeQuery(new Field("price"))
++            {
++                Gte = min is null ? null : (double)min,
++                Lte = max is null ? null : (double)max
++            });
++        }
++
++        return new BoolQuery
++        {
++            Must = must.Count > 0 ? must : new List<Query> { new MatchAllQuery() },
++            Filter = filter
++        };
++    }
++
++    private static List<SortOptions> BuildSort(string? sort)
++    {
++        var tiebreak = SortOptions.Field("sku", new FieldSort { Order = SortOrder.Asc });
++        return sort?.ToLowerInvariant() switch
++        {
++            "price" or "price_asc" => [SortOptions.Field("price", new FieldSort { Order = SortOrder.Asc }), tiebreak],
++            "price_desc" => [SortOptions.Field("price", new FieldSort { Order = SortOrder.Desc }), tiebreak],
++            "name" => [SortOptions.Field("name.raw", new FieldSort { Order = SortOrder.Asc }), tiebreak],
++            _ => [SortOptions.Score(new ScoreSort { Order = SortOrder.Desc }), tiebreak]
++        };
++    }
++}
+diff --git a/src/Fulfil/Search/SearchEndpoints.cs b/src/Fulfil/Search/SearchEndpoints.cs
+new file mode 100644
+index 0000000..db7d084
+--- /dev/null
++++ b/src/Fulfil/Search/SearchEndpoints.cs
+@@ -0,0 +1,46 @@
++using Elastic.Clients.Elasticsearch;
++using Elastic.Transport;
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Search;
++
++public static class SearchEndpoints
++{
++    public static IServiceCollection AddProductSearch(this IServiceCollection services)
++    {
++        services.AddSingleton(sp =>
++        {
++            var uri = sp.GetRequiredService<IOptions<FulfilOptions>>().Value.ElasticUri;
++            return new ElasticsearchClient(new ElasticsearchClientSettings(new Uri(uri)));
++        });
++        services.AddSingleton<ProductIndexer>();
++        services.AddSingleton<ProductSearchService>();
++        services.AddHostedService<CatalogReindexService>();
++        return services;
++    }
++
++    public static IEndpointRouteBuilder MapProductSearch(this IEndpointRouteBuilder app)
++    {
++        app.MapGet("/search", async (
++            string? q, string? category, decimal? minPrice, decimal? maxPrice, string? sort, int? page,
++            ProductSearchService search, CancellationToken ct) =>
++        {
++            try
++            {
++                return Results.Ok(await search.SearchAsync(
++                    new SearchQuery(q, category, minPrice, maxPrice, sort, page ?? 1), ct));
++            }
++            catch (ArgumentException e)
++            {
++                return Results.BadRequest(new { error = e.Message });
++            }
++        });
++
++        // Отдаётся потоком: массив пишется по мере чтения страниц из ES.
++        app.MapGet("/search/export", (string? q, ProductSearchService search, CancellationToken ct) =>
++            search.ExportAsync(q, ct));
++
++        return app;
++    }
++}

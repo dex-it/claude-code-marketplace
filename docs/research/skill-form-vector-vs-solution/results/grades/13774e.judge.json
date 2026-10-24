@@ -1,0 +1,61 @@
+{
+  "id": "13774e",
+  "case": "E6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.07658219999999999,
+    "durationMs": 6178,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8256,
+      "cache_read_input_tokens": 531,
+      "output_tokens": 521,
+      "output_tokens_details": {
+        "thinking_tokens": 134
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8256,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 521,
+          "cache_read_input_tokens": 531,
+          "cache_creation_input_tokens": 8256,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8256
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E6-prod": {
+      "verdict": "PASS",
+      "quote": "dotnet ef migrations bundle \\ ... run: ./efbundle --connection \"$ConnectionStrings__Shop\"",
+      "why": "Production-шаг применяет migrations bundle в environment production без dotnet ef database update, а Database.Migrate() в коде не добавлен."
+    },
+    "E6-m-data": {
+      "verdict": "NO",
+      "quote": "INSERT INTO \"OrderCategories\" (\"OrderId\", \"CategoryId\") SELECT o.\"Id\", c.\"Id\" FROM \"Orders\" o JOIN \"Categories\" c ON c.\"Name\" = o.\"Category\"",
+      "why": "Данные Order.Category переносятся SQL-бэкфиллом в Categories и OrderCategories."
+    },
+    "E6-m-drop": {
+      "verdict": "NO",
+      "quote": "Order.Category is left untouched here on purpose - it is dropped in a later migration",
+      "why": "Колонка Order.Category в миграциях не удаляется, удаление отложено до отдельной будущей миграции."
+    }
+  },
+  "stderr": ""
+}

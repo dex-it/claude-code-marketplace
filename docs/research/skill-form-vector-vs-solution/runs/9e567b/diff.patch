@@ -1,0 +1,45 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5b26942
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,39 @@
++# Ревью MR !238
++
++## Находки
++
++**1. `TripService.cs` — `TripRows.ToRows()` + `OffDayTripsAsync`**
++`OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` вычисляется внутри `Select`, который в `OffDayTripsAsync` не финальный шаг — после него идут `.Where(r => r.OffDay)` и `.OrderByDescending(r => r.Km)`. `WorkCalendar.IsWorkingDay` (TimeZoneInfo + HashSet) не транслируется в SQL, а EF Core допускает клиентское вычисление только в терминальной проекции перед материализацией. Здесь `Select` не терминален → EF бросит `InvalidOperationException` ("could not be translated") на этапе трансляции запроса. Эндпоинт `GET /trips/off-days` (FLEET-109) будет падать при каждом вызове.
++Severity: **critical**
++
++**2. `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs` — `Up()`**
++`AlterColumn` сужает `vehicles.model` с `varchar(200)` до `varchar(40)` без переноса/обрезки существующих данных (`UpdateData`/`Sql` перед `AlterColumn`). Сама формулировка задачи ("длинные названия моделей принтер обрезал на середине") говорит, что в проде уже есть строки длиннее 40 символов. `ALTER COLUMN TYPE` в Postgres при наличии значений длиннее нового лимита завершится ошибкой — миграция, выкатываемая "одним шагом" через bundle, упадёт прямо в проде. Нарушение правила "схемная миграция и исторические данные".
++Severity: **critical**
++
++**3. `TripService.cs` — `GetOpenWaybillsAsync`**
++`FromSqlRaw` содержит завершающий `;` и `ORDER BY`, а затем для случая `vehicleId != null` запрос компонуется дальше через `.Where(...)`. EF оборачивает сырой SQL в подзапрос (`SELECT * FROM (<raw>) AS t0 WHERE ...`), а точка с запятой внутри скобок — синтаксическая ошибка SQL. Фильтрация по машине (как раз то, что требует FLEET-112) всегда будет падать с ошибкой БД; без фильтра баг не проявляется, поэтому локальная проверка "по всему парку" из MR его не поймала.
++Severity: **critical**
++
++**4. `TripService.cs` — `StartTripAsync`**
++Проверка допуска: `p.ValidUntil > today`. По требованию FLEET-107 допуск действует "по указанную дату включительно", то есть условие должно быть `>=`. Сейчас водителю с допуском, у которого `ValidUntil == today`, отказывают в выезде в последний законный день действия допуска — off-by-one, бизнес-логика нарушена.
++Severity: **high**
++
++**5. `VehicleService.cs` — `GetLastInspectionAsync`**
++Сортировка `OrderByDescending(i => i.CreatedAt)` — "последним" считается осмотр по времени приёма сервером, а не по `InspectedAt` (комментарий к сущности: "планшет копит осмотры без связи... отправляет пачкой"). Осмотр, сделанный раньше, но синхронизированный позже (после длительного простоя без сети), перекроет в выборке более свежий реальный осмотр, синхронизированный раньше. `StartTripAsync` полагается на этот метод для проверки давности (≤12 ч) и блокирующих замечаний (FLEET-107) — решение о допуске машины на линию может приниматься по неверной (не самой свежей по факту) записи осмотра. Внутри одного `SyncInspectionsAsync`-батча `CreatedAt` (`now()`) у нескольких строк вообще может совпасть, делая выбор `FirstOrDefaultAsync` недетерминированным.
++Severity: **high**
++
++**6. `Program.cs` — `PUT /api/vehicles/{id}/equipment`**
++В отличие от остальных мутирующих эндпоинтов (`/inspections/sync` → `"Mechanic"`, `/vehicles/{id}/decommission` → `"FleetManager"`, `/drivers/.../permits` → `"Hr"`), у эндпоинта замены комплектации нет `.RequireAuthorization("...")` с конкретной ролью — только общий `RequireAuthorization()` группы `/api`. Любой аутентифицированный пользователь (например, с ролью `hr`) может перезаписать комплектацию любой машины.
++Severity: **high**
++
++**7. `TripService.cs` — `StartTripAsync`**
++Сущности `vehicle` (`_db.Vehicles.FirstOrDefaultAsync(...)`) и `driver` с `Include(d => d.Permits)` читаются с трекингом, хотя ни то, ни другое в методе не изменяется и не сохраняется (создаётся только новый `Trip`). Нарушение правила "трекинг выборки только для чтения" — лишняя нагрузка на change tracker без необходимости.
++Severity: **medium**
++
++**8. `TripService.cs` — `StartTripAsync`**
++Нет механизма, исключающего два одновременных "открытых" рейса на одну машину (нет partial unique index вида `(vehicle_id) WHERE finished_at IS NULL`, нет блокировки/транзакции с проверкой). При гонке (два диспетчера/двойной клик) можно создать два параллельных путевых листа на одну машину.
++Severity: **medium**
++
++**9. `VehicleService.cs` — `ReplaceEquipmentAsync`**
++`items.DistinctBy(i => i.Code)` молча отбрасывает дубликаты кодов вместо явной ошибки/валидации входных данных от механика — при ошибочном дублировании в присланном списке часть данных потеряется без какого-либо сигнала вызывающей стороне.
++Severity: **low**

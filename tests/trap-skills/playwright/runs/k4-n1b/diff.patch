@@ -1,0 +1,69 @@
+diff --git a/e2e/tests/fixtures.ts b/e2e/tests/fixtures.ts
+new file mode 100644
+index 0000000..81941f3
+--- /dev/null
++++ b/e2e/tests/fixtures.ts
+@@ -0,0 +1,21 @@
++import { test as base } from '@playwright/test';
++
++const TOKEN_KEY = 'shopdesk.token';
++
++export const alice = { email: 'alice@shopdesk.example', password: 'alice-demo' };
++
++interface Fixtures {
++  // Страница с уже выполненным входом под alice: токен получаем через API, а не через форму.
++  alicePage: import('@playwright/test').Page;
++}
++
++export const test = base.extend<Fixtures>({
++  alicePage: async ({ page, request }, use) => {
++    const response = await request.post('/api/login', { data: alice });
++    const { token } = (await response.json()) as { token: string };
++    await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [TOKEN_KEY, token]);
++    await use(page);
++  },
++});
++
++export { expect } from '@playwright/test';
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..9e471ef
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,36 @@
++import { alice, expect, test } from './fixtures';
++
++test('вход под alice показывает список её заказов', async ({ page }) => {
++  await page.goto('/');
++  await page.getByLabel('Email').fill(alice.email);
++  await page.getByLabel('Пароль').fill(alice.password);
++  await page.getByRole('button', { name: 'Войти' }).click();
++
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++  await expect(page.getByText('Заказ #1001')).toBeVisible();
++  await expect(page.getByText('Заказ #1002')).toBeVisible();
++  await expect(page.getByText('Заказ #1003')).toBeVisible();
++  // заказ bob не должен попадать в список alice
++  await expect(page.getByText('Заказ #1004')).toHaveCount(0);
++});
++
++// Меняет данные на сервере: при повторном запуске с reuseExistingServer перезапустите api (демо-данные в памяти).
++test('отмена нового заказа', async ({ alicePage: page }) => {
++  await page.goto('/');
++  const order = page.getByRole('listitem').filter({ hasText: 'Заказ #1001' });
++  await expect(order.getByText('Новый')).toBeVisible();
++
++  await order.getByRole('button', { name: 'Отменить' }).click();
++
++  await expect(order.getByText('Отменён')).toBeVisible();
++  await expect(order.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++});
++
++test('ошибка сервера при загрузке заказов', async ({ alicePage: page }) => {
++  await page.route('**/api/orders', (route) =>
++    route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'boom' } } }),
++  );
++  await page.goto('/');
++
++  await expect(page.getByRole('alert')).toHaveText('Не удалось загрузить заказы');
++});

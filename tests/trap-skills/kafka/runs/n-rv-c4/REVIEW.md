@@ -1,0 +1,51 @@
+src/Fulfil/Payments/PaymentsServiceCollectionExtensions.cs:16 - IPaymentGateway нигде не зарегистрирован, CapturePaymentConsumer не создаётся: ни один платёж не спишется, все заказы застрянут в Capturing - blocker
+src/Fulfil/Caching/RedisConnection.cs:29 - IPriceSource не зарегистрирован, PriceCache не резолвится: /products/{sku}/price всегда 500 (то же с ICatalogSource в SearchEndpoints.cs:58) - blocker
+src/Fulfil/Payments/CapturePaymentConsumer.cs:30 - ChargeAsync вызывается до записи в payments и без ключа идемпотентности: сбой или ретрай MassTransit после списания (ошибка Mongo, падение пода) спишет деньги повторно - blocker
+src/Fulfil/Payments/CapturePaymentConsumer.cs:33 - если после успешного списания все ретраи упали, Fault<CapturePayment> переводит сагу в Failed и освобождает склад, а деньги остаются списанными, RefundAsync не вызывается - major
+src/Fulfil/Payments/CapturePaymentConsumer.cs:29 - сумма Total - Discount не проверяется: Discount больше Total даёт отрицательное списание/возврат - major
+src/Fulfil/Payments/SubmitOrderEndpoint.cs:37 - UnitPrice, Quantity и Discount берутся из тела запроса без проверки и без сверки с ценовым сервисом, эндпоинт без авторизации: можно оформить заказ по любой цене, в том числе с отрицательным количеством - major
+src/Fulfil/Payments/SubmitOrderEndpoint.cs:43 - повторный POST с тем же id падает на DuplicateKey и отдаёт 500 вместо 409/идемпотентного ответа; Lines == null даёт NRE на :30 - minor
+src/Fulfil/Payments/OrderSubmittedRelay.cs:25 - 3 реплики равноправны (ADR-0002), каждая читает одни и те же SubmitPending и публикует OrderSubmitted; публикация и сброс флага не атомарны. Дубли идут штатно, а после завершения саги (SetCompletedWhenFinalized) поздний дубль запускает новую сагу и повторно резервирует склад - major
+src/Fulfil/Payments/OrderSubmittedRelay.cs:25 - фильтр по SubmitPending без индекса (в ArchiveInitializer его нет): полный скан orders раз в секунду на каждой реплике - minor
+src/Fulfil/Payments/OrderFulfilmentStateMachine.cs:57 - StockUnavailable и PaymentFailed (:66) ведут в Failed без финализации, без смены статуса заказа и без уведомления: заказ навсегда остаётся Placed, записи саг копятся - major
+src/Fulfil/Payments/OrderFulfilmentStateMachine.cs:52 - повторный StockReserved/OrderPaid в уже перешедшем состоянии не игнорируется: UnhandledEventException, ретраи и мусор в _error-очереди - minor
+src/Fulfil/Payments/PaymentsServiceCollectionExtensions.cs:25 - в FulfilOptions нет логина и пароля RabbitMQ, подключение идёт под guest, который брокер пускает только с loopback; то же в WarehouseInboundConsumer.cs:34. В Kubernetes соединение не поднимется - major
+src/Fulfil/Payments/PaymentsServiceCollectionExtensions.cs:26 - глобальный UseMessageRetry поверх StockLevelsConsumerDefinition.cs:26 даёт вложенные ретраи (4x4 попыток) и ретраит перманентные ошибки - minor
+src/Fulfil/Payments/StockLevelsConsumer.cs:15 - _id = MessageId (или случайный Guid), а не Sku: по документу на каждое сообщение, без TTL и очистки, коллекция stock_snapshots растёт без предела и ничего не дедуплицирует - minor
+src/Fulfil/Payments/WarehouseInboundConsumer.cs:74 - маркер обработки ставится до $inc: падение пода между ними теряет приход навсегда (редоставка видит маркер, ack, остаток не увеличен) - major
+src/Fulfil/Payments/WarehouseInboundConsumer.cs:54 - Nack(requeue:false) в очереди без dead-letter: любое сообщение с временной ошибкой Mongo молча удаляется, остатки расходятся со складом - major
+src/Fulfil/Payments/WarehouseInboundConsumer.cs:89 - обмен warehouse.outbound нигде не объявлен: если его нет, BasicPublish закрывает канал с 404, потребитель останавливается, а ExecuteAsync этого не замечает - major
+src/Fulfil/Payments/WarehouseInboundConsumer.cs:35 - подключение при старте без повтора: недоступный брокер даёт исключение в ExecuteAsync, и BackgroundService останавливает весь хост - minor
+src/Fulfil/Payments/WarehouseInboundConsumer.cs:97 - MessageId из тела может быть null: в _id попадёт BsonNull, и первое такое сообщение заблокирует дедупликацию для всех следующих - minor
+src/Fulfil/Caching/StockRecalculatorJob.cs:34 - раз в минуту stock перезаписывается суммой stock_movements, а WarehouseInboundConsumer.cs:79 увеличивает products.stock напрямую без записи в stock_movements: все приходы со склада затираются на следующем тике - major
+src/Fulfil/Caching/StockRecalculatorJob.cs:43 - поиск по полю sku, а WarehouseInboundConsumer создаёт products с _id=sku и без поля sku: документы не совпадают, остатки двух источников расходятся - minor
+src/Fulfil/Caching/RedisLock.cs:16 - fence берётся INCR-ом отдельно от SET NX: держатель, зависший между ними дольше TTL, получит fence больше, чем у нового владельца, и затрёт его данные - minor
+src/Fulfil/Caching/StockRecalculatorJob.cs:9 - TTL блокировки 90 с без продления, а цикл по всем товарам без ограничения по времени: после истечения две реплики считают одновременно - minor
+src/Fulfil/Caching/ApiKeyRateLimiter.cs:20 - принимается любой непустой X-Api-Key, ключ нигде не проверяется: лимит обходится сменой ключа, а Redis засоряется ключами rate:* произвольной длины - major
+src/Fulfil/Program.cs:20 - лимитер включён только для /api, а ни один маршрут не начинается с /api (/orders, /products, /search, /internal): лимит и проверка ключа не действуют ни на один эндпоинт - major
+src/Fulfil/Caching/PriceEndpoints.cs:12 - /internal/price-changed без аутентификации, доступен снаружи: любой сбрасывает кэш цен и бьёт по ценовому сервису - major
+src/Fulfil/Search/SearchEndpoints.cs:52 - /internal/products, /internal/catalog/load, /internal/catalog/rebuild без аутентификации: любой запишет товары с произвольной ценой в индекс, запустит полный reindex или переиндексацию каталога - major
+src/Fulfil/Search/SearchEndpoints.cs:46 - /search/export открыт без лимитов: до 200 000 строк и PIT на запрос, легко положить Elasticsearch - minor
+src/Fulfil/Caching/MailJobQueue.cs:53 - цикл XAUTOCLAIM/XREADGROUP вне try: любая ошибка Redis выбрасывается из ExecuteAsync и останавливает весь хост - major
+src/Fulfil/Caching/MailJobQueue.cs:70 - нечитаемое задание не ack-ается и не уходит в dead-letter: переполучается каждые 60 с вечно с ERROR в логе - minor
+src/Fulfil/Archive/OrderDoc.cs:9 - OrderDoc (_id Guid, CustomerId Guid) и Kafka OrderDocument/SubmittedOrder (_id и CustomerId строками) пишут в одну коллекцию orders: OrderStore.GetAsync/ListMine/Search не находят заказы из Kafka и REST, схемы в коллекции смешаны - major
+src/Fulfil/Archive/ShippedWatcher.cs:44 - фильтр Mailed == false не матчит документы без поля mailed (всё, что записали Kafka-консьюмеры и SubmitOrder), а поиск по Guid не матчит строковый _id: письма об отправке по таким заказам не уходят - major
+src/Fulfil/Archive/ShippedWatcher.cs:31 - между CatchUpAsync и открытием change stream нет общего resume token: заказ, отправленный в этом окне, пропускается до следующего сбоя или рестарта - major
+src/Fulfil/Archive/ShippedWatcher.cs:66 - Mailed=true ставится до отправки: падение пода между claim и SendShippedAsync теряет письмо навсегда; LogMailer только пишет в лог, при этом пишется событие ShippedMailed - minor
+src/Fulfil/Archive/OrderStore.cs:28 - ReplaceOne с upsert затирает весь документ, включая Mailed (сбрасывается в false) и статус: повторная архивация шлёт письмо об отправке повторно - major
+src/Fulfil/Archive/OrderStore.cs:51 - ExportAsync тянет весь диапазон в память одним списком, индекса по одному PlacedAt нет: полный скан и риск OOM пода - minor
+src/Fulfil/Archive/OrderEvents.cs:28 - page <= 0 даёт отрицательный Skip и исключение драйвера; то же в OrderStore.cs:38,45; сортировка только по At без tie-break даёт дубли и пропуски на границах страниц - minor
+src/Fulfil/Archive/StockTransfer.cs:33 - from == to и пустые sku/warehouse не проверяются: перемещение на самый склад пишет ложный TransferLog; параллельный upsert получателя (:46) падает на DuplicateKey без ретрая - minor
+src/Fulfil/Kafka/OrderPlacedConsumer.cs:101 - ReplaceOne с upsert при каждой доставке/повторе событий возвращает статус в Placed и затирает Shipped/Paid, выставленные OrderShippedConsumer - major
+src/Fulfil/Kafka/OrderPlacedConsumer.cs:104 - маркер processed_orders ставится до обновления customers: падение между ними навсегда теряет заказ в OrdersCount/TotalSpent - major
+src/Fulfil/Kafka/OrderPlacedConsumer.cs:82 - отказ публикации в DLT выбрасывается из ExecuteAsync и останавливает хост; DLT не получит и сообщение, и коммит не пройдёт - minor
+src/Fulfil/Kafka/OrderImportConsumer.cs:62 - детерминированная ошибка (например null-строка в Lines, NRE в OrderDocument.From, Documents.cs:44) не отличается от временной: пачка перечитывается каждые 5 с вечно, партиция заблокирована - major
+src/Fulfil/Kafka/OrderImportConsumer.cs:54 - ConsumeException (брокер недоступен) не перехвачен и останавливает хост - minor
+src/Fulfil/Contracts/OrderEvents.cs:5 - Lines стал nullable, добавлен дублирующий Items: событие без обоих полей сохраняется как заказ без позиций с total 0 и учитывается в статистике клиента, ошибка не обнаруживается - minor
+src/Fulfil/Program.cs:10 - IMongoClient/IMongoDatabase регистрируются три раза (Program.cs:10, RedisConnection.cs:24, ArchiveRegistration.cs:14); при расхождении настроек победит неочевидная регистрация - minor
+src/Fulfil/Search/ReindexService.cs:14 - запись через /internal/products идёт в старый индекс во время Reindex и после смены алиаса теряется - major
+src/Fulfil/Search/ReindexService.cs:10 - Single() падает, если у алиаса несколько индексов или ответ неуспешный; при ошибке или таймауте клиента (WaitForCompletion на 60 с по умолчанию) остаются осиротевший target, а старые индексы не удаляются никогда - minor
+src/Fulfil/Search/SearchEndpoints.cs:17 - IndexBootstrap глотает ошибку старта Elasticsearch и больше не повторяет: без индекса и алиаса поиск отдаёт 500 до рестарта пода - minor
+src/Fulfil/Search/ProductIndexer.cs:44 - Price как double: потеря точности decimal в индексе и в границах фильтра (ProductSearch.cs:40) - minor
+src/Fulfil/Search/ProductSearch.cs:79 - ответ FindByNameAsync не проверяется на IsValidResponse: любая ошибка ES превращается в 404 - minor
+src/Fulfil/Search/ProductExport.cs:41 - Sort == null даёт after == null и цикл на ту же первую страницу до MaxRows с дублями - minor

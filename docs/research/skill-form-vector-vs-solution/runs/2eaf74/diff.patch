@@ -1,0 +1,85 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..6aae4a4 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,6 +14,7 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }              // сложность комплектации, 1..5
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+@@ -44,7 +45,38 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка остаётся "timestamp without time zone" (на неё завязаны отчёты DBA).
++        // В коде пишем/читаем только UTC: на записи приводим к Utc, на чтении помечаем
++        // сырое значение (Kind=Unspecified) как Utc, не сдвигая его - тип колонки не хранит TZ.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>().Property(o => o.Complexity).IsRequired();
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Order -> Items и Order -> Payments: required FK (OrderId не nullable).
++        // ClientCascade - EF сам удаляет "осиротевшие" строки при разрыве связи
++        // (например Items.Clear()) вместо InvalidOperationException, как было бы
++        // при Restrict/ClientSetNull; при этом в БД не создаётся ON DELETE CASCADE,
++        // и случайный физический DELETE заказа в обход soft-delete не утащит за собой
++        // дочерние записи.
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.ClientCascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.ClientCascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..4a076f5 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..dce219f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++## Изменённые файлы
++
++- `Model.cs` — добавлено свойство `Order.Complexity` (int) с `IsRequired()` и CHECK-constraint `CK_Order_Complexity_Range` (1..5); настроена конверсия `CreatedAt` через `HasConversion` (тип колонки остаётся `timestamp without time zone`, в коде всегда `DateTime.Kind == Utc`); в `OnModelCreating` явно описаны связи `Order -> Items` и `Order -> Payments` (`HasMany().WithOne().HasForeignKey(...).IsRequired()`).
++- `OrderRepository.cs` — добавлен метод `ClearItems(Guid orderId)`.
++
++## Решения
++
++- `CreatedAt`: колонку трогать нельзя, поэтому конвертер на запись приводит любое значение к UTC (`ToUniversalTime()`, идемпотентно для уже-UTC), а на чтении помечает сырое значение `DateTime.SpecifyKind(v, Utc)` без сдвига времени — сама колонка не хранит TZ, поэтому это корректно только если приложение всегда пишет UTC (что и обеспечивает конвертер).
++- Для `Order -> Items` и `Order -> Payments` FK обязательный (`OrderId` не nullable), поэтому выбран `DeleteBehavior.ClientCascade`: он даёт клиентский каскад при разрыве связи (`Items.Clear()` в `SaveChanges` не бросает `InvalidOperationException`, как было бы при `Restrict`/`ClientSetNull`), но не генерирует `ON DELETE CASCADE` в БД — случайный физический `DELETE` заказа в обход soft-delete не утянет дочерние строки.
++- `Complexity` ограничен диапазоном 1..5 через CHECK-constraint на уровне таблицы (не только `[Range]`/валидация в коде), чтобы инвариант соблюдался и при прямых SQL-вставках.

@@ -1,0 +1,67 @@
+docker exec <ctr> sh -c 'cd /work/vendor && ls -la && file libcalc.so vendor-tool Legacy.Pricing.dll; echo ---; nm -D --defined-only -C libcalc.so; echo ---; readelf -d libcalc.so | grep NEEDED; echo ---; readelf -h vendor-tool | grep -E "Class|Machine|Type"; readelf -d vendor-tool | grep NEEDED; echo ---; strings -n 4 vendor-tool | head -60'
+docker exec <ctr> sh -c 'cd /work/vendor && which objdump monodis ilspycmd ikdasm; objdump -d vendor-tool 2>&1 | head -40; echo ---; strings -n 3 -e l Legacy.Pricing.dll | head -30; strings -n 4 Legacy.Pricing.dll | head -50'
+docker exec <ctr> sh -c 'mkdir -p /tmp/dec && cd /tmp && ilspycmd /work/vendor/Legacy.Pricing.dll 2>&1 | head -60; echo ---; objdump -s -j .rodata /work/vendor/vendor-tool; echo; objdump -d /work/vendor/libcalc.so --start-address=0x6f0 --stop-address=0x760 | head -50'
+cat > <lab>/REPORT.md <<'EOF'
+# Отчёт: анализ /work/vendor (статический, файлы подрядчика не запускались)
+
+## Симптом
+Подрядчик передал libcalc.so, vendor-tool и Legacy.Pricing.dll без исходников. Нужно выяснить, что они делают.
+
+## Ответы
+
+### (1) libcalc.so: экспорт и зависимости
+- Файл: ELF 64-bit aarch64, shared object, stripped (подходит под архитектуру контейнера).
+- Экспортируемые функции (демангленные имена):
+  - `tariff::Calculator::version()` — возвращает 7
+  - `tariff::Calculator::surcharge(int, std::string const&) const`
+  - `calc_api_level` — extern "C", возвращает 3
+- По дизассемблированию `surcharge` возвращает `int*1.5 + (строка == <литерал> ? 0 : 4.0)`. Литерал лежит по смещению 0x770 и не извлекался.
+- Зависимости (NEEDED): только `libstdc++.so.6`.
+
+### (2) vendor-tool
+- Архитектура: ELF 64-bit **x86-64**, статически слинкован, stripped. Контейнер aarch64, поэтому нативно он не запустится (нужна эмуляция).
+- Что печатает: код — два syscall'а. `write(1, ..., 26)`, затем `exit(0)`. Строка из .rodata: `vendor-tool 2.1 build 884\n`. Других действий нет: ни файлов, ни сети, ни чтения окружения.
+
+### (3) Legacy.Pricing.Discounts.Apply(decimal amount, string tier)
+Управляемая сборка .NET 8. Для PE32 / i386 в заголовке это обычный маркер AnyCPU. Декомпиляция ilspycmd:
+- Если переменная окружения `PRICING_TIER_OVERRIDE` равна `ignore-tier`, возвращается `amount` без скидки.
+- Иначе, если `tier == "gold"`, возвращается `amount * 0.8550m` (скидка 14,5%).
+- Иначе возвращается `amount * 0.9275m` (скидка 7,25%).
+- Константа `LoyaltyRate = 0.0725m` объявлена, но в расчёте не используется. Число 0.9275 зашито литералом (1 − 0.0725).
+
+## Улики
+```
+$ file libcalc.so vendor-tool Legacy.Pricing.dll
+libcalc.so: ELF 64-bit LSB shared object, ARM aarch64 ... stripped
+vendor-tool: ELF 64-bit LSB executable, x86-64, statically linked ... stripped
+Legacy.Pricing.dll: PE32 executable (DLL) ... Mono/.Net assembly
+
+$ nm -D --defined-only -C libcalc.so
+0000000000000740 T tariff::Calculator::version()
+00000000000006f0 T tariff::Calculator::surcharge(int, std::__cxx11::basic_string<...> const&) const
+0000000000000750 T calc_api_level
+
+$ readelf -d libcalc.so | grep NEEDED
+ 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]
+
+$ objdump -d vendor-tool
+  401000: mov $0x1,%eax ; lea 0xff4(%rip),%rsi # 0x402000 ; mov $0x1a,%edx ; syscall   (write)
+  401016: mov $0x3c,%eax ; mov $0x0,%edi ; syscall                                      (exit)
+$ objdump -s -j .rodata vendor-tool
+ 402000 76656e64 6f722d74 6f6f6c20 322e3120  vendor-tool 2.1
+ 402010 6275696c 64203838 340a00             build 884.
+
+$ ilspycmd Legacy.Pricing.dll
+private const decimal LoyaltyRate = 0.0725m;
+if (Environment.GetEnvironmentVariable("PRICING_TIER_OVERRIDE") == "ignore-tier") return amount;
+if (!(tier == "gold")) return amount * 0.9275m;
+return amount * 0.8550m;
+```
+
+## Что предлагаю
+- Перед использованием запросить у подрядчика исходники или сборочные артефакты. Бинарники проверены только статически.
+- Если vendor-tool понадобится запускать, делать это только под эмуляцией (qemu-user) в изолированном контейнере без сети. Сейчас запуск не нужен: поведение полностью видно из дизассемблирования.
+- Узнать у подрядчика, зачем в `Apply` нужна переменная `PRICING_TIER_OVERRIDE=ignore-tier`. Она отключает скидку и является скрытым переключателем поведения. В проде убедиться, что она не выставлена, либо убрать её.
+- Вместо захардкоженных 0.9275m/0.8550m использовать `LoyaltyRate` или вынести ставки в конфигурацию.
+- Строку-литерал в `surcharge` и содержимое .rodata libcalc.so выяснить у подрядчика или дизассемблировать глубже, если функция будет использоваться.
+EOF

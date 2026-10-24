@@ -1,0 +1,102 @@
+{
+  "id": "a12c1b",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.143335,
+    "durationMs": 14222,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 14325,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1415,
+      "output_tokens_details": {
+        "thinking_tokens": 276
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14325,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1415,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 14325,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 14325
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "Сейчас проверяется только `a.ApplicantId == expert.Id`, а `OrganizationInn` эксперта и заявки не сравнивается.",
+      "why": "Находка указывает, что ИНН организации эксперта не сверяется с ИНН заявки, и называет оба пути: AssignAsync и ReassignAsync."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "`Scores`, `Comment`, `Total` и `Status = Draft` остаются от выбывшего эксперта.",
+      "why": "Названо, что черновик прежнего эксперта переходит к новому; предложено сбросить его и вернуть статус Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "Поэтому `GET {id}/ranking` и `GET {id}/ranking.csv` теперь тоже доступны любому эксперту.",
+      "why": "Указано, что через атрибут уровня класса эксперты получают доступ к рейтингу и CSV."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "В коде стоит `ThenBy(x => x.CreatedAt)`, то есть дата создания черновика в личном кабинете.",
+      "why": "Названа сортировка равных баллов по CreatedAt вместо SubmittedAt."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "`Program.cs` ставит `ru-RU` как культуру запроса",
+      "why": "Культура ru-RU связана с десятичной запятой, которая сдвигает колонки CSV с разделителем-запятой."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "Сейчас в сам день дедлайна оценки уже не принимаются.",
+      "why": "Указано, что граница стоит в начале дня дедлайна, а не после него."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "EF бросает `InvalidOperationException: A second operation was started on this context instance...`",
+      "why": "Замечены параллельные запросы через Task.WhenAll на одном DbContext; предложено выполнять их последовательно."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 / Npgsql не переводит перегрузку `string.Equals` с `StringComparison` в SQL.",
+      "why": "Названа ошибка трансляции; предложены ILike, citext или коллация."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Замену коллекции Scores выход дефектом не объявляет: ни задвоения, ни требования RemoveRange/Clear в нём нет."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Filtered include в ApplicationsController.Get выход не оспаривает."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка о гонке CloseReview и SaveAsync не утверждает, что ExecuteUpdate не сохранится или не участвует в транзакции."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,66 @@
+{
+  "id": "024d56",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0328074,
+    "durationMs": 4250,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3074,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 389,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3074,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 389,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3074,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3074
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "FAIL",
+      "quote": "return query.FirstOrDefaultAsync();",
+      "why": "При warehouse == null и нескольких продуктах с этим SKU метод молча возвращает первый найденный склад, неоднозначность не обрабатывается."
+    },
+    "E2-h-split": {
+      "verdict": "NO",
+      "quote": ".Include(o => o.Payments)\n            .AsSplitQuery()",
+      "why": "Карточка заказа грузится со split query, AsSplitQuery не убран."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".Include(o => o.Payments)\n            .AsSplitQuery()\n            .AsNoTracking()\n            .AsAsyncEnumerable();",
+      "why": "Выгрузка заказов клиента использует AsSplitQuery, картезианского произведения нет."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": "o.ShippedAt != null)",
+      "why": "Фильтр ShippedAt != null стоит до выборки, результат обрабатывается через ??, без ! и .Value."
+    }
+  },
+  "stderr": ""
+}

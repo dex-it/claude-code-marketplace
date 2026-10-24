@@ -82,22 +82,51 @@
         "NOTION_TOKEN": "${NOTION_TOKEN}"
       }
     },
-    "gitlab_after_v18": {
-      "_description": "GitLab - version control, CI/CD, issues, merge requests",
+    "atlassian": {
+      "_description": "Jira и Confluence (Cloud и Server/Data Center) - задачи, JQL, спринты, страницы вики",
+      "_env": [
+        "JIRA_URL",
+        "JIRA_PERSONAL_TOKEN (Server/DC) ИЛИ JIRA_USERNAME + JIRA_API_TOKEN (Cloud)",
+        "CONFLUENCE_URL (optional)",
+        "CONFLUENCE_PERSONAL_TOKEN (Server/DC) ИЛИ CONFLUENCE_USERNAME + CONFLUENCE_API_TOKEN (Cloud)",
+        "ATLASSIAN_READ_ONLY (optional, default: false)"
+      ],
+      "_note": "Один сервер обслуживает оба продукта: незаданный блок env отключает соответствующий продукт (нужна только Jira -- оставьте JIRA_*). Взаимоисключающие переменные записаны формой ${VAR:-} с пустым значением по умолчанию: голая форма ${VAR} у незаданной переменной приезжает в сервер текстом ${VAR}, сервер считает её заданной и продукт не отключается. Тип развёртывания определяется по URL: Cloud (*.atlassian.net) -- username + API-токен, Server/DC -- Personal Access Token; на Server/DC PAT имеет приоритет над остальными способами. Версия запинена (0.23.0) -- у сервера меняются имена tools между релизами. Сужение поверхности: ATLASSIAN_READ_ONLY=true (пробрасывается в READ_ONLY_MODE), JIRA_PROJECTS_FILTER, CONFLUENCE_SPACES_FILTER, ENABLED_TOOLS. Self-signed TLS на self-hosted: JIRA_SSL_VERIFY=false / CONFLUENCE_SSL_VERIFY=false. Docs: https://github.com/sooperset/mcp-atlassian",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "mcp-atlassian==0.23.0",
+        "mcp-atlassian"
+      ],
+      "env": {
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_PERSONAL_TOKEN": "${JIRA_PERSONAL_TOKEN:-}",
+        "JIRA_USERNAME": "${JIRA_USERNAME:-}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN:-}",
+        "JIRA_PROJECTS_FILTER": "${JIRA_PROJECTS_FILTER:-}",
+        "CONFLUENCE_URL": "${CONFLUENCE_URL:-}",
+        "CONFLUENCE_PERSONAL_TOKEN": "${CONFLUENCE_PERSONAL_TOKEN:-}",
+        "CONFLUENCE_USERNAME": "${CONFLUENCE_USERNAME:-}",
+        "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN:-}",
+        "READ_ONLY_MODE": "${ATLASSIAN_READ_ONLY:-false}"
+      }
+    },
+    "gitlab": {
+      "_description": "GitLab - version control, CI/CD, issues, merge requests. Нативный MCP-сервер самого GitLab",
+      "_env": [
+        "GITLAB_URL (optional, default: https://gitlab.com)"
+      ],
+      "_note": "GitLab 18.6+ (beta; полная поддержка протокола с 18.7). Требует включённого GitLab Duo и разрешённого доступа к MCP на инстансе. Аутентификация -- OAuth 2.0 Dynamic Client Registration при первом подключении (`/mcp` в чате), не PAT: токен в конфиге не нужен. Инстанс старее 18.6 или без Duo -- запись `gitlab_community` ниже. Docs: https://docs.gitlab.com/user/model_context_protocol/mcp_server/",
+      "type": "http",
+      "url": "${GITLAB_URL:-https://gitlab.com}/api/v4/mcp"
+    },
+    "gitlab_community": {
+      "_description": "GitLab через community-сервер @zereight/mcp-gitlab - для инстансов до 18.6 или без GitLab Duo",
       "_env": [
         "GITLAB_TOKEN",
         "GITLAB_API_URL (optional)"
       ],
-      "command": "uvx",
-      "args": [
-        "mcp-server-gitlab"
-      ],
-      "env": {
-        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
-        "GITLAB_API_URL": "${GITLAB_API_URL:-https://gitlab.com/api/v4}"
-      }
-    },
-    "gitlab_old_before_v18": {
+      "_note": "Работает на PAT, Duo не требует. Docs: https://github.com/zereight/gitlab-mcp",
       "command": "npx",
       "args": [
         "-y",
@@ -105,7 +134,7 @@
       ],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
-        "GITLAB_API_URL": "${GITLAB_API_URL}"
+        "GITLAB_API_URL": "${GITLAB_API_URL:-https://gitlab.com/api/v4}"
       }
     },
     "github": {
@@ -243,42 +272,54 @@
     "mlflow": {
       "_description": "MLflow - experiment tracking, model registry, ML lifecycle",
       "_env": [
-        "MLFLOW_TRACKING_URI"
+        "MLFLOW_TRACKING_URI",
+        "MLFLOW_MCP_TOOLS (optional: genai | ml | all | список категорий)"
       ],
+      "_note": "Официальный сервер идёт внутри самого mlflow (extra `mcp`), отдельного пакета нет: требуется mlflow >= 3.5.1. Запускается через uvx, а не `uv run`: `uv run` перед стартом синхронизирует окружение проекта, в каталоге которого его позвали, а MCP-сервер стартует с рабочим каталогом проекта пользователя. Docs: https://mlflow.org/docs/latest/genai/mcp/",
       "command": "uvx",
       "args": [
-        "mcp-server-mlflow"
+        "--from",
+        "mlflow[mcp]>=3.5.1",
+        "mlflow",
+        "mcp",
+        "run"
       ],
       "env": {
-        "MLFLOW_TRACKING_URI": "${MLFLOW_TRACKING_URI:-http://localhost:5000}"
+        "MLFLOW_TRACKING_URI": "${MLFLOW_TRACKING_URI:-http://localhost:5000}",
+        "MLFLOW_MCP_TOOLS": "${MLFLOW_MCP_TOOLS:-all}"
       }
     },
     "wandb": {
       "_description": "Weights & Biases - ML experiment tracking, visualizations",
       "_env": [
-        "WANDB_API_KEY"
+        "WANDB_API_KEY",
+        "WANDB_BASE_URL (optional, dedicated/on-prem)"
       ],
-      "command": "npx",
+      "_note": "Сервер не публикуется в PyPI/npm - ставится из git. Тегов и релизов у репозитория нет, поэтому пин по коммиту: без него набор tools меняется между запусками, а незапиненный git-источник ставит произвольный код на каждый старт сервера. Альтернатива без локального запуска: hosted https://mcp.withwandb.com/mcp (Bearer-токен). Docs: https://github.com/wandb/wandb-mcp-server",
+      "command": "uvx",
       "args": [
-        "-y",
-        "@wandb/mcp-server"
+        "--from",
+        "git+https://github.com/wandb/wandb-mcp-server@53b199a5f4af29aa82077e2c7f1e2c5e5e0c2ca0",
+        "wandb_mcp_server"
       ],
       "env": {
-        "WANDB_API_KEY": "${WANDB_API_KEY}"
+        "WANDB_API_KEY": "${WANDB_API_KEY}",
+        "WANDB_BASE_URL": "${WANDB_BASE_URL:-}"
       }
     },
     "huggingface": {
       "_description": "HuggingFace - models hub, datasets, tokenizers",
       "_env": [
-        "HUGGINGFACE_TOKEN"
+        "HF_TOKEN"
       ],
+      "_note": "Официальный сервер HF публикуется в npm под скоупом @llmindset (репозиторий huggingface/hf-mcp-server). Альтернатива без локального запуска: remote https://huggingface.co/mcp со streamable HTTP и заголовком 'Authorization: Bearer <HF_TOKEN>'. Docs: https://github.com/huggingface/hf-mcp-server",
       "command": "npx",
       "args": [
         "-y",
-        "@huggingface/mcp-server"
+        "@llmindset/hf-mcp-server"
       ],
       "env": {
-        "HUGGINGFACE_TOKEN": "${HUGGINGFACE_TOKEN}"
+        "HF_TOKEN": "${HF_TOKEN}"
       }
     },
     "filesystem": {
@@ -320,17 +361,16 @@
       "_description": "Grafana - dashboards, Prometheus metrics, Loki logs, incidents",
       "_env": [
         "GRAFANA_URL",
-        "GRAFANA_API_KEY"
+        "GRAFANA_SERVICE_ACCOUNT_TOKEN"
       ],
-      "_note": "Requires Grafana 9.0+. Use --disable-write for read-only mode",
-      "command": "npx",
+      "_note": "Go-сервер, официально запускается через uvx (npm-пакета нет). GRAFANA_API_KEY deprecated и будет удалена - использовать токен сервисного аккаунта. Read-only: добавить аргумент '--disable-write'. Docs: https://github.com/grafana/mcp-grafana",
+      "command": "uvx",
       "args": [
-        "-y",
-        "@grafana/mcp-grafana"
+        "mcp-grafana"
       ],
       "env": {
         "GRAFANA_URL": "${GRAFANA_URL:-http://localhost:3000}",
-        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+        "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${GRAFANA_SERVICE_ACCOUNT_TOKEN}"
       }
     },
     "sentry": {

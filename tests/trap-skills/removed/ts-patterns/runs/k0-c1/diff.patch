@@ -1,0 +1,146 @@
+diff --git a/api/src/domain/product.ts b/api/src/domain/product.ts
+index 683bf6e..79790e4 100644
+--- a/api/src/domain/product.ts
++++ b/api/src/domain/product.ts
+@@ -2,4 +2,6 @@ export interface Product {
+   id: string;
+   title: string;
+   priceKopecks: number;
++  /** Код валюты цены, ISO 4217. */
++  currency: string;
+ }
+diff --git a/api/src/seed.ts b/api/src/seed.ts
+index e205e8f..dd16264 100644
+--- a/api/src/seed.ts
++++ b/api/src/seed.ts
+@@ -10,11 +10,11 @@ export const demoUsers = {
+ } as const;
+ 
+ const products: Product[] = [
+-  { id: 'p-mug', title: 'Кружка керамическая', priceKopecks: 129000 },
+-  { id: 'p-tea', title: 'Чай улун, 100 г', priceKopecks: 54900 },
+-  { id: 'p-kettle', title: 'Чайник стеклянный', priceKopecks: 349000 },
+-  { id: 'p-spoon', title: 'Ложка чайная', priceKopecks: 19900 },
+-  { id: 'p-tray', title: 'Поднос бамбуковый', priceKopecks: 215000 },
++  { id: 'p-mug', title: 'Кружка керамическая', priceKopecks: 129000, currency: 'RUB' },
++  { id: 'p-tea', title: 'Чай улун, 100 г', priceKopecks: 54900, currency: 'RUB' },
++  { id: 'p-kettle', title: 'Чайник стеклянный', priceKopecks: 349000, currency: 'RUB' },
++  { id: 'p-spoon', title: 'Ложка чайная', priceKopecks: 19900, currency: 'RUB' },
++  { id: 'p-tray', title: 'Поднос бамбуковый', priceKopecks: 215000, currency: 'RUB' },
+ ];
+ 
+ function line(productId: string, quantity: number): OrderItem {
+diff --git a/api/test/products.test.ts b/api/test/products.test.ts
+new file mode 100644
+index 0000000..22ea96f
+--- /dev/null
++++ b/api/test/products.test.ts
+@@ -0,0 +1,30 @@
++import request from 'supertest';
++import { describe, expect, it } from 'vitest';
++import { createApp } from '../src/app.js';
++import { seedDemo } from '../src/seed.js';
++import { Store } from '../src/store.js';
++
++function setup() {
++  const store = new Store();
++  seedDemo(store);
++  const app = createApp({
++    store,
++    payments: { async charge() { return { status: 'approved', transactionId: 'tx-test' }; } },
++    notifier: { async orderPaid() {} },
++    analytics: { async track() {} },
++  });
++  return app;
++}
++
++describe('products api', () => {
++  it('returns currency for every product in the list', async () => {
++    const res = await request(setup()).get('/api/products').expect(200);
++    expect(res.body.length).toBeGreaterThan(0);
++    for (const product of res.body) expect(product.currency).toBe('RUB');
++  });
++
++  it('returns currency for a single product', async () => {
++    const res = await request(setup()).get('/api/products/p-mug').expect(200);
++    expect(res.body.currency).toBe('RUB');
++  });
++});
+diff --git a/web/src/components/ProductsPage.tsx b/web/src/components/ProductsPage.tsx
+index 6782ccc..021020e 100644
+--- a/web/src/components/ProductsPage.tsx
++++ b/web/src/components/ProductsPage.tsx
+@@ -1,6 +1,6 @@
+ import { useEffect, useState } from 'react';
+ import { getProducts } from '../api';
+-import { formatMoney } from '../lib/money';
++import { formatPrice } from '../lib/money';
+ import type { Product } from '../types';
+ 
+ export function ProductsPage() {
+@@ -39,7 +39,7 @@ export function ProductsPage() {
+             {products.map((product) => (
+               <tr key={product.id}>
+                 <td>{product.title}</td>
+-                <td>{formatMoney(product.priceKopecks)}</td>
++                <td>{formatPrice(product.priceKopecks, product.currency)}</td>
+               </tr>
+             ))}
+           </tbody>
+diff --git a/web/src/components/__tests__/ProductsPage.test.tsx b/web/src/components/__tests__/ProductsPage.test.tsx
+new file mode 100644
+index 0000000..23d9a37
+--- /dev/null
++++ b/web/src/components/__tests__/ProductsPage.test.tsx
+@@ -0,0 +1,26 @@
++import { render, screen } from '@testing-library/react';
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { ProductsPage } from '../ProductsPage';
++
++describe('ProductsPage', () => {
++  beforeEach(() => {
++    vi.stubGlobal(
++      'fetch',
++      vi.fn(async () =>
++        new Response(JSON.stringify([{ id: 'p-mug', title: 'Кружка керамическая', priceKopecks: 129000, currency: 'RUB' }]), {
++          status: 200,
++          headers: { 'Content-Type': 'application/json' },
++        }),
++      ),
++    );
++  });
++
++  afterEach(() => {
++    vi.unstubAllGlobals();
++  });
++
++  it('shows price with currency code', async () => {
++    render(<ProductsPage />);
++    expect(await screen.findByText(/^1\s290,00\sRUB$/)).toBeInTheDocument();
++  });
++});
+diff --git a/web/src/lib/money.ts b/web/src/lib/money.ts
+index 621a632..3a76864 100644
+--- a/web/src/lib/money.ts
++++ b/web/src/lib/money.ts
+@@ -3,3 +3,8 @@ const rub = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB'
+ export function formatMoney(kopecks: number): string {
+   return rub.format(kopecks / 100);
+ }
++
++/** Цена товара в каталоге: сумма с кодом валюты, например `1 290,00 RUB`. */
++export function formatPrice(kopecks: number, currency: string): string {
++  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency, currencyDisplay: 'code' }).format(kopecks / 100);
++}
+diff --git a/web/src/types.ts b/web/src/types.ts
+index 57a9a3a..6e6e055 100644
+--- a/web/src/types.ts
++++ b/web/src/types.ts
+@@ -21,6 +21,7 @@ export interface Product {
+   id: string;
+   title: string;
+   priceKopecks: number;
++  currency: string;
+ }
+ 
+ export interface CurrentUser {

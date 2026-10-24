@@ -1,0 +1,16 @@
+{
+  "name": "shopdesk",
+  "private": true,
+  "workspaces": [
+    "api",
+    "web",
+    "e2e"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test -w api && npm test -w web"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

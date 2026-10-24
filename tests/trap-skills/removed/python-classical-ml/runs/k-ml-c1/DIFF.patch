@@ -1,0 +1,231 @@
+diff --git a/src/shelfwatch/churn_model.py b/src/shelfwatch/churn_model.py
+new file mode 100644
+index 0000000..6c9dd60
+--- /dev/null
++++ b/src/shelfwatch/churn_model.py
+@@ -0,0 +1,161 @@
++"""Модель оттока магазинов: выбор между случайным лесом и XGBoost.
++
++Валидация по времени: срезы сортируются по месяцам, обучение - ранние месяцы, выбор модели -
++следующие, итоговая оценка - самые поздние. Случайное перемешивание строк не используется: у
++одного магазина несколько срезов, и соседние месяцы почти одинаковы, так что оценка стала бы
++завышенной. Отток редкий (около 5%), поэтому accuracy не годится; основная метрика - PR-AUC
++(average precision), у случайного классификатора она равна доле оттока.
++
++Допущение: `churned` в строке среза означает, что магазин ушёл после этого среза.
++"""
++
++from dataclasses import dataclass
++
++import numpy as np
++import pandas as pd
++from sklearn.ensemble import RandomForestClassifier
++from sklearn.metrics import average_precision_score, roc_auc_score
++from xgboost import XGBClassifier
++
++TARGET = "churned"
++SEED = 0
++
++
++@dataclass(frozen=True)
++class Report:
++    """Результат сравнения моделей."""
++
++    best_model: str
++    test_pr_auc: float  # цифра для отчёта руководству
++    test_roc_auc: float
++    test_positive_rate: float  # PR-AUC случайной модели
++    valid_pr_auc: dict[str, float]
++
++
++def _prepare(df: pd.DataFrame) -> pd.DataFrame:
++    out = df.copy()
++    out["snapshot"] = pd.to_datetime(out["snapshot"]).dt.to_period("M").dt.to_timestamp()
++    return out.sort_values(["snapshot", "store_id"]).reset_index(drop=True)
++
++
++def build_features(df: pd.DataFrame, plans: list[str]) -> pd.DataFrame:
++    """Признаки без идентификаторов. Пустой n_tickets - обращений не было, это 0 плюс флаг.
++
++    `plans` фиксирует набор столбцов плана, чтобы обучение и предсказание совпадали.
++    """
++    x = pd.DataFrame(index=df.index)
++    x["tenure_months"] = df["tenure_months"].astype(float)
++    x["revenue"] = df["revenue"].astype(float)
++    x["no_tickets"] = df["n_tickets"].isna().astype(float)
++    x["n_tickets"] = df["n_tickets"].fillna(0).astype(float)
++    for plan in plans:
++        x["plan_" + str(plan)] = (df["plan"] == plan).astype(float)
++    return x
++
++
++def _make_models(y_train: pd.Series) -> dict[str, object]:
++    pos = max(int(y_train.sum()), 1)
++    neg = max(int(len(y_train) - y_train.sum()), 1)
++    return {
++        "random_forest": RandomForestClassifier(
++            n_estimators=300,
++            min_samples_leaf=5,
++            class_weight="balanced_subsample",
++            n_jobs=-1,
++            random_state=SEED,
++        ),
++        "xgboost": XGBClassifier(
++            n_estimators=300,
++            max_depth=4,
++            learning_rate=0.05,
++            subsample=0.8,
++            colsample_bytree=0.8,
++            scale_pos_weight=neg / pos,
++            eval_metric="aucpr",
++            n_jobs=-1,
++            random_state=SEED,
++        ),
++    }
++
++
++def _split_by_time(
++    df: pd.DataFrame, n_valid: int, n_test: int
++) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
++    months = np.sort(df["snapshot"].unique())
++    if len(months) < n_valid + n_test + 1:
++        raise ValueError(
++            "нужно минимум " + str(n_valid + n_test + 1) + " месяцев срезов, есть " + str(len(months))
++        )
++    valid_start = months[-(n_valid + n_test)]
++    test_start = months[-n_test]
++    train = df[df["snapshot"] < valid_start]
++    valid = df[(df["snapshot"] >= valid_start) & (df["snapshot"] < test_start)]
++    test = df[df["snapshot"] >= test_start]
++    for name, part in (("train", train), ("valid", valid), ("test", test)):
++        if part[TARGET].nunique() < 2:
++            raise ValueError("в части " + name + " нет обоих классов")
++    return train, valid, test
++
++
++def evaluate(df: pd.DataFrame, n_valid: int = 3, n_test: int = 3) -> Report:
++    """Сравнивает модели по PR-AUC на валидации, лучшую оценивает на отложенном тесте.
++
++    Тест не участвует в выборе модели.
++    """
++    data = _prepare(df)
++    plans = sorted(data["plan"].dropna().unique())
++    train, valid, test = _split_by_time(data, n_valid, n_test)
++
++    x_train, y_train = build_features(train, plans), train[TARGET]
++    x_valid, y_valid = build_features(valid, plans), valid[TARGET]
++    x_test, y_test = build_features(test, plans), test[TARGET]
++
++    valid_scores: dict[str, float] = {}
++    for name, model in _make_models(y_train).items():
++        model.fit(x_train, y_train)  # type: ignore[attr-defined]
++        proba = model.predict_proba(x_valid)[:, 1]  # type: ignore[attr-defined]
++        valid_scores[name] = float(average_precision_score(y_valid, proba))
++    best = max(valid_scores, key=lambda k: valid_scores[k])
++
++    # Лучшая модель переобучается на train+valid; тест до этого не использовался.
++    x_fit = pd.concat([x_train, x_valid])
++    y_fit = pd.concat([y_train, y_valid])
++    final = _make_models(y_fit)[best]
++    final.fit(x_fit, y_fit)  # type: ignore[attr-defined]
++    test_proba = final.predict_proba(x_test)[:, 1]  # type: ignore[attr-defined]
++
++    return Report(
++        best_model=best,
++        test_pr_auc=float(average_precision_score(y_test, test_proba)),
++        test_roc_auc=float(roc_auc_score(y_test, test_proba)),
++        test_positive_rate=float(y_test.mean()),
++        valid_pr_auc=valid_scores,
++    )
++
++
++def predict_next_month(df: pd.DataFrame, n_valid: int = 3, n_test: int = 3) -> pd.Series:
++    """Вероятность оттока в следующем месяце после последнего среза, индекс - `store_id`.
++
++    Модель выбирается через `evaluate`, затем обучается на всех размеченных срезах. Предсказание
++    строится по строкам последнего месяца данных; магазины, уже помеченные как ушедшие
++    (`churned == 1`), и магазины без строки в последнем месяце не возвращаются.
++    """
++    data = _prepare(df)
++    best = evaluate(data, n_valid, n_test).best_model
++    plans = sorted(data["plan"].dropna().unique())
++
++    x, y = build_features(data, plans), data[TARGET]
++    model = _make_models(y)[best]
++    model.fit(x, y)  # type: ignore[attr-defined]
++
++    last = data[(data["snapshot"] == data["snapshot"].max()) & (data[TARGET] == 0)]
++    last = last.drop_duplicates("store_id", keep="last")
++    proba = model.predict_proba(build_features(last, plans))[:, 1]  # type: ignore[attr-defined]
++    index = pd.Index(last["store_id"].to_numpy(), name="store_id")
++    return pd.Series(proba, index=index, name="churn_proba")
++
++
++if __name__ == "__main__":
++    from shelfwatch.paths import DATA_DIR
++
++    print(evaluate(pd.read_parquet(DATA_DIR / "accounts.parquet")))
+diff --git a/tests/test_churn_model.py b/tests/test_churn_model.py
+new file mode 100644
+index 0000000..a570031
+--- /dev/null
++++ b/tests/test_churn_model.py
+@@ -0,0 +1,58 @@
++import numpy as np
++import pandas as pd
++import pytest
++
++from shelfwatch.churn_model import build_features, evaluate, predict_next_month
++
++
++def synthetic(n_stores: int = 300, n_months: int = 14, seed: int = 0) -> pd.DataFrame:
++    rng = np.random.default_rng(seed)
++    months = pd.period_range("2025-01", periods=n_months, freq="M").to_timestamp()
++    rows = []
++    for store in range(n_stores):
++        plan = rng.choice(["basic", "pro", "max"])
++        for i, month in enumerate(months):
++            tickets = float(rng.poisson(1 + 4 * (store % 10 == 0))) if rng.random() > 0.2 else np.nan
++            p = 0.02 + 0.4 * (np.nan_to_num(tickets) >= 5)
++            rows.append(
++                {
++                    "account_id": store,
++                    "snapshot": month,
++                    "tenure_months": i + 3,
++                    "plan": plan,
++                    "store_id": store,
++                    "n_tickets": tickets,
++                    "revenue": float(rng.normal(1000, 100)),
++                    "churned": int(rng.random() < p),
++                }
++            )
++    return pd.DataFrame(rows)
++
++
++def test_build_features_missing_tickets() -> None:
++    df = synthetic(5, 2)
++    x = build_features(df, ["basic", "max", "pro"])
++    assert not x.isna().any().any()
++    assert (x.loc[df["n_tickets"].isna(), "no_tickets"] == 1).all()
++    assert "store_id" not in x and "account_id" not in x
++
++
++def test_evaluate_beats_random() -> None:
++    report = evaluate(synthetic())
++    assert report.best_model in {"random_forest", "xgboost"}
++    assert set(report.valid_pr_auc) == {"random_forest", "xgboost"}
++    assert report.test_pr_auc > report.test_positive_rate
++
++
++def test_evaluate_needs_enough_months() -> None:
++    with pytest.raises(ValueError):
++        evaluate(synthetic(50, 5))
++
++
++def test_predict_next_month() -> None:
++    df = synthetic()
++    proba = predict_next_month(df)
++    last = df[df["snapshot"] == df["snapshot"].max()]
++    assert proba.index.is_unique
++    assert set(proba.index) == set(last.loc[last["churned"] == 0, "store_id"])
++    assert proba.between(0, 1).all()

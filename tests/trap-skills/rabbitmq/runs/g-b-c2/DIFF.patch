@@ -1,0 +1,698 @@
+diff --git a/src/Fulfil/Consumers/CapturePaymentConsumer.cs b/src/Fulfil/Consumers/CapturePaymentConsumer.cs
+new file mode 100644
+index 0000000..b6bc645
+--- /dev/null
++++ b/src/Fulfil/Consumers/CapturePaymentConsumer.cs
+@@ -0,0 +1,68 @@
++using Fulfil.Contracts;
++using Fulfil.Options;
++using Fulfil.Ports;
++using Fulfil.Storage;
++using MassTransit;
++using Microsoft.Extensions.Options;
++using MongoDB.Driver;
++
++namespace Fulfil.Consumers;
++
++public sealed class CapturePaymentConsumer(IPaymentGateway gateway, IMongoDatabase db) : IConsumer<CapturePayment>
++{
++    public async Task Consume(ConsumeContext<CapturePayment> context)
++    {
++        var m = context.Message;
++        var ct = context.CancellationToken;
++        var payments = db.GetCollection<PaymentRecord>(Collections.Payments);
++
++        // Повторная доставка: деньги уже списаны, только сообщаем процессу.
++        if (await payments.Find(p => p.OrderId == m.OrderId).AnyAsync(ct))
++        {
++            await context.Publish(new PaymentCaptured(m.OrderId), ct);
++            return;
++        }
++
++        try
++        {
++            await gateway.ChargeAsync(m.OrderId, m.Amount, ct);
++        }
++        catch (PaymentDeclinedException e)
++        {
++            await context.Publish(new PaymentFailed(m.OrderId, e.Message), ct);
++            return;
++        }
++        // Сбой шлюза пробрасывается: ретрай эндпоинта, затем Fault<CapturePayment> для процесса.
++
++        await payments.ReplaceOneAsync(
++            p => p.OrderId == m.OrderId,
++            new PaymentRecord { OrderId = m.OrderId, Amount = m.Amount, CapturedAt = DateTimeOffset.UtcNow },
++            new ReplaceOptions { IsUpsert = true },
++            ct);
++        await context.Publish(new PaymentCaptured(m.OrderId), ct);
++    }
++}
++
++public sealed class CapturePaymentConsumerDefinition : ConsumerDefinition<CapturePaymentConsumer>
++{
++    private readonly int _concurrency;
++
++    public CapturePaymentConsumerDefinition(IOptions<FulfilOptions> options)
++    {
++        EndpointName = Queues.CapturePayment;
++        _concurrency = options.Value.PaymentConcurrency;
++        ConcurrentMessageLimit = _concurrency;
++    }
++
++    protected override void ConfigureConsumer(
++        IReceiveEndpointConfigurator endpoint,
++        IConsumerConfigurator<CapturePaymentConsumer> consumer,
++        IRegistrationContext context)
++    {
++        // Шлюз отвечает 0.3-2 с: 10 тыс/мин (~170/с) требуют сотен параллельных вызовов на все реплики.
++        if (endpoint is IRabbitMqReceiveEndpointConfigurator rabbit)
++            rabbit.PrefetchCount = _concurrency * 2;
++
++        endpoint.UseMessageRetry(r => r.Exponential(5, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(2)));
++    }
++}
+diff --git a/src/Fulfil/Consumers/ShippingConsumers.cs b/src/Fulfil/Consumers/ShippingConsumers.cs
+new file mode 100644
+index 0000000..cb57821
+--- /dev/null
++++ b/src/Fulfil/Consumers/ShippingConsumers.cs
+@@ -0,0 +1,42 @@
++using Fulfil.Contracts;
++using Fulfil.Domain;
++using Fulfil.Ports;
++using Fulfil.Storage;
++using MassTransit;
++using MongoDB.Driver;
++
++namespace Fulfil.Consumers;
++
++// Интеграции с перевозчиком в задаче нет: отгрузка фиксируется как выполненный шаг.
++public sealed class ShipOrderConsumer : IConsumer<ShipOrder>
++{
++    public Task Consume(ConsumeContext<ShipOrder> context) =>
++        context.Publish(new OrderShipped(context.Message.OrderId), context.CancellationToken);
++}
++
++public sealed class RefundPaymentConsumer(IPaymentGateway gateway, IMongoDatabase db) : IConsumer<RefundPayment>
++{
++    public async Task Consume(ConsumeContext<RefundPayment> context)
++    {
++        var m = context.Message;
++        var ct = context.CancellationToken;
++        var payments = db.GetCollection<PaymentRecord>(Collections.Payments);
++
++        // Возвращаем только реально списанное и только один раз.
++        if (!await payments.Find(p => p.OrderId == m.OrderId).AnyAsync(ct))
++            return;
++
++        await gateway.RefundAsync(m.OrderId, m.Amount, ct);
++        await payments.DeleteOneAsync(p => p.OrderId == m.OrderId, ct);
++    }
++}
++
++// Проекция статуса процесса в коллекцию orders.
++public sealed class OrderStatusChangedConsumer(IMongoDatabase db) : IConsumer<OrderStatusChanged>
++{
++    public Task Consume(ConsumeContext<OrderStatusChanged> context) =>
++        db.GetCollection<Order>(Collections.Orders).UpdateOneAsync(
++            o => o.Id == context.Message.OrderId,
++            Builders<Order>.Update.Set(o => o.Status, context.Message.Status),
++            cancellationToken: context.CancellationToken);
++}
+diff --git a/src/Fulfil/Consumers/StockConsumers.cs b/src/Fulfil/Consumers/StockConsumers.cs
+new file mode 100644
+index 0000000..cc1b3ce
+--- /dev/null
++++ b/src/Fulfil/Consumers/StockConsumers.cs
+@@ -0,0 +1,72 @@
++using Fulfil.Contracts;
++using Fulfil.Domain;
++using Fulfil.Storage;
++using MassTransit;
++using MongoDB.Bson;
++using MongoDB.Driver;
++
++namespace Fulfil.Consumers;
++
++public sealed class ReserveStockConsumer(IMongoDatabase db) : IConsumer<ReserveStock>
++{
++    public async Task Consume(ConsumeContext<ReserveStock> context)
++    {
++        var m = context.Message;
++        var ct = context.CancellationToken;
++        var reservations = db.GetCollection<ReservationRecord>(Collections.Reservations);
++
++        if (await reservations.Find(r => r.OrderId == m.OrderId).AnyAsync(ct))
++        {
++            await context.Publish(new StockReserved(m.OrderId), ct);
++            return;
++        }
++
++        var products = db.GetCollection<BsonDocument>(Collections.Products);
++        var taken = new List<OrderLine>();
++        foreach (var line in m.Lines)
++        {
++            // Условное атомарное списание: остаток не уходит в минус.
++            var result = await products.UpdateOneAsync(
++                Builders<BsonDocument>.Filter.Eq(ProductFields.Sku, line.Sku)
++                & Builders<BsonDocument>.Filter.Gte(ProductFields.Stock, line.Quantity),
++                Builders<BsonDocument>.Update.Inc(ProductFields.Stock, -line.Quantity),
++                cancellationToken: ct);
++
++            if (result.ModifiedCount == 1)
++            {
++                taken.Add(line);
++                continue;
++            }
++
++            await ReturnAsync(products, taken, ct);
++            await context.Publish(new StockReservationFailed(m.OrderId, $"Недостаточно товара {line.Sku}"), ct);
++            return;
++        }
++
++        await reservations.InsertOneAsync(
++            new ReservationRecord { OrderId = m.OrderId, ReservedAt = DateTimeOffset.UtcNow }, cancellationToken: ct);
++        await context.Publish(new StockReserved(m.OrderId), ct);
++    }
++
++    internal static Task ReturnAsync(IMongoCollection<BsonDocument> products, IEnumerable<OrderLine> lines, CancellationToken ct) =>
++        Task.WhenAll(lines.Select(l => products.UpdateOneAsync(
++            Builders<BsonDocument>.Filter.Eq(ProductFields.Sku, l.Sku),
++            Builders<BsonDocument>.Update.Inc(ProductFields.Stock, l.Quantity),
++            cancellationToken: ct)));
++}
++
++public sealed class ReleaseStockConsumer(IMongoDatabase db) : IConsumer<ReleaseStock>
++{
++    public async Task Consume(ConsumeContext<ReleaseStock> context)
++    {
++        var ct = context.CancellationToken;
++        var reservations = db.GetCollection<ReservationRecord>(Collections.Reservations);
++
++        // Удаление резерва - маркер идемпотентности: возвращаем остаток только один раз.
++        var deleted = await reservations.DeleteOneAsync(r => r.OrderId == context.Message.OrderId, ct);
++        if (deleted.DeletedCount == 0)
++            return;
++
++        await ReserveStockConsumer.ReturnAsync(db.GetCollection<BsonDocument>(Collections.Products), context.Message.Lines, ct);
++    }
++}
+diff --git a/src/Fulfil/Contracts/OrderProcess.cs b/src/Fulfil/Contracts/OrderProcess.cs
+new file mode 100644
+index 0000000..613f0ad
+--- /dev/null
++++ b/src/Fulfil/Contracts/OrderProcess.cs
+@@ -0,0 +1,22 @@
++using Fulfil.Domain;
++
++namespace Fulfil.Contracts;
++
++// Старт процесса исполнения: публикуется из POST /orders/{id}/submit.
++public sealed record OrderSubmitted(Guid OrderId, Guid CustomerId, IReadOnlyList<OrderLine> Lines, decimal Total);
++
++// Команды шагов процесса (очереди - см. Storage.Queues).
++public sealed record ReserveStock(Guid OrderId, IReadOnlyList<OrderLine> Lines);
++public sealed record CapturePayment(Guid OrderId, decimal Amount);
++public sealed record ShipOrder(Guid OrderId);
++
++// Компенсации.
++public sealed record ReleaseStock(Guid OrderId, IReadOnlyList<OrderLine> Lines);
++public sealed record RefundPayment(Guid OrderId, decimal Amount);
++
++// Результаты шагов.
++public sealed record StockReserved(Guid OrderId);
++public sealed record StockReservationFailed(Guid OrderId, string Reason);
++public sealed record PaymentCaptured(Guid OrderId);
++public sealed record PaymentFailed(Guid OrderId, string Reason);
++public sealed record OrderShipped(Guid OrderId);
+diff --git a/src/Fulfil/Options/FulfilOptions.cs b/src/Fulfil/Options/FulfilOptions.cs
+index fb25fdf..4355a96 100644
+--- a/src/Fulfil/Options/FulfilOptions.cs
++++ b/src/Fulfil/Options/FulfilOptions.cs
+@@ -8,4 +8,9 @@ public sealed class FulfilOptions
+     public string MongoConnectionString { get; set; } = "mongodb://localhost:27017";
+     public string MongoDatabase { get; set; } = "fulfil";
+     public string ElasticUri { get; set; } = "http://localhost:9200";
++
++    // Параллельных списаний на одну реплику (при 3 репликах и ответе шлюза до 2 с даёт запас над 10 тыс/мин).
++    public int PaymentConcurrency { get; set; } = 100;
++    public string WarehouseInboundQueue { get; set; } = "warehouse.inbound";
++    public string WarehouseOutboundExchange { get; set; } = "warehouse.outbound";
+ }
+diff --git a/src/Fulfil/Ports/Ports.cs b/src/Fulfil/Ports/Ports.cs
+index 877025b..b1d853a 100644
+--- a/src/Fulfil/Ports/Ports.cs
++++ b/src/Fulfil/Ports/Ports.cs
+@@ -7,6 +7,9 @@ public interface IPaymentGateway
+     Task RefundAsync(Guid orderId, decimal amount, CancellationToken ct);
+ }
+ 
++// Шлюз отклонил платёж (бизнес-отказ, повтор не поможет). Прочие исключения - сбой шлюза, команда повторяется.
++public sealed class PaymentDeclinedException(string reason) : Exception(reason);
++
+ // Ценовой сервис: источник цен, ответ около 300 мс.
+ public interface IPriceSource
+ {
+diff --git a/src/Fulfil/Process/OrderProcessDefinition.cs b/src/Fulfil/Process/OrderProcessDefinition.cs
+new file mode 100644
+index 0000000..574007e
+--- /dev/null
++++ b/src/Fulfil/Process/OrderProcessDefinition.cs
+@@ -0,0 +1,17 @@
++using MassTransit;
++
++namespace Fulfil.Process;
++
++public sealed class OrderProcessDefinition : SagaDefinition<OrderProcessState>
++{
++    protected override void ConfigureSaga(
++        IReceiveEndpointConfigurator endpoint,
++        ISagaConfigurator<OrderProcessState> saga,
++        IRegistrationContext context)
++    {
++        // Реплики равноправны: конкурирующие обновления одного процесса ловятся по Version и повторяются.
++        endpoint.UseMessageRetry(r => r.Intervals(50, 100, 200, 500, 1000));
++        // Команды и события уходят только после успешного сохранения состояния процесса.
++        endpoint.UseInMemoryOutbox(context);
++    }
++}
+diff --git a/src/Fulfil/Process/OrderProcessState.cs b/src/Fulfil/Process/OrderProcessState.cs
+new file mode 100644
+index 0000000..ec2b986
+--- /dev/null
++++ b/src/Fulfil/Process/OrderProcessState.cs
+@@ -0,0 +1,15 @@
++using Fulfil.Domain;
++using MassTransit;
++using MongoDB.Bson.Serialization.Attributes;
++
++namespace Fulfil.Process;
++
++public sealed class OrderProcessState : SagaStateMachineInstance, ISagaVersion
++{
++    [BsonId] public Guid CorrelationId { get; set; }
++    public int Version { get; set; }
++    public string CurrentState { get; set; } = "";
++    public Guid CustomerId { get; set; }
++    public decimal Total { get; set; }
++    public List<OrderLine> Lines { get; set; } = [];
++}
+diff --git a/src/Fulfil/Process/OrderProcessStateMachine.cs b/src/Fulfil/Process/OrderProcessStateMachine.cs
+new file mode 100644
+index 0000000..09734fd
+--- /dev/null
++++ b/src/Fulfil/Process/OrderProcessStateMachine.cs
+@@ -0,0 +1,90 @@
++using Fulfil.Contracts;
++using Fulfil.Domain;
++using Fulfil.Storage;
++using MassTransit;
++
++namespace Fulfil.Process;
++
++// ReserveStock -> CapturePayment -> ShipOrder; при отказе шага - компенсации и отмена.
++public sealed class OrderProcessStateMachine : MassTransitStateMachine<OrderProcessState>
++{
++    public State Reserving { get; private set; } = null!;
++    public State CapturingPayment { get; private set; } = null!;
++    public State Shipping { get; private set; } = null!;
++
++    public Event<OrderSubmitted> Submitted { get; private set; } = null!;
++    public Event<StockReserved> StockReserved { get; private set; } = null!;
++    public Event<StockReservationFailed> StockReservationFailed { get; private set; } = null!;
++    public Event<PaymentCaptured> PaymentCaptured { get; private set; } = null!;
++    public Event<PaymentFailed> PaymentFailed { get; private set; } = null!;
++    public Event<Fault<CapturePayment>> CapturePaymentFaulted { get; private set; } = null!;
++    public Event<OrderShipped> OrderShipped { get; private set; } = null!;
++    public Event<Fault<ShipOrder>> ShipOrderFaulted { get; private set; } = null!;
++
++    public OrderProcessStateMachine()
++    {
++        InstanceState(x => x.CurrentState);
++
++        Event(() => Submitted, e => e.CorrelateById(c => c.Message.OrderId));
++        Event(() => StockReserved, e => e.CorrelateById(c => c.Message.OrderId));
++        Event(() => StockReservationFailed, e => e.CorrelateById(c => c.Message.OrderId));
++        Event(() => PaymentCaptured, e => e.CorrelateById(c => c.Message.OrderId));
++        Event(() => PaymentFailed, e => e.CorrelateById(c => c.Message.OrderId));
++        Event(() => CapturePaymentFaulted, e => e.CorrelateById(c => c.Message.Message.OrderId));
++        Event(() => OrderShipped, e => e.CorrelateById(c => c.Message.OrderId));
++        Event(() => ShipOrderFaulted, e => e.CorrelateById(c => c.Message.Message.OrderId));
++
++        Initially(
++            When(Submitted)
++                .Then(c =>
++                {
++                    c.Saga.CustomerId = c.Message.CustomerId;
++                    c.Saga.Total = c.Message.Total;
++                    c.Saga.Lines = c.Message.Lines.ToList();
++                })
++                .Send(QueueUri(Queues.ReserveStock), c => new ReserveStock(c.Saga.CorrelationId, c.Saga.Lines))
++                .TransitionTo(Reserving));
++
++        During(Reserving,
++            When(StockReserved)
++                .Send(QueueUri(Queues.CapturePayment), c => new CapturePayment(c.Saga.CorrelationId, c.Saga.Total))
++                .TransitionTo(CapturingPayment),
++            When(StockReservationFailed)
++                .Publish(c => Status(c.Saga, OrderStatus.Cancelled))
++                .Finalize());
++
++        During(CapturingPayment,
++            When(PaymentCaptured)
++                .Publish(c => Status(c.Saga, OrderStatus.Paid))
++                .Send(QueueUri(Queues.ShipOrder), c => new ShipOrder(c.Saga.CorrelationId))
++                .TransitionTo(Shipping),
++            When(PaymentFailed)
++                .Send(QueueUri(Queues.ReleaseStock), c => new ReleaseStock(c.Saga.CorrelationId, c.Saga.Lines))
++                .Publish(c => Status(c.Saga, OrderStatus.Cancelled))
++                .Finalize(),
++            // Шлюз так и не ответил после всех повторов: снимаем резерв, деньги не списывались.
++            When(CapturePaymentFaulted)
++                .Send(QueueUri(Queues.ReleaseStock), c => new ReleaseStock(c.Saga.CorrelationId, c.Saga.Lines))
++                .Publish(c => Status(c.Saga, OrderStatus.Cancelled))
++                .Finalize());
++
++        During(Shipping,
++            When(OrderShipped)
++                .Publish(c => Status(c.Saga, OrderStatus.Shipped))
++                .Finalize(),
++            When(ShipOrderFaulted)
++                .Send(QueueUri(Queues.RefundPayment), c => new RefundPayment(c.Saga.CorrelationId, c.Saga.Total))
++                .Send(QueueUri(Queues.ReleaseStock), c => new ReleaseStock(c.Saga.CorrelationId, c.Saga.Lines))
++                .Publish(c => Status(c.Saga, OrderStatus.Cancelled))
++                .Finalize());
++
++        // Повторная публикация OrderSubmitted не должна ни падать, ни запускать процесс заново.
++        // Завершённые процессы намеренно не удаляются из хранилища - они и дают эту защиту.
++        During(Reserving, CapturingPayment, Shipping, Final, Ignore(Submitted));
++    }
++
++    private static Uri QueueUri(string queue) => new($"queue:{queue}");
++
++    private static OrderStatusChanged Status(OrderProcessState s, OrderStatus status) =>
++        new(s.CorrelationId, status, DateTimeOffset.UtcNow);
++}
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..bf30a1f 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,8 +1,81 @@
++using Fulfil.Consumers;
++using Fulfil.Contracts;
++using Fulfil.Domain;
+ using Fulfil.Options;
++using Fulfil.Process;
++using Fulfil.Storage;
++using Fulfil.Warehouse;
++using MassTransit;
++using MongoDB.Driver;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++var fulfil = builder.Configuration.GetSection("Fulfil").Get<FulfilOptions>() ?? new FulfilOptions();
++
++builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(fulfil.MongoConnectionString));
++builder.Services.AddSingleton(sp => sp.GetRequiredService<IMongoClient>().GetDatabase(fulfil.MongoDatabase));
++
++builder.Services.AddMassTransit(x =>
++{
++    x.SetKebabCaseEndpointNameFormatter();
++
++    x.AddConsumer<ReserveStockConsumer>().Endpoint(e => e.Name = Queues.ReserveStock);
++    x.AddConsumer<CapturePaymentConsumer, CapturePaymentConsumerDefinition>();
++    x.AddConsumer<ShipOrderConsumer>().Endpoint(e => e.Name = Queues.ShipOrder);
++    x.AddConsumer<ReleaseStockConsumer>().Endpoint(e => e.Name = Queues.ReleaseStock);
++    x.AddConsumer<RefundPaymentConsumer>().Endpoint(e => e.Name = Queues.RefundPayment);
++    x.AddConsumer<OrderStatusChangedConsumer>();
++
++    x.AddSagaStateMachine<OrderProcessStateMachine, OrderProcessState, OrderProcessDefinition>()
++        .MongoDbRepository(r =>
++        {
++            r.Connection = fulfil.MongoConnectionString;
++            r.DatabaseName = fulfil.MongoDatabase;
++            r.CollectionName = "order-processes";
++        });
++
++    // Очереди MassTransit durable, сообщения persistent - переживают перезапуск единственного узла RabbitMQ.
++    x.UsingRabbitMq((context, cfg) =>
++    {
++        cfg.Host(fulfil.RabbitMqHost);
++        cfg.ConfigureEndpoints(context);
++    });
++});
++
++builder.Services.AddHostedService<WarehouseInboundWorker>();
+ 
+ var app = builder.Build();
+ app.MapGet("/health", () => Results.Ok());
++
++app.MapPost("/orders/{id:guid}/submit", async (
++    Guid id,
++    SubmitOrderRequest request,
++    IMongoDatabase db,
++    IPublishEndpoint publish,
++    CancellationToken ct) =>
++{
++    if (request.Lines is not { Count: > 0 } || request.Lines.Any(l => string.IsNullOrWhiteSpace(l.Sku) || l.Quantity <= 0 || l.UnitPrice < 0))
++        return Results.BadRequest("Заказ должен содержать позиции с положительным количеством.");
++
++    var orders = db.GetCollection<Order>(Collections.Orders);
++    var order = new Order(id, request.CustomerId, OrderStatus.Placed, request.Lines, DateTimeOffset.UtcNow);
++    try
++    {
++        await orders.InsertOneAsync(order, cancellationToken: ct);
++    }
++    catch (MongoWriteException e) when (e.WriteError.Category == ServerErrorCategory.DuplicateKey)
++    {
++        // Повторный запрос (в том числе после сбоя публикации): берём сохранённый заказ.
++        order = await orders.Find(o => o.Id == id).FirstAsync(ct);
++        if (order.Status != OrderStatus.Placed)
++            return Results.Ok();
++    }
++
++    // Повторная публикация безопасна: процесс игнорирует OrderSubmitted для уже существующего заказа.
++    await publish.Publish(new OrderSubmitted(order.Id, order.CustomerId, order.Lines, order.Total), ct);
++    return Results.Accepted($"/orders/{id}");
++});
++
+ app.Run();
++
++public sealed record SubmitOrderRequest(Guid CustomerId, List<OrderLine> Lines);
+diff --git a/src/Fulfil/Storage/Storage.cs b/src/Fulfil/Storage/Storage.cs
+new file mode 100644
+index 0000000..2216332
+--- /dev/null
++++ b/src/Fulfil/Storage/Storage.cs
+@@ -0,0 +1,43 @@
++using MongoDB.Bson.Serialization.Attributes;
++
++namespace Fulfil.Storage;
++
++public static class Queues
++{
++    public const string ReserveStock = "reserve-stock";
++    public const string CapturePayment = "capture-payment";
++    public const string ShipOrder = "ship-order";
++    public const string ReleaseStock = "release-stock";
++    public const string RefundPayment = "refund-payment";
++}
++
++public static class Collections
++{
++    public const string Orders = "orders";
++    public const string Products = "products";
++    public const string Payments = "payments";
++    public const string Reservations = "reservations";
++}
++
++// Имена полей документа товара (по умолчанию драйвер называет поля как свойства Domain.Product).
++public static class ProductFields
++{
++    public const string Sku = "Sku";
++    public const string Stock = "Stock";
++    public const string InboundIds = "InboundIds";
++}
++
++// Списанный платёж: защита от повторного списания при повторной доставке команды.
++public sealed class PaymentRecord
++{
++    [BsonId] public Guid OrderId { get; set; }
++    public decimal Amount { get; set; }
++    public DateTimeOffset CapturedAt { get; set; }
++}
++
++// Резерв товара под заказ: защита от повторного резервирования.
++public sealed class ReservationRecord
++{
++    [BsonId] public Guid OrderId { get; set; }
++    public DateTimeOffset ReservedAt { get; set; }
++}
+diff --git a/src/Fulfil/Warehouse/WarehouseInboundWorker.cs b/src/Fulfil/Warehouse/WarehouseInboundWorker.cs
+new file mode 100644
+index 0000000..57c91a0
+--- /dev/null
++++ b/src/Fulfil/Warehouse/WarehouseInboundWorker.cs
+@@ -0,0 +1,145 @@
++using System.Text.Json;
++using Fulfil.Options;
++using Fulfil.Storage;
++using Microsoft.Extensions.Options;
++using MongoDB.Bson;
++using MongoDB.Driver;
++using RabbitMQ.Client;
++using RabbitMQ.Client.Events;
++
++namespace Fulfil.Warehouse;
++
++// Приход товара от склада: чужой формат (не MassTransit), поэтому читаем очередь напрямую.
++public sealed class WarehouseInboundWorker(
++    IMongoDatabase db,
++    IOptions<FulfilOptions> options,
++    ILogger<WarehouseInboundWorker> logger) : BackgroundService
++{
++    private const int MaxRememberedMessageIds = 10_000;
++    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
++
++    private readonly FulfilOptions _options = options.Value;
++    private readonly IMongoCollection<BsonDocument> _products = db.GetCollection<BsonDocument>(Collections.Products);
++
++    private enum Applied { Done, Duplicate, UnknownSku }
++
++    private sealed record InboundMessage(string? Sku, int Qty, string? MessageId);
++
++    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
++    {
++        // Брокер перезапускается при обновлении стенда: если соединения нет - ждём и пробуем снова.
++        while (!stoppingToken.IsCancellationRequested)
++        {
++            try
++            {
++                await RunAsync(stoppingToken);
++            }
++            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
++            {
++                return;
++            }
++            catch (Exception e)
++            {
++                logger.LogError(e, "Потеряна связь с очередью {Queue}, повтор через 5 с", _options.WarehouseInboundQueue);
++                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
++            }
++        }
++    }
++
++    private async Task RunAsync(CancellationToken ct)
++    {
++        var factory = new ConnectionFactory
++        {
++            HostName = _options.RabbitMqHost,
++            AutomaticRecoveryEnabled = true,
++            TopologyRecoveryEnabled = true,
++        };
++        await using var connection = await factory.CreateConnectionAsync("fulfil-warehouse", ct);
++
++        // Подтверждения публикуем с publisher confirms, чтобы не потерять их при сбое брокера.
++        await using var publisher = await connection.CreateChannelAsync(
++            new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true),
++            ct);
++        await publisher.ExchangeDeclareAsync(_options.WarehouseOutboundExchange, ExchangeType.Topic, durable: true, cancellationToken: ct);
++
++        await using var channel = await connection.CreateChannelAsync(cancellationToken: ct);
++        await channel.QueueDeclareAsync(_options.WarehouseInboundQueue, durable: true, exclusive: false, autoDelete: false, cancellationToken: ct);
++        await channel.BasicQosAsync(0, 20, false, ct);
++
++        var consumer = new AsyncEventingBasicConsumer(channel);
++        consumer.ReceivedAsync += (_, ea) => HandleAsync(channel, publisher, ea, ct);
++        await channel.BasicConsumeAsync(_options.WarehouseInboundQueue, autoAck: false, consumer, ct);
++
++        logger.LogInformation("Читаю очередь {Queue}", _options.WarehouseInboundQueue);
++        await Task.Delay(Timeout.Infinite, ct);
++    }
++
++    private async Task HandleAsync(IChannel channel, IChannel publisher, BasicDeliverEventArgs ea, CancellationToken ct)
++    {
++        try
++        {
++            InboundMessage? msg = null;
++            try
++            {
++                msg = JsonSerializer.Deserialize<InboundMessage>(ea.Body.Span, Json);
++            }
++            catch (JsonException)
++            {
++            }
++
++            if (msg is not { Sku: { Length: > 0 }, MessageId: { Length: > 0 }, Qty: > 0 })
++            {
++                logger.LogWarning("Некорректное сообщение прихода, отброшено (DeliveryTag {Tag})", ea.DeliveryTag);
++                await channel.BasicRejectAsync(ea.DeliveryTag, requeue: false, ct);
++                return;
++            }
++
++            var applied = await ApplyAsync(msg, ct);
++            if (applied == Applied.UnknownSku)
++            {
++                logger.LogError("Приход по неизвестному товару {Sku}, сообщение {MessageId} отброшено", msg.Sku, msg.MessageId);
++                await channel.BasicRejectAsync(ea.DeliveryTag, requeue: false, ct);
++                return;
++            }
++
++            // Сначала подтверждение складу, потом ack: при сбое между ними сообщение придёт снова,
++            // а повторное применение исключено дедупликацией по messageId.
++            var body = JsonSerializer.SerializeToUtf8Bytes(
++                new { messageId = msg.MessageId, sku = msg.Sku, qty = msg.Qty, status = applied == Applied.Done ? "applied" : "duplicate" },
++                Json);
++            await publisher.BasicPublishAsync(
++                _options.WarehouseOutboundExchange,
++                "stock.received",
++                mandatory: false,
++                new BasicProperties { Persistent = true, ContentType = "application/json", MessageId = msg.MessageId },
++                body,
++                ct);
++
++            await channel.BasicAckAsync(ea.DeliveryTag, multiple: false, ct);
++        }
++        catch (Exception e) when (!ct.IsCancellationRequested)
++        {
++            logger.LogError(e, "Сбой обработки прихода (DeliveryTag {Tag}), вернул в очередь", ea.DeliveryTag);
++            await Task.Delay(TimeSpan.FromSeconds(1), CancellationToken.None);
++            await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: true, CancellationToken.None);
++        }
++    }
++
++    // Одна атомарная операция: остаток растёт, только если messageId ещё не применялся.
++    private async Task<Applied> ApplyAsync(InboundMessage msg, CancellationToken ct)
++    {
++        var f = Builders<BsonDocument>.Filter;
++        var result = await _products.UpdateOneAsync(
++            f.Eq(ProductFields.Sku, msg.Sku) & f.Ne(ProductFields.InboundIds, msg.MessageId),
++            Builders<BsonDocument>.Update
++                .Inc(ProductFields.Stock, msg.Qty)
++                .PushEach(ProductFields.InboundIds, [msg.MessageId], slice: -MaxRememberedMessageIds),
++            cancellationToken: ct);
++
++        if (result.ModifiedCount == 1)
++            return Applied.Done;
++
++        var exists = await _products.Find(f.Eq(ProductFields.Sku, msg.Sku)).AnyAsync(ct);
++        return exists ? Applied.Duplicate : Applied.UnknownSku;
++    }
++}
+diff --git a/src/Fulfil/appsettings.json b/src/Fulfil/appsettings.json
+index 56eb014..14d6cd0 100644
+--- a/src/Fulfil/appsettings.json
++++ b/src/Fulfil/appsettings.json
+@@ -5,7 +5,10 @@
+     "RedisConfiguration": "localhost:6379",
+     "MongoConnectionString": "mongodb://localhost:27017",
+     "MongoDatabase": "fulfil",
+-    "ElasticUri": "http://localhost:9200"
++    "ElasticUri": "http://localhost:9200",
++    "PaymentConcurrency": 100,
++    "WarehouseInboundQueue": "warehouse.inbound",
++    "WarehouseOutboundExchange": "warehouse.outbound"
+   },
+   "Logging": { "LogLevel": { "Default": "Information" } }
+ }

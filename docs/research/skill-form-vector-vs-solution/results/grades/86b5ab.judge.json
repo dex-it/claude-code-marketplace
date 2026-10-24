@@ -1,0 +1,67 @@
+{
+  "id": "86b5ab",
+  "case": "G3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.101263,
+    "durationMs": 8699,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11096,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 603,
+      "output_tokens_details": {
+        "thinking_tokens": 178
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11096,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 603,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11096,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11096
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G3-contract-null": {
+      "verdict": "PASS",
+      "quote": "else if (contractNo is null)\n                reason = \"Номер договора не найден в назначении\";",
+      "why": "Пустые номера отсекаются через OfType<string>() ещё до запроса к Subscribers, а строка без номера уходит в UnmatchedPayments, поэтому поиск с null не выполняется и заявке ничего не зачисляется."
+    },
+    "G3-credit-time": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.Now;",
+      "why": "В CreditedAt, ReceivedAt и ResumedAt пишется DateTime.Now с Kind=Local, как в существующем коде, а значений с Kind=Utc новый код в БД не передаёт."
+    },
+    "G3-h-bycontract": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetByContractAsync в diff не изменён и дефектом в ответе не назван."
+    },
+    "G3-m-utcnow": {
+      "verdict": "NO",
+      "quote": "s.ConnectedAt = DateTime.Now;",
+      "why": "В SignContractAsync и CreateLeadAsync DateTime.Now остался как был, на UtcNow ничего не заменено."
+    }
+  },
+  "stderr": ""
+}

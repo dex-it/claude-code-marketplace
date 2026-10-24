@@ -1,0 +1,62 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3df7afd
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,56 @@
++# Ревью MR !87: экспертиза заявок, рейтинг и CSV
++
++## Critical
++
++### 1. `Controllers/ContestsController.cs`: `Ranking`, `RankingCsv`. Эксперты видят рейтинг, и слепая экспертиза нарушена
++На классе стоит `[Authorize(Roles = Coordinator + "," + Expert)]`. Это сделали, чтобы эксперту открылся `GET /api/contests/{id}`, но вместе с ним экспертам стали доступны `GET {id}/ranking` и `{id}/ranking.csv`. Через них любой эксперт видит средние баллы, число отправленных экспертиз и распределение грантов по всем заявкам, в том числе пока экспертиза ещё идёт. По MR рейтинг смотрят только координатор и совет. Нужно оставить на классе роль Coordinator, а роль Expert добавить только на `Get`. Можно и наоборот: повесить `[Authorize(Roles = Coordinator)]` на оба метода рейтинга.
++
++### 2. `Controllers/ReviewsController.cs`: `Mine`. Два запроса параллельно на одном `DbContext`
++`itemsTask` и `submittedTask` запускаются одновременно и ждутся через `Task.WhenAll` на одном экземпляре `GrantsDbContext`. EF Core не поддерживает параллельные операции на контексте, поэтому получим `InvalidOperationException: A second operation was started on this context instance…`. Эндпоинт «мои назначения» будет стабильно или время от времени падать с 500. Это нарушает правило SKILL «Время жизни DbContext: никогда не используется параллельно». Запросы нужно выполнять последовательно. Ещё проще считать `Submitted` из уже загруженного `items`.
++
++## High
++
++### 3. `Services/ConflictOfInterest.cs`: `Find`. Не проверяется организация эксперта
++Код проверяет только `a.ApplicantId == expert.Id`. Положение (п. 4.3, комментарий в `Expert.OrganizationInn`) запрещает эксперту оценивать ещё и заявки организации, в которой он работает. Условие `a.OrganizationInn == expert.OrganizationInn` пропущено. С учётом пустых ИНН нужно `!string.IsNullOrEmpty(expert.OrganizationInn) && …`. MR обещает, что «система проверяет конфликт сама», так что ручную проверку уберут, а заявки работодателя эксперта будут ему назначаться и при `Assign`, и при `Reassign`.
++
++### 4. `Models/Contest.cs`: `AcceptsReviews`. Приём закрывается в начале дня дедлайна, а не после него
++`utcNow < ReviewDeadline.ToDateTime(TimeOnly.MinValue, Utc)` — это граница 00:00 UTC дня дедлайна, то есть около 03:00 МСК того же дня. По MR приём закрывается после дня дедлайна, эксперты досылают оценки в последний вечер. Сейчас весь последний день, включая вечер, они будут получать «Приём оценок по конкурсу закрыт». Граница должна быть на начало следующего дня (`ReviewDeadline.AddDays(1)`), причём в часовом поясе фонда (Europe/Moscow), а не в UTC.
++
++### 5. `Services/RankingService.cs`: `BuildAsync`. При равном балле сортировка идёт по дате создания черновика, а не по дате подачи
++`.ThenBy(x => x.CreatedAt)`: `CreatedAt` — это создание черновика в личном кабинете. По положению при равном балле выше та заявка, которая подана раньше, то есть нужен `SubmittedAt`. На границе фонда это прямо меняет, кто получит грант. Нужно `ThenBy(x => x.SubmittedAt)`, а для полной детерминированности ещё `ThenBy(x => x.Id)`.
++
++### 6. `Services/RankingCsvWriter.cs`: `Write`. Числа форматируются по текущей культуре ru-RU, и разделитель-запятая ломает CSV
++`{r.Score}` и `{r.RequestedAmount}` в интерполяции используют `CultureInfo.CurrentCulture`. `Program.cs` ставит через `UseRequestLocalization` культуру `ru-RU`, поэтому `87.5` пишется как `87,50`, а `150000.00` как `150000,00`. Эти значения не экранируются, и строка с разделителем `,` распадается на лишние колонки. Google Sheets и скрипт фонда получат сдвинутые поля и неверные суммы. Числа нужно форматировать с `CultureInfo.InvariantCulture` (например, `FormattableString.Invariant` или `string.Create(CultureInfo.InvariantCulture, …)`).
++
++### 7. `Controllers/ApplicationsController.cs`: `Search`. Фильтр по региону не транслируется в SQL
++`a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)`: EF Core 8 / Npgsql не переводит `string.Equals` с `StringComparison` в SQL. При запросе с `region` будет `InvalidOperationException ... could not be translated` и 500. Это правило SKILL «Нетранслируемое условие фильтра». Нужен транслируемый вариант: `EF.Functions.ILike(a.Region, r)` (с экранированием `%`/`_`) или `a.Region.ToLower() == r.ToLower()`, либо колонка с недетерминированной ICU-collation.
++
++### 8. `Services/AssignmentService.cs`: `ReassignAsync`. Черновик прежнего эксперта целиком переходит новому
++Переносятся назначения в статусе `Draft` вместе со `Scores`, `Comment` и `Total`, меняются только `ExpertId`/`ExpertName`. Новый эксперт откроет `GET /api/reviews/{id}` и увидит баллы и комментарий коллеги, а это нарушает слепую экспертизу. Кроме того, он может отправить чужую оценку как свою. При передаче нужно очищать `Scores`, `Comment`, `Total` и возвращать статус в `Assigned`.
++
++### 9. `Services/ReviewService.cs`: `SaveAsync`, `Services/AssignmentService.cs`: `ReassignAsync`, `Controllers/ContestsController.cs`: `CloseReview`. Параллельные правки одного `Review` молча перезаписываются
++У `Review` нет concurrency token (например, `xmin` через `UseXminAsConcurrencyToken`/`IsRowVersion`), и `FOR UPDATE` тоже нет. Реальные гонки:
++- Эксперт отправляет оценку в момент `Reassign`. Reassign прочитал строку в статусе `Draft`, а эксперт тем временем её отправил. Затем Reassign пишет новый `ExpertId`, и уже отправленная оценка уходит другому эксперту. MR явно обещает, что отправленные оценки остаются за прежним экспертом.
++- Утром координатор закрывает экспертизу, а эксперт досылает оценку. `SaveAsync` прочитал `Draft` до `CloseReview`, `ExecuteUpdate` поставил `Expired`, после чего `SaveChanges` эксперта записывает `Submitted` поверх `Expired`.
++- Двойной submit или «черновик + submit» одновременно: оба запроса проходят проверку `Status != Submitted`, и выигрывает последний. Отправленную оценку может затереть черновик, а на удалении уже удалённых `ReviewScore` случается необработанный `DbUpdateConcurrencyException` и 500.
++
++Это нарушает правило SKILL «Параллельная правка одной записи». Нужен concurrency token на `Review` с обработкой `DbUpdateConcurrencyException` (ответ 409) либо условный `ExecuteUpdate ... WHERE Status IN (Assigned, Draft)`.
++
++## Medium
++
++### 10. `Services/RankingCsvWriter.cs`: `Escape`. CSV/formula injection
++`Title` и `ApplicantName` вводит заявитель, а CSV открывают в Google Sheets. Значение, начинающееся с `=`, `+`, `-`, `@`, станет формулой (например, `=IMPORTXML(...)`/`HYPERLINK`), что позволяет утечь данные или подменить отображаемое. Такие значения нужно экранировать, например префиксом `'`.
++
++### 11. `Services/RankingService.cs`: `BuildAsync`. Равенство определяется по неокруглённому среднему, а показывается округлённое
++Сортировка идёт по неокруглённому `Score` (среднее от `Total` с 2 знаками), а в рейтинг и CSV попадает `Math.Round(x.Score, 2)`. Две заявки с одинаковым показанным баллом (например, 83.33 и 83.33) упорядочатся по третьему знаку, а не по дате подачи, как требует положение. Округлять нужно до сортировки, в той же точности, в какой балл публикуется.
++
++## Low
++
++### 12. `Services/AssignmentService.cs`: `AssignAsync`. Нет проверки, что конкурс открыт для экспертизы
++После `CloseReview` всё ещё можно назначать заявки (статус `Assigned`), но отправить их эксперт уже не сможет, и такие «висящие» назначения не истекут. Нужно проверять `ReviewClosed`/существование конкурса.
++
++### 13. `Services/AssignmentService.cs`: `AssignAsync`. Гонка с уникальным индексом `(ApplicationId, ExpertId)`
++Два одновременных назначения одной пачки проходят проверку `alreadyAssigned` и падают на `SaveChanges` с `DbUpdateException` (unique violation), то есть ответ 500 вместо `AlreadyAssigned`. Нужно ловить нарушение уникальности (`PostgresException.SqlState == 23505`).
++
++### 14. `Controllers/ApplicationsController.cs`: `Get`. Эксперту загружаются чужие оценки, которые потом отбрасываются
++`Include(a => a.Reviews.Where(Submitted))` выполняется и для эксперта: из БД приходят отправленные оценки коллег с комментариями, а затем выбрасываются в памяти. Утечки в ответе нет, но это лишняя выборка полных сущностей (правило SKILL «Полная сущность там, где нужна часть полей»). Для эксперта нужна проекция без `Reviews`, для координатора — проекция в `ReviewSummaryDto`.

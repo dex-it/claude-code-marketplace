@@ -1,0 +1,71 @@
+{
+  "id": "deb731",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0433354,
+    "durationMs": 4967,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4165,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 479,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4165,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 479,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4165,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4165
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "две коллекции (`Items`, `Payments`) на одном уровне корректно разведены через `AsSplitQuery()`",
+      "why": "AsSplitQuery отмечен как корректный, находки против него нет."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "`Kind=Utc` для такой колонки корректен",
+      "why": "DateTime.UtcNow в AuditWriter признан правильным, находка по AuditWriter касается только времени жизни DbContext."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "тысячи id не создают проблему с числом параметров",
+      "why": "Contains в CartLookup явно признан корректным, резать на пачки не предлагается."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "При `page = 1` (первая страница) код делает `Skip(1 * pageSize)`, то есть пропускает ровно первую страницу данных",
+      "why": "Дефект пагинации назван точно, предложено Skip((page - 1) * pageSize)."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "метод, скорее всего, всегда будет возвращать пустой список для активных заказов",
+      "why": "Несовпадение регистра \"Active\" и \"active\" из модели названо как причина пустого списка."
+    }
+  },
+  "stderr": ""
+}

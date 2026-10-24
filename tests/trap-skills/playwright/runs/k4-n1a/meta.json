@@ -1,0 +1,41 @@
+{
+  "id": "k4-n1a",
+  "case": "K4",
+  "edition": "n1",
+  "skills": [
+    "playwright"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 9,
+  "cost": 0.1134694,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100",
+    "cat e2e/playwright.config.ts e2e/tests/smoke.spec.ts e2e/package.json web/src/components/OrdersPage.tsx web/src/components/LoginForm.tsx web/src/api.ts api/src/seed.ts; cat web/src/App.tsx",
+    "grep -n \"router\\.\\|app\\.\\(get\\|post\\)\" api/src/app.ts; cat web/vite.config.ts e2e/tsconfig.json; cat .gitignore",
+    "sed -n 25,120p api/src/app.ts; grep -n \"orders\" api/src/*.ts | head -20",
+    "cd <run>/e2e && cat > tests/fixtures.ts <<'EOF'\nimport { expect, test as base, type APIRequestContext } from '@playwright/test';\n\nconst",
+    "cd <run>/e2e && python3 - <<'EOF'\np='tests/orders.spec.ts'\ns=open(p).read()\ns=s.replace(\"async ({ browser }) =>\",\"async ({ browser, bas"
+  ]
+}

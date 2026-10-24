@@ -1,0 +1,92 @@
+{
+  "id": "1268a1",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.106019,
+    "durationMs": 15325,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9823,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1350,
+      "output_tokens_details": {
+        "thinking_tokens": 319
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9823,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1350,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9823,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9823
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "EF не сможет транслировать `r.OffDay`/`r.Km` и бросит `InvalidOperationException` в рантайме. Эндпоинт отчёта FLEET-109 («поездки в выходные») будет падать при каждом вызове",
+      "why": "Названы фильтр по клиентски вычисленному OffDay после ToRows() и падение при каждом вызове; предложены AsEnumerable перед Where или транслируемое условие."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "Порядок строк внутри подзапроса без `LIMIT`/внешнего `ORDER BY` не гарантирован стандартом",
+      "why": "Находка описывает потерю сортировки, а не синтаксическую ошибку PostgreSQL из-за ';' внутри подзапроса; суть дефекта не найдена."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`vehicle.Equipment.Clear()` чистит уже пустую коллекцию (no-op)",
+      "why": "Отсутствие Include, сохранение старых строк, нарушение уникального индекса (vehicle_id, code) и накопление старых позиций названы; предложено загрузить оснащение через Include."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "упадёт с `value too long for type character varying(40)`, и миграция на prod ... просто не применится",
+      "why": "Названо падение ALTER на длинных значениях с prod; предложено обрезать данные UPDATE до AlterColumn."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Сортировать нужно по `InspectedAt`.",
+      "why": "Находка про выбор поля сортировки, а не про неуникальный порядок при SplitQuery, из-за которого замечания берутся от другого осмотра; предложенная правка этот дефект не устраняет."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Условие `ValidUntil > today` исключает именно последний действующий день",
+      "why": "Дефект назван, исправление `>=` предложено."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "здесь нет `.RequireAuthorization(\"...\")` с конкретной политикой",
+      "why": "Назван эндпоинт без ролевой политики, который доступен любому аутентифицированному пользователю."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "`DriverService.ReplacePermitsAsync` ... делает `.Include(d => d.Permits)` перед `Clear()` — корректный паттерн",
+      "why": "ReplacePermitsAsync назван корректным, дефектом не объявлен."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

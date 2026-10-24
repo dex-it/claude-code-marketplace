@@ -1,0 +1,96 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..06d3eb3 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,13 +14,14 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; } = 1;
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
+-public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } }
+-public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } }
++public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } public bool IsDeleted { get; set; } }
++public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } public bool IsDeleted { get; set; } }
+ 
+ public class Product
+ {
+@@ -44,7 +45,28 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        b.Entity<Order>()
++            .Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => v,
++                v => new DateTime(v.Ticks, DateTimeKind.Utc)
++            );
++
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(oi => oi.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
++
++        b.Entity<OrderItem>().HasQueryFilter(oi => !oi.IsDeleted);
++        b.Entity<Payment>().HasQueryFilter(p => !p.IsDeleted);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..6f710a0 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItemsAsync(Guid orderId)
++    {
++        await _db.OrderItems
++            .IgnoreQueryFilters()
++            .Where(oi => oi.OrderId == orderId)
++            .ExecuteUpdateAsync(s => s.SetProperty(oi => oi.IsDeleted, true));
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..360a0c4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,22 @@
++# Решение
++
++## Измененные файлы
++
++1. **Model.cs** - основные изменения
++2. **OrderRepository.cs** - добавлен метод ClearItems
++
++## Описание решений
++
++**(а) Complexity (сложность комплектации):**
++Добавлено свойство `int Complexity { get; set; } = 1;` в класс Order. Поле хранит значение 1..5 и используется для оценки сложности комплектации заказа.
++
++**(б) CreatedAt UTC маппинг:**
++Настроен value converter в OnModelCreating: при сохранении DateTime передается как-есть (уже UTC), при чтении из БД значение интерпретируется как UTC через установку `DateTimeKind.Utc`. Это гарантирует, что в коде CreatedAt всегда будет в UTC, а колонка остается `timestamp without time zone`.
++
++**(в) Мягкое удаление и связи:**
++- Добавлены флаги `bool IsDeleted { get; set; }` в OrderItem и Payment
++- Настроены query filters для OrderItem и Payment (скрывают удаленные записи)
++- Явно конфигурированы связи Order→Items и Order→Payments с `OnDelete(DeleteBehavior.Cascade)` для фактического удаления при необходимости
++
++**(г) Метод ClearItems:**
++Добавлен `async Task ClearItemsAsync(Guid orderId)` в OrderRepository, который мягко удаляет все позиции заказа через ExecuteUpdateAsync с IgnoreQueryFilters (обходит фильтр для безопасного обновления удаленных записей).

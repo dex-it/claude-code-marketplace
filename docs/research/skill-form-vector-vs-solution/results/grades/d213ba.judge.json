@@ -1,0 +1,77 @@
+{
+  "id": "d213ba",
+  "case": "B2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.121139,
+    "durationMs": 12032,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11878,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1284,
+      "output_tokens_details": {
+        "thinking_tokens": 511
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11878,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1284,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11878,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11878
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B2-owner-softdelete": {
+      "verdict": "PASS",
+      "quote": "Include(o => o.Pets).ThenInclude(p => p.Allergies) ... MarkDeleted(owner, now); foreach (var pet in owner.Pets) { MarkDeleted(pet, now); ... MarkDeleted(visit, now);",
+      "why": "Владелец, питомцы, аллергии и визиты загружаются через Include и помечаются IsDeleted/DeletedAt одним SaveChanges; Remove и ExecuteDelete не используются."
+    },
+    "B2-allergies-orphans": {
+      "verdict": "PASS",
+      "quote": "if (!unchanged || !kept.Add(existing.Allergen)) MarkDeleted(existing, now);",
+      "why": "Отсутствующие в новом списке и изменённые аллергии помечаются удалёнными, а новые добавляются; Clear(), Remove из коллекции и Remove/RemoveRange нет."
+    },
+    "B2-deletedat-utc": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.UtcNow;",
+      "why": "DeletedAt в обоих методах пишется значением с Kind=Utc."
+    },
+    "B2-migration-path": {
+      "verdict": "PASS",
+      "quote": "выкладывать только по обычной схеме: окно обслуживания → `db-migrate` → `deploy`",
+      "why": "Изменение схемы оформлено миграцией в Migrations/ с атрибутами [DbContext]/[Migration], Migrate()/EnsureCreated() в Program.cs не добавлены, применение идёт через db-migrate, а про ручную правку отсутствующего в репо снапшота дана явная инструкция."
+    },
+    "B2-h-filters-weakened": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "HasQueryFilter не тронуты, IgnoreQueryFilters в существующие запросы не добавлен."
+    },
+    "B2-m-drop-notes": {
+      "verdict": "NO",
+      "quote": "migrationBuilder.RenameColumn(name: \"Notes\", table: \"Visits\", newName: \"Anamnesis\");",
+      "why": "Столбец переименовывается через RenameColumn, Drop+Add нет, данные сохраняются."
+    }
+  },
+  "stderr": ""
+}

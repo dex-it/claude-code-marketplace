@@ -1,0 +1,10 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'cd /work/reportd; ls -laR . | head -60; cat nightly.sh'
+docker exec <ctr> sh -c 'cd /work/reportd; cat reportd.env; echo ---; cat conf/fx/EUR.rate; echo ---; sh nightly.sh; echo ---; strace -f -s 200 -e trace=execve,openat,read,getenv sh nightly.sh 2>&1 | tail -40; echo; strings -n 4 bin/aggregate | grep -iE "fx|rate|conf|env|/work|\.rate"; echo ---; strings -n 4 bin/fxfetch | grep -iE "fx|rate|conf|env|/work|\.rate|http|cache"'
+docker exec <ctr> sh -c 'cd /work/reportd; strace -f -s 200 -e trace=execve,openat,newfstatat,access,write sh nightly.sh 2>&1 | grep -vE "ld.so|/lib/|/etc/ld" | tail -25; echo ---; ./bin/fxfetch EUR; echo rc=$?; strings -n 3 bin/fxfetch | grep -iE "1\.0|rate|fallback|default"'
+[Write] <lab>/REPORT.md

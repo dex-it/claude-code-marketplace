@@ -1,0 +1,55 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'pgrep -a stockd; P=$(pgrep -x stockd|head -1); echo PID=$P; cat /proc/$P/status | grep -E "State|Threads|TracerPid"; ls /proc/$P/task; for t in /proc/$P/task/*; do echo $t $(cat $t/comm) $(cat $t/wchan 2>/dev/null); done; tail -20 /work/logs/stockd.log; cat -n /work/src/deadlock.c'
+docker exec <ctr> sh -c 'gdb -p 11 -batch -ex "thread apply all bt" -ex "print inventory_lock" -ex "print ledger_lock" -ex "print stock" -ex "print ledger" 2>&1 | grep -v "^\[New\|warning" | tail -50; for t in 11 12 13; do echo $t; cat /proc/11/task/$t/stat | cut -d" " -f3; cat /proc/11/task/$t/syscall; done; grep State /proc/11/status; ls -l /proc/11/exe'
+docker exec <ctr> sh -c 'id; ps -o pid,user,stat,comm -p 11; cat /proc/sys/kernel/yama/ptrace_scope; grep Cap /proc/self/status; which strace gdb eu-stack pstack'
+docker exec <ctr> sh -c 'for t in 11 12 13; do echo == $t; grep -E "^(State|voluntary|nonvoluntary)" /proc/11/task/$t/status; cut -d" " -f3,14,15,39 /proc/11/task/$t/stat; cat /proc/11/task/$t/stack 2>&1|head -3; done; sleep 3; for t in 11 12 13; do echo == $t; grep -E "^(voluntary|nonvoluntary)" /proc/11/task/$t/status; done; ls -l /proc/11/fd 2>&1|head; cat /proc/11/maps 2>&1|head -3; ls -l /work/bin /work/logs; ls /work'
+docker exec -u app <ctr> sh -c 'gdb -p 11 -batch -ex "thread apply all bt" -ex "print inventory_lock" -ex "print ledger_lock" -ex "print stock" -ex "print ledger" 2>&1 | grep -v "^\[New\|warning" | tail -60'
+cat > <lab>/REPORT.md <<'EOF'
+# REPORT: stockd, счётчики не обновляются
+
+## Симптом
+- Процесс жив (PID 11, `Ssl`), CPU 0%, три потока, все в состоянии `S`.
+- `/work/logs/stockd.log` повторяет `stock=100 ledger=0`. Главный поток печатает каждые 2 с, значения не меняются.
+
+## Причина
+Предположительно взаимная блокировка (lock-order inversion) в /work/src/deadlock.c.
+**Статус: подтверждена только чтением исходника и косвенными признаками. Прямого снимка стеков и владельцев мьютексов нет** (см. «Ограничения»).
+- `reserve` (строки 14-16): берёт `inventory_lock`, затем `ledger_lock`.
+- `audit` (строки 28-30): берёт `ledger_lock`, затем `inventory_lock`.
+- `usleep(1000)` между захватами (строки 15 и 29) делает пересечение практически неизбежным. Каждый поток держит свой первый мьютекс и ждёт чужой.
+- Это согласуется с `stock=100 ledger=0`: `stock--; ledger++` (строка 17) не выполнен ни разу.
+
+## Улики
+1. `docker exec <ctr> sh -c 'pgrep -a stockd; grep -E "State|Threads" /proc/11/status'`
+   ```
+   11 /work/bin/stockd
+   State: S (sleeping)
+   Threads: 3
+   ```
+2. `docker exec <ctr> tail /work/logs/stockd.log`
+   ```
+   stock=100 ledger=0
+   stock=100 ledger=0
+   ```
+3. Счётчики переключений контекста потоков (`/proc/11/task/*/status`), два замера с интервалом 3 с:
+   - Поток 11 (main): 12 -> 13, продолжает просыпаться по `sleep(2)`.
+   - Потоки 12 и 13 (worker): оба остаются на `voluntary_ctxt_switches: 2`, `nonvoluntary: 0`.
+   - Оба рабочих потока заснули после пары переключений и больше не просыпаются. Это согласуется с блокировкой на мьютексах, но не доказывает её.
+4. Исходник (строки выше): противоположный порядок захвата `inventory_lock` и `ledger_lock`.
+
+## Ограничения
+- `gdb -p 11` под root в контейнере: `ptrace: Operation not permitted`. У root в контейнере нет CAP_SYS_PTRACE (`CapEff: 00000000a80425fb`, бит 19 не выставлен).
+- Недоступны `/proc/11/{stack,syscall,maps}` и `/proc/11/exe`, поэтому нельзя показать, что потоки стоят в `futex_wait` / `__lll_lock_wait`.
+- Попытка подключиться от `app` (`docker exec -u app`) требовала подтверждения и не выполнялась. Обход ограничений не делался.
+- Не получены: `thread apply all bt` и `print inventory_lock` / `print ledger_lock` (поле `__owner` должно показать TID владельцев, ожидается перекрёстное владение потоками 12 и 13).
+
+## Что предлагаю
+1. Подтвердить на живом процессе (процесс не перезапускать, пока не снят снимок): `gdb -p 11 -batch -ex "thread apply all bt" -ex "print inventory_lock" -ex "print ledger_lock"`. Нужен CAP_SYS_PTRACE для контейнера или запуск от `app`. Ожидаемый результат: потоки 12 и 13 в `pthread_mutex_lock` на строках 16 и 30, `__owner` перекрёстный.
+2. Затем, если подтвердится, исправление в коде: единый порядок захвата (всегда `inventory_lock`, потом `ledger_lock`) в `audit` либо один общий мьютекс. Код я не менял. После правки перезапуск сервиса.
+3. Для обнаружения в будущем: сборка с проверкой порядка блокировок (helgrind / `PTHREAD_MUTEX_ERRORCHECK`) и алерт на неизменность счётчиков в логе.
+EOF

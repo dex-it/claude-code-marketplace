@@ -8,7 +8,7 @@
 
 ## Команда
 
-`/find-bugs <фича / ветка / область> [как запустить]` - тонкая обёртка над агентом.
+`/find-bugs <фича / ветка / область> [как запустить]` - точка входа, едет в этом же плагине: команда делегирует охоту агенту `bug-finder`.
 
 ## Место в цикле
 
@@ -22,7 +22,7 @@
 
 ## Skills
 
-Загружаются императивно по фазам: `dex-skill-exploratory-testing`, `dex-skill-bug-reproduction`, `dex-skill-contract-drift`, плюс `dex-skill-owasp-security`, `dex-skill-testability`, `dex-skill-test-design` по контексту.
+Загружаются императивно по фазам: `dex-skill-bug-reproduction`, плюс `dex-skill-testability` по контексту.
 
 ## Установка
 

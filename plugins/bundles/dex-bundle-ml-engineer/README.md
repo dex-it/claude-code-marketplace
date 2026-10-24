@@ -25,19 +25,20 @@ Bundle for ML Engineers: experiments, model training, debugging, deployment, dat
 .\install-bundle\uninstall-bundle.ps1 ml-engineer
 ```
 
-## Included Components (11)
+## Included Components
 
-### Specialists (5)
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
+
+### Specialists
 - `dex-ml-experimenter` - EDA and feature engineering
 - `dex-model-trainer` - Model training
 - `dex-model-debugger` - Model debugging
 - `dex-ml-deployer` - Model deployment
 - `dex-data-pipeline` - Data pipelines
 
-### Skills (6)
+### Skills
 - `dex-skill-python-pytorch` - PyTorch patterns
 - `dex-skill-python-tensorflow` - TensorFlow/Keras patterns
-- `dex-skill-python-classical-ml` - Classical ML (scikit-learn, XGBoost)
 - `dex-skill-python-nlp-transformers` - NLP with Transformers
 - `dex-skill-python-computer-vision` - Computer Vision
 - `dex-skill-python-ml-optimization` - ML optimization

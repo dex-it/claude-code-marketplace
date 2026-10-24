@@ -1,0 +1,5 @@
+docker exec <ctr> sh -c 'ls -laR /work/cores /work/prod /work/symbols /work/src; which gdb lldb readelf eu-unstrip file; file /work/cores/core'
+docker exec <ctr> sh -c 'cd /work; cat -n src/crashme.c; for f in prod/crashme symbols/*.debug; do echo $f; readelf -n $f | grep -i "build id"; done; echo CORE; readelf -n cores/core | grep -iA3 "build\|crashme" | head -20; gdb -batch -ex "bt" -ex "info registers pc sp" -ex "x/6i \$pc-8" prod/crashme cores/core 2>&1 | tail -20'
+docker exec <ctr> sh -c 'cd /work; gdb -batch -ex "symbol-file symbols/build-0419.debug -o 0xaaaaabaf0000" -ex "bt 3" -ex "info line *0xaaaaabaf09c4" -ex "info registers x0 x19 x20" -ex "frame 0" -ex "info symbol 0xaaaaabaf0920" -ex "frame 1" -ex "x/3gx \$x19" prod/crashme cores/core 2>&1 | tail -20; readelf -lW prod/crashme | grep -m2 LOAD'
+docker exec <ctr> sh -c 'cd /work; gdb -batch -ex "symbol-file symbols/build-0419.debug -o 0xaaaaabaf0000" -ex "frame 0" -ex "p *o" -ex "x/s o->tier" -ex "p \$x0" prod/crashme cores/core 2>&1 | tail -6'
+[Write] <lab>/REPORT.md

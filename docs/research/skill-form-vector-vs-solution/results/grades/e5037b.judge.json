@@ -1,0 +1,87 @@
+{
+  "id": "e5037b",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.086571,
+    "durationMs": 11330,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8287,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 992,
+      "output_tokens_details": {
+        "thinking_tokens": 246
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8287,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 992,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8287,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8287
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "календарная дата отчёта может визуально съезжать на соседний день при отображении в локальном времени; стоит явно выбрать тип",
+      "why": "Исполнитель не утверждает, что теряется Kind или что запись в timestamptz упадёт. Это замечание об отображении с рекомендацией выбрать тип, а PlannedLocal не тронут."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync в выходе не упоминается."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Добавить AsNoTracking в GetInAnalysisForBatchAsync исполнитель не предлагает, код не правится."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FromSql в GetRecentBySiteAsync SQL-инъекцией не назван."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Про падение Tags.Clear() или сирот ничего нет. Находки по RetagAsync касаются конкурентности и валидации."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync по LabCode дефектом не назван."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total * 100` — целочисленное деление раньше умножения ... Деление на `total == 0` (партия без проб) бросает `DivideByZeroException`",
+      "why": "Названы обе части дефекта: результат 0 из-за целочисленного деления и деление на ноль для пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` при контракте «page начинается с 1» пропускает первую (самую новую) страницу партий целиком. Нужно `(page - 1) * pageSize`",
+      "why": "Дефект назван точно, исправление предложено."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,12 @@
+tests/test_clean_train.py:5 - тест называется «shuffles only when asked», но проверяет только shuffle=False и форму батча; ветка shuffle=True не покрыта, регрессия порядка пройдёт незамеченной - minor
+tests/test_clean_train.py:11 - assert N_FEATURES == 40 проверяет константу саму с собой, смысла не несёт; при смене числа признаков тест упадёт без реальной поломки - minor
+tests/test_clean_train.py:1 - train_epoch, evaluate, save_checkpoint, churn_baseline_score тестами не покрыты (в описании заявлено только «загрузчик»); ошибки шага планировщика, чекпоинта и временной валидации уедут в обучение незамеченными - major
+src/shelfwatch/clean_train.py:34 - float(total / len(loader)) при пустом загрузчике (например, маленькая выборка) падает ZeroDivisionError/деление на ноль, обучение обрывается - minor
+src/shelfwatch/clean_train.py:42 - evaluate делит на seen; при пустом загрузчике ZeroDivisionError - minor
+src/shelfwatch/clean_train.py:43 - evaluate возвращает только accuracy; при несбалансированных SKU-классах метрика завышена и скрывает деградацию редких классов (N_CLASSES=10 нигде не используется) - minor
+src/shelfwatch/clean_train.py:29 - scheduler.step() на каждом батче: корректно только для батчевых планировщиков (OneCycle/Cosine с total_steps=epochs*len(loader)); для эпохальных (StepLR, MultiStepLR) lr затухнет в len(loader) раз быстрее, в коде нет проверки/документации контракта - major
+src/shelfwatch/clean_train.py:48 - save_checkpoint не сохраняет состояние RNG и лучшую метрику, а torch.save пишет прямо в path без временного файла: падение посреди записи оставит битый чекпоинт, возобновление не будет воспроизводимым - minor
+src/shelfwatch/clean_train.py:68 - TimeSeriesSplit(5) без проверки порядка по времени (только docstring): при неупорядоченных x/y утечка из будущего завышает оценку бейзлайна; в ранних фолдах может не быть положительных, average_precision даст NaN/предупреждение и np.mean вернёт NaN - major
+src/shelfwatch/clean_train.py:71 - cross_val_score без n_jobs и RF на 300 деревьев в 5 фолдах - медленно на больших срезах; плюс error_score по умолчанию nan, сбой фолда тихо превратится в NaN-среднее - minor
+src/shelfwatch/clean_train.py:73 - pr_auc нигде не используется и не покрыта тестом (мёртвый код) - minor
+src/shelfwatch/clean_train.py:20 - torch.from_numpy(x).float() для float32 не копирует: датасет разделяет память с исходным массивом, внешняя модификация x изменит обучающие данные - minor

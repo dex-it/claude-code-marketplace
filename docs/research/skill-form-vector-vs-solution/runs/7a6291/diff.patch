@@ -1,0 +1,344 @@
+diff --git a/GreenhouseDbContext.cs b/GreenhouseDbContext.cs
+index 02603cd..99d7491 100644
+--- a/GreenhouseDbContext.cs
++++ b/GreenhouseDbContext.cs
+@@ -6,6 +6,7 @@ public class GreenhouseDbContext : DbContext
+ {
+     public GreenhouseDbContext(DbContextOptions<GreenhouseDbContext> options) : base(options) { }
+ 
++    public DbSet<Greenhouse> Greenhouses => Set<Greenhouse>();
+     public DbSet<Sensor> Sensors => Set<Sensor>();
+     public DbSet<Reading> Readings => Set<Reading>();
+ 
+@@ -14,11 +15,22 @@ public class GreenhouseDbContext : DbContext
+ 
+     protected override void OnModelCreating(ModelBuilder b)
+     {
++        b.Entity<Greenhouse>(e =>
++        {
++            e.Property(g => g.Name).HasMaxLength(100);
++            e.HasIndex(g => g.Name).IsUnique();
++            e.Property(g => g.AreaM2).HasColumnName("area_m2").HasPrecision(10, 2);
++        });
++
+         b.Entity<Sensor>(e =>
+         {
+             e.HasIndex(s => s.Serial).IsUnique();
+             e.Property(s => s.Label).HasMaxLength(100);
+             e.Property(s => s.Metric).HasConversion<string>().HasMaxLength(20);
++            e.HasOne(s => s.Greenhouse)
++                .WithMany(g => g.Sensors)
++                .HasForeignKey(s => s.GreenhouseId)
++                .OnDelete(DeleteBehavior.Restrict);
+         });
+ 
+         b.Entity<Reading>(e =>
+diff --git a/Migrations/20261002120000_AddGreenhouses.cs b/Migrations/20261002120000_AddGreenhouses.cs
+new file mode 100644
+index 0000000..c5e7a70
+--- /dev/null
++++ b/Migrations/20261002120000_AddGreenhouses.cs
+@@ -0,0 +1,90 @@
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
++
++#nullable disable
++
++namespace AgroSense.Monitoring.Migrations
++{
++    [DbContext(typeof(GreenhouseDbContext))]
++    [Migration("20261002120000_AddGreenhouses")]
++    public partial class AddGreenhouses : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.CreateTable(
++                name: "greenhouses",
++                columns: table => new
++                {
++                    id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
++                    area_m2 = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: true)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("pk_greenhouses", x => x.id);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "ix_greenhouses_name",
++                table: "greenhouses",
++                column: "name",
++                unique: true);
++
++            // Все уже установленные датчики стоят в основной теплице.
++            // Площадь неизвестна — оставляем NULL, агроном внесёт её через справочник.
++            migrationBuilder.Sql("INSERT INTO greenhouses (name) VALUES ('Теплица №1');");
++
++            // Колонку добавляем nullable, заполняем, и только потом делаем NOT NULL,
++            // чтобы миграция прошла на таблице с существующими строками.
++            migrationBuilder.AddColumn<int>(
++                name: "greenhouse_id",
++                table: "sensors",
++                type: "integer",
++                nullable: true);
++
++            migrationBuilder.Sql(
++                "UPDATE sensors SET greenhouse_id = (SELECT id FROM greenhouses WHERE name = 'Теплица №1');");
++
++            migrationBuilder.AlterColumn<int>(
++                name: "greenhouse_id",
++                table: "sensors",
++                type: "integer",
++                nullable: false,
++                oldClrType: typeof(int),
++                oldType: "integer",
++                oldNullable: true);
++
++            migrationBuilder.CreateIndex(
++                name: "ix_sensors_greenhouse_id",
++                table: "sensors",
++                column: "greenhouse_id");
++
++            migrationBuilder.AddForeignKey(
++                name: "fk_sensors_greenhouses_greenhouse_id",
++                table: "sensors",
++                column: "greenhouse_id",
++                principalTable: "greenhouses",
++                principalColumn: "id",
++                onDelete: ReferentialAction.Restrict);
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropForeignKey(
++                name: "fk_sensors_greenhouses_greenhouse_id",
++                table: "sensors");
++
++            migrationBuilder.DropIndex(
++                name: "ix_sensors_greenhouse_id",
++                table: "sensors");
++
++            migrationBuilder.DropColumn(
++                name: "greenhouse_id",
++                table: "sensors");
++
++            migrationBuilder.DropTable(name: "greenhouses");
++        }
++    }
++}
+diff --git a/Models.cs b/Models.cs
+index f137747..0673d98 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -2,6 +2,15 @@ namespace AgroSense.Monitoring;
+ 
+ public enum Metric { AirTemp, AirHumidity, SoilMoisture, Co2, Light }
+ 
++public class Greenhouse
++{
++    public int Id { get; set; }
++    public string Name { get; set; } = "";
++    // Площадь в м². null — площадь пока не внесена (так заведена «Теплица №1» миграцией).
++    public decimal? AreaM2 { get; set; }
++    public List<Sensor> Sensors { get; set; } = new();
++}
++
+ public class Sensor
+ {
+     public int Id { get; set; }
+@@ -10,6 +19,8 @@ public class Sensor
+     public string Label { get; set; } = "";
+     public Metric Metric { get; set; }
+     public DateTime InstalledAt { get; set; }
++    public int GreenhouseId { get; set; }
++    public Greenhouse Greenhouse { get; set; } = null!;
+     public List<Reading> Readings { get; set; } = new();
+ }
+ 
+diff --git a/ReadingsService.cs b/ReadingsService.cs
+index 10645f7..f4377d7 100644
+--- a/ReadingsService.cs
++++ b/ReadingsService.cs
+@@ -1,5 +1,4 @@
+ using Microsoft.EntityFrameworkCore;
+-using Npgsql;
+ 
+ namespace AgroSense.Monitoring;
+ 
+@@ -7,24 +6,48 @@ public record ReadingIn(string Serial, DateTime? TakenAt, double Value);
+ 
+ public record IngestResult(int Accepted, IReadOnlyList<string> Errors);
+ 
+-public record ReportFilter(DateTime From, DateTime To, List<int>? SensorIds, Metric? Metric, string? Sort);
++// LabelContains — фрагмент метки датчика, ищется без учёта регистра.
++public record ReportFilter(DateTime From, DateTime To, List<int>? SensorIds, Metric? Metric, string? Sort, string? LabelContains = null);
+ 
+-public record ReportRow(string Serial, string Label, Metric Metric, DateTime TakenAt, double Value);
++public record ReportRow(string Serial, string Label, Metric Metric, string Greenhouse, DateTime TakenAt, double Value);
+ 
+ public class ReadingsService
+ {
+     private readonly GreenhouseDbContext _db;
++    // Часовой пояс площадки: в нём контроллеры пишут TakenAt (timestamp without time zone).
++    private readonly TimeZoneInfo _siteTimeZone;
+ 
+-    public ReadingsService(GreenhouseDbContext db) => _db = db;
++    public ReadingsService(GreenhouseDbContext db, TimeZoneInfo? siteTimeZone = null)
++    {
++        _db = db;
++        _siteTimeZone = siteTimeZone ?? TimeZoneInfo.Local;
++    }
+ 
+-    public async Task<int> RegisterSensorAsync(string serial, string label, Metric metric)
++    public async Task<int> CreateGreenhouseAsync(string name, decimal? areaM2)
+     {
++        if (string.IsNullOrWhiteSpace(name))
++            throw new ArgumentException("greenhouse name is required", nameof(name));
++        if (areaM2 is <= 0)
++            throw new ArgumentOutOfRangeException(nameof(areaM2), "area must be positive");
++
++        var greenhouse = new Greenhouse { Name = name.Trim(), AreaM2 = areaM2 };
++        _db.Greenhouses.Add(greenhouse);
++        await _db.SaveChangesAsync();
++        return greenhouse.Id;
++    }
++
++    public async Task<int> RegisterSensorAsync(string serial, string label, Metric metric, int greenhouseId)
++    {
++        if (!await _db.Greenhouses.AnyAsync(g => g.Id == greenhouseId))
++            throw new ArgumentException($"unknown greenhouse {greenhouseId}", nameof(greenhouseId));
++
+         var sensor = new Sensor
+         {
+             Serial = serial,
+             Label = label,
+             Metric = metric,
+             InstalledAt = DateTime.UtcNow,
++            GreenhouseId = greenhouseId,
+         };
+         _db.Sensors.Add(sensor);
+         await _db.SaveChangesAsync();
+@@ -35,8 +58,12 @@ public class ReadingsService
+     public async Task<IngestResult> IngestAsync(IReadOnlyList<ReadingIn> batch)
+     {
+         var errors = new List<string>();
+-        if (batch.Any(r => r.TakenAt is null))
+-            return new IngestResult(0, new[] { "taken_at is required" });
++
++        // Контроллеры старой серии не присылают время измерения — берём момент приёма пакета,
++        // переведённый в местное время площадки, как и остальные значения taken_at.
++        var receivedAt = DateTime.SpecifyKind(
++            TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _siteTimeZone),
++            DateTimeKind.Unspecified);
+ 
+         var serials = batch.Select(r => r.Serial).Distinct().ToList();
+         var sensors = await _db.Sensors
+@@ -55,7 +82,7 @@ public class ReadingsService
+             _db.Readings.Add(new Reading
+             {
+                 SensorId = sensorId,
+-                TakenAt = item.TakenAt!.Value,
++                TakenAt = item.TakenAt ?? receivedAt,
+                 Value = item.Value,
+             });
+             accepted++;
+@@ -67,37 +94,41 @@ public class ReadingsService
+ 
+     public async Task<List<ReportRow>> ReportAsync(ReportFilter f)
+     {
+-        var orderBy = f.Sort switch
+-        {
+-            "value" => "r.value DESC",
+-            "sensor" => "s.serial, r.taken_at",
+-            _ => "r.taken_at",
+-        };
+-
+-        var sql = """
+-            SELECT r.* FROM readings r
+-            JOIN sensors s ON s.id = r.sensor_id
+-            WHERE r.taken_at >= @from AND r.taken_at < @to
+-            """;
++        var q = _db.Readings
++            .AsNoTracking()
++            .Where(r => r.TakenAt >= f.From && r.TakenAt < f.To);
+ 
+         if (f.SensorIds is { Count: > 0 })
+-            sql += $" AND r.sensor_id IN ({string.Join(",", f.SensorIds)})";
++            q = q.Where(r => f.SensorIds.Contains(r.SensorId));
+ 
+         if (f.Metric is { } metric)
+-            sql += $" AND s.metric = '{metric}'";
++            q = q.Where(r => r.Sensor.Metric == metric);
+ 
+-        sql += $" ORDER BY {orderBy}";
++        if (!string.IsNullOrWhiteSpace(f.LabelContains))
++        {
++            // Фрагмент ищется буквально: % и _ из ввода не должны работать как шаблоны ILIKE.
++            var pattern = "%" + EscapeLike(f.LabelContains.Trim()) + "%";
++            q = q.Where(r => EF.Functions.ILike(r.Sensor.Label, pattern, @"\"));
++        }
+ 
+-        var readings = await _db.Readings
+-            .FromSqlRaw(sql,
+-                new NpgsqlParameter("from", f.From),
+-                new NpgsqlParameter("to", f.To))
+-            .Include(r => r.Sensor)
+-            .AsNoTracking()
+-            .ToListAsync();
++        q = f.Sort switch
++        {
++            "value" => q.OrderByDescending(r => r.Value),
++            "sensor" => q.OrderBy(r => r.Sensor.Serial).ThenBy(r => r.TakenAt),
++            _ => q.OrderBy(r => r.TakenAt),
++        };
+ 
+-        return readings
+-            .Select(r => new ReportRow(r.Sensor.Serial, r.Sensor.Label, r.Sensor.Metric, r.TakenAt, r.Value))
+-            .ToList();
++        return await q
++            .Select(r => new ReportRow(
++                r.Sensor.Serial,
++                r.Sensor.Label,
++                r.Sensor.Metric,
++                r.Sensor.Greenhouse.Name,
++                r.TakenAt,
++                r.Value))
++            .ToListAsync();
+     }
++
++    private static string EscapeLike(string s) =>
++        s.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_");
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0d7d7c0
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,24 @@
++## Файлы
++
++**Изменены:**
++- `Models.cs`: новая сущность `Greenhouse` (название и площадь в м²); в `Sensor` добавлены `GreenhouseId` и навигация к теплице.
++- `GreenhouseDbContext.cs`: `DbSet<Greenhouse>`, уникальное название, `area_m2 numeric(10,2)`, внешний ключ sensors→greenhouses с `Restrict`.
++- `ReadingsService.cs`:
++  - `CreateGreenhouseAsync`.
++  - Теплица теперь обязательный параметр `RegisterSensorAsync`, и её существование проверяется.
++  - Пакеты без времени измерения принимаются.
++  - В фильтре отчёта появился `LabelContains`.
++  - В `ReportRow` добавлено поле `Greenhouse`.
++
++**Создан:**
++- `Migrations/20261002120000_AddGreenhouses.cs`: создаёт таблицу `greenhouses` и заводит в ней «Теплицу №1». Затем добавляет в `sensors` колонку `greenhouse_id`, заполняет её ссылкой на эту теплицу и делает обязательной (NOT NULL). В конце создаёт индекс и внешний ключ. `Down` откатывает все изменения.
++
++## Решения
++- **Миграция.** Колонка сначала добавляется пустой, заполняется, и только потом становится NOT NULL — так миграция проходит на таблице с уже существующими датчиками. Площадь «Теплицы №1» неизвестна, поэтому поле площади допускает пустое значение: выдумывать число я не стал. В pipeline этап `migrate` идёт раньше `deploy`. Пока новая версия не выкатилась, регистрация датчика через старую версию будет падать на NOT NULL. Приём показаний это не затрагивает.
++- **Время измерения.** В `taken_at` хранится местное время площадки (`timestamp without time zone`). Поэтому, если контроллер не прислал время, берётся момент приёма пакета в часовом поясе площадки, а не `UtcNow`. Иначе значения сдвинутся на величину смещения от UTC. Часовой пояс передаётся в конструктор, по умолчанию берётся пояс сервера. **Нужно уточнить пояс площадки:** если сервер работает в UTC, его надо явно зарегистрировать в DI.
++- **Отчёт.** Переписан с SQL-строки на LINQ:
++  - фрагмент метки передаётся параметром через `ILIKE` с экранированием `%`, `_` и `\` — это защищает от SQL-инъекций и от срабатывания шаблонных символов;
++  - порядок сортировки теперь гарантирован: раньше `ORDER BY` стоял внутри подзапроса, обёрнутого `Include`;
++  - название теплицы получается обычным JOIN.
++
++  В репозитории нет `*.Designer.cs` и `ModelSnapshot`. Поэтому атрибуты `[DbContext]` и `[Migration]` я поставил прямо в файл миграции. Snapshot стоит перегенерировать командой `dotnet ef migrations add` в рабочем окружении. Сборку и тесты я не запускал.

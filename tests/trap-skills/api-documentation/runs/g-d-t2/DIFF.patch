@@ -1,0 +1,515 @@
+diff --git a/README.md b/README.md
+index 5e35e60..a591e4b 100644
+--- a/README.md
++++ b/README.md
+@@ -21,3 +21,8 @@ dotnet run --project src/Bookings.Api     # http://localhost:5080, окруже
+ Контракт - swagger.json, генерируется Swashbuckle из кода: `/swagger/v1/swagger.json` (Development).
+ Ручной `api/openapi.yaml` больше не ведём. История версий до перехода -
+ `api/CHANGELOG.md`. Требования - `docs/requirements/FR.md`.
++
++Описания операций, примеры, ошибки и повтор запросов - в XML-комментариях контроллеров и атрибутах
++`ProblemResponse` / `ValidationProblemResponse`; описания и примеры полей моделей - в
++`src/Bookings.Api/Swagger/ContractSchemaFilter.cs`. Меняете схему или операцию - обновите их и
++пересоздайте клиента (NSwag) по новому `swagger.json`.
+diff --git a/src/Bookings.Api/Bookings.Api.csproj b/src/Bookings.Api/Bookings.Api.csproj
+index 0ea17f4..928f3a9 100644
+--- a/src/Bookings.Api/Bookings.Api.csproj
++++ b/src/Bookings.Api/Bookings.Api.csproj
+@@ -2,6 +2,9 @@
+ 
+   <PropertyGroup>
+     <TargetFramework>net10.0</TargetFramework>
++    <GenerateDocumentationFile>true</GenerateDocumentationFile>
++    <!-- CS1591: XML-комментарии нужны только операциям контракта, не каждому публичному члену -->
++    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+   </PropertyGroup>
+ 
+   <ItemGroup>
+diff --git a/src/Bookings.Api/Controllers/BookingsController.cs b/src/Bookings.Api/Controllers/BookingsController.cs
+index 5b8a1d0..913df1b 100644
+--- a/src/Bookings.Api/Controllers/BookingsController.cs
++++ b/src/Bookings.Api/Controllers/BookingsController.cs
+@@ -4,6 +4,7 @@ using Bookings.Api.Auth;
+ using Bookings.Api.Contracts;
+ using Bookings.Api.Data;
+ using Bookings.Api.Domain;
++using Bookings.Api.Swagger;
+ using Bookings.Api.Validation;
+ using Microsoft.AspNetCore.Mvc;
+ using Microsoft.EntityFrameworkCore;
+@@ -16,9 +17,23 @@ namespace Bookings.Api.Controllers;
+ public class BookingsController(BookingsDbContext db, TimeProvider clock) : ControllerBase
+ {
+     private const int DefaultLimit = 20;
+-    private const int MaxLimit = 100;
+-
+-    [HttpGet]
++    public const int MaxLimit = 100;
++
++    /// <summary>Лента броней за период, по всем комнатам или по одной.</summary>
++    /// <remarks>
++    /// Требование FR-02. Порядок - по началу брони, затем по идентификатору. В ленту входят и активные, и отменённые брони.
++    /// Следующая страница - тот же запрос с <c>cursor</c> из <c>nextCursor</c>; <c>nextCursor: null</c> - лента закончилась.
++    /// Операция только читает, повтор безопасен.
++    /// </remarks>
++    /// <param name="roomId">Только брони этой комнаты; без параметра - по всем комнатам.</param>
++    /// <param name="from">Начало периода: попадают брони, заканчивающиеся позже этого момента.</param>
++    /// <param name="to">Конец периода: попадают брони, начинающиеся раньше этого момента.</param>
++    /// <param name="limit">Размер страницы, 1-100.</param>
++    /// <param name="cursor">Курсор из <c>nextCursor</c> предыдущей страницы; для первой страницы не передаётся.</param>
++    /// <response code="200">Страница ленты.</response>
++    [HttpGet(Name = "ListBookings")]
++    [ProducesResponseType<CursorPageDto<BookingDto>>(StatusCodes.Status200OK)]
++    [ValidationProblemResponse("limit", "limit - от 1 до 100.")]
+     public async Task<ActionResult<CursorPageDto<BookingDto>>> List(
+         string? roomId, DateTimeOffset? from, DateTimeOffset? to, int limit = DefaultLimit, string? cursor = null,
+         CancellationToken cancellationToken = default)
+@@ -64,7 +79,20 @@ public class BookingsController(BookingsDbContext db, TimeProvider clock) : Cont
+         return new CursorPageDto<BookingDto>(page.Select(BookingDto.From).ToList(), nextCursor);
+     }
+ 
+-    [HttpPost]
++    /// <summary>Забронировать комнату на время.</summary>
++    /// <remarks>
++    /// Требования FR-03, FR-05, FR-08, FR-09. Владелец брони - участник, чей ключ передан в запросе.
++    ///
++    /// Операция не идемпотентна: ключа идемпотентности нет. Если ответ потерян, не повторяйте POST вслепую:
++    /// повтор получит 409 <c>booking-overlap</c>, потому что первая бронь уже занимает это время. Сначала найдите бронь через
++    /// <c>GET /api/v1/bookings?roomId=...&amp;from=...&amp;to=...</c> (ищите свою по <c>ownerId</c>, <c>startsAt</c> и <c>title</c>).
++    /// </remarks>
++    /// <response code="201">Бронь создана; заголовок <c>Location</c> - адрес брони.</response>
++    [HttpPost(Name = "CreateBooking")]
++    [ProducesResponseType<BookingDto>(StatusCodes.Status201Created)]
++    [ValidationProblemResponse("durationMinutes", "Длительность - от 15 до 240 минут, кратно 15.")]
++    [ProblemResponse(StatusCodes.Status404NotFound, "room-not-found", "Комната не найдена.")]
++    [ProblemResponse(StatusCodes.Status409Conflict, "booking-overlap", "Комната на это время уже занята.")]
+     public async Task<ActionResult<BookingDto>> Create(CreateBookingRequest request, CancellationToken cancellationToken)
+     {
+         var errors = BookingRules.Validate(request, clock.GetUtcNow());
+@@ -89,7 +117,13 @@ public class BookingsController(BookingsDbContext db, TimeProvider clock) : Cont
+         return CreatedAtAction(nameof(Get), new { id = booking.Id }, BookingDto.From(booking));
+     }
+ 
+-    [HttpGet("{id:guid}")]
++    /// <summary>Бронь по идентификатору.</summary>
++    /// <remarks>Требование FR-04: чужие брони видны всем участникам. Операция только читает, повтор безопасен.</remarks>
++    /// <param name="id">Идентификатор брони.</param>
++    /// <response code="200">Бронь.</response>
++    [HttpGet("{id:guid}", Name = "GetBooking")]
++    [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
++    [ProblemResponse(StatusCodes.Status404NotFound, "booking-not-found", "Бронь не найдена.")]
+     public async Task<ActionResult<BookingDto>> Get(Guid id, CancellationToken cancellationToken)
+     {
+         var booking = await db.Bookings.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+@@ -99,7 +133,23 @@ public class BookingsController(BookingsDbContext db, TimeProvider clock) : Cont
+         return BookingDto.From(booking);
+     }
+ 
+-    [HttpPatch("{id:guid}")]
++    /// <summary>Перенести бронь на другое время.</summary>
++    /// <remarks>
++    /// Требования FR-06, FR-10. Переносить может владелец или администратор. В запросе передаётся <c>version</c>, полученная
++    /// при последнем чтении брони; если бронь с тех пор изменилась - 409 <c>version-conflict</c>: прочитайте бронь заново и повторите.
++    ///
++    /// Повтор после потерянного ответа не создаёт дубля: перенос уже применился и версия сменилась, повтор с прежней
++    /// <c>version</c> получит 409 <c>version-conflict</c> - прочитайте бронь и сверьте время. Отменённую бронь перенести нельзя.
++    /// </remarks>
++    /// <param name="id">Идентификатор брони.</param>
++    /// <param name="request">Новое время и версия брони.</param>
++    /// <response code="200">Бронь после переноса, с новой версией.</response>
++    [HttpPatch("{id:guid}", Name = "RescheduleBooking")]
++    [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
++    [ValidationProblemResponse("startsAt", "Начало брони должно быть в будущем.")]
++    [ProblemResponse(StatusCodes.Status403Forbidden, "not-owner", "Изменить бронь может только её владелец или администратор.")]
++    [ProblemResponse(StatusCodes.Status404NotFound, "booking-not-found", "Бронь не найдена.")]
++    [ProblemResponse(StatusCodes.Status409Conflict, "version-conflict", "Бронь изменилась, обновите её и повторите.")]
+     public async Task<ActionResult<BookingDto>> Reschedule(Guid id, RescheduleBookingRequest request, CancellationToken cancellationToken)
+     {
+         var errors = BookingRules.Validate(request, clock.GetUtcNow());
+@@ -137,7 +187,18 @@ public class BookingsController(BookingsDbContext db, TimeProvider clock) : Cont
+         return BookingDto.From(booking);
+     }
+ 
+-    [HttpDelete("{id:guid}")]
++    /// <summary>Отменить бронь.</summary>
++    /// <remarks>
++    /// Требования FR-07, FR-10, FR-11. Отменяет владелец или администратор. Бронь остаётся в истории со статусом
++    /// <c>cancelled</c> и перестаёт занимать комнату. Операция идемпотентна: повторная отмена уже отменённой брони
++    /// даёт тот же ответ 204, повторять после потерянного ответа безопасно.
++    /// </remarks>
++    /// <param name="id">Идентификатор брони.</param>
++    /// <response code="204">Бронь отменена (или уже была отменена).</response>
++    [HttpDelete("{id:guid}", Name = "CancelBooking")]
++    [ProducesResponseType(StatusCodes.Status204NoContent)]
++    [ProblemResponse(StatusCodes.Status403Forbidden, "not-owner", "Изменить бронь может только её владелец или администратор.")]
++    [ProblemResponse(StatusCodes.Status404NotFound, "booking-not-found", "Бронь не найдена.")]
+     public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
+     {
+         var booking = await db.Bookings.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+diff --git a/src/Bookings.Api/Controllers/RoomsController.cs b/src/Bookings.Api/Controllers/RoomsController.cs
+index 80ffe11..fc0d31e 100644
+--- a/src/Bookings.Api/Controllers/RoomsController.cs
++++ b/src/Bookings.Api/Controllers/RoomsController.cs
+@@ -1,6 +1,7 @@
+ using Bookings.Api.Auth;
+ using Bookings.Api.Contracts;
+ using Bookings.Api.Data;
++using Bookings.Api.Swagger;
+ using Microsoft.AspNetCore.Authorization;
+ using Microsoft.AspNetCore.Mvc;
+ using Microsoft.EntityFrameworkCore;
+@@ -12,9 +13,16 @@ namespace Bookings.Api.Controllers;
+ public class RoomsController(BookingsDbContext db, ILogger<RoomsController> logger) : ControllerBase
+ {
+     private const int DefaultLimit = 20;
+-    private const int MaxLimit = 100;
++    public const int MaxLimit = 100;
+ 
+-    [HttpGet]
++    /// <summary>Перечень комнат офиса.</summary>
++    /// <remarks>Требование FR-01. Порядок - по идентификатору комнаты. Операция только читает, повтор безопасен.</remarks>
++    /// <param name="limit">Размер страницы, 1-100.</param>
++    /// <param name="offset">Сколько комнат пропустить от начала перечня.</param>
++    /// <response code="200">Страница перечня с общим числом комнат.</response>
++    [HttpGet(Name = "ListRooms")]
++    [ProducesResponseType<PageDto<RoomDto>>(StatusCodes.Status200OK)]
++    [ValidationProblemResponse("limit", "limit - от 1 до 100.")]
+     public async Task<ActionResult<PageDto<RoomDto>>> List(int limit = DefaultLimit, int offset = 0, CancellationToken cancellationToken = default)
+     {
+         var errors = new Dictionary<string, string[]>();
+@@ -36,7 +44,13 @@ public class RoomsController(BookingsDbContext db, ILogger<RoomsController> logg
+         return new PageDto<RoomDto>(rooms.Select(RoomDto.From).ToList(), total);
+     }
+ 
+-    [HttpGet("{roomId}")]
++    /// <summary>Карточка комнаты.</summary>
++    /// <remarks>Требование FR-01. Операция только читает, повтор безопасен.</remarks>
++    /// <param name="roomId">Идентификатор комнаты.</param>
++    /// <response code="200">Комната.</response>
++    [HttpGet("{roomId}", Name = "GetRoom")]
++    [ProducesResponseType<RoomDto>(StatusCodes.Status200OK)]
++    [ProblemResponse(StatusCodes.Status404NotFound, "room-not-found", "Комната не найдена.")]
+     public async Task<ActionResult<RoomDto>> Get(string roomId, CancellationToken cancellationToken)
+     {
+         var room = await db.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == roomId, cancellationToken);
+@@ -46,8 +60,19 @@ public class RoomsController(BookingsDbContext db, ILogger<RoomsController> logg
+         return RoomDto.From(room);
+     }
+ 
+-    // Устарело с 1.2.0: замена - GET /api/v1/bookings?roomId=, удаление после 2027-03-01
+-    [HttpGet("{roomId}/bookings")]
++    /// <summary>Брони комнаты за период. УСТАРЕЛО.</summary>
++    /// <remarks>
++    /// Устарело с 1.2.0. Замена - <c>GET /api/v1/bookings?roomId=</c> (лента с курсором); операция будет удалена после 2027-03-01.
++    /// Возвращает весь результат одним списком, без пагинации. Требование FR-02.
++    /// </remarks>
++    /// <param name="roomId">Идентификатор комнаты.</param>
++    /// <param name="from">Начало периода: попадают брони, заканчивающиеся позже этого момента.</param>
++    /// <param name="to">Конец периода: попадают брони, начинающиеся раньше этого момента.</param>
++    /// <response code="200">Брони комнаты по возрастанию начала.</response>
++    [HttpGet("{roomId}/bookings", Name = "ListRoomBookings")]
++    [Obsolete("Используйте GET /api/v1/bookings?roomId=; удаление после 2027-03-01.")]
++    [ProducesResponseType<IReadOnlyList<BookingDto>>(StatusCodes.Status200OK)]
++    [ProblemResponse(StatusCodes.Status404NotFound, "room-not-found", "Комната не найдена.")]
+     public async Task<ActionResult<IReadOnlyList<BookingDto>>> ListRoomBookings(
+         string roomId, DateTimeOffset? from, DateTimeOffset? to, CancellationToken cancellationToken)
+     {
+@@ -64,6 +89,8 @@ public class RoomsController(BookingsDbContext db, ILogger<RoomsController> logg
+         return bookings.Select(BookingDto.From).ToList();
+     }
+ 
++    /// <summary>Служебная операция администратора; в публичный контракт не входит.</summary>
++    [ApiExplorerSettings(IgnoreApi = true)]
+     [HttpPost("/api/v1/internal/rooms/reindex")]
+     [Authorize(Roles = Roles.Admin)]
+     public IActionResult Reindex()
+diff --git a/src/Bookings.Api/Program.cs b/src/Bookings.Api/Program.cs
+index 754375d..f22f4b7 100644
+--- a/src/Bookings.Api/Program.cs
++++ b/src/Bookings.Api/Program.cs
+@@ -2,9 +2,11 @@ using System.Text.Json;
+ using System.Text.Json.Serialization;
+ using Bookings.Api.Auth;
+ using Bookings.Api.Data;
++using Bookings.Api.Swagger;
+ using Microsoft.AspNetCore.Authentication;
+ using Microsoft.AspNetCore.Authorization;
+ using Microsoft.EntityFrameworkCore;
++using Microsoft.OpenApi.Models;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ 
+@@ -21,7 +23,47 @@ builder.Services.AddAuthorization(o =>
+     o.DefaultPolicy = new AuthorizationPolicyBuilder(ApiKeyAuthenticationHandler.SchemeName).RequireAuthenticatedUser().Build());
+ 
+ builder.Services.AddEndpointsApiExplorer();
+-builder.Services.AddSwaggerGen();
++builder.Services.AddSwaggerGen(c =>
++{
++    c.SwaggerDoc("v1", new OpenApiInfo
++    {
++        Title = "Bookings API",
++        Version = "1.2.0",
++        Description = """
++            Сервис бронирования переговорных: комнаты, брони, перенос и отмена.
++
++            **Доступ.** Каждый запрос - с ключом доступа в заголовке `X-Api-Key`; без него или с неверным ключом - 401.
++
++            **Время.** Все моменты времени - ISO 8601; хранятся и возвращаются в UTC.
++
++            **Ошибки.** Ответы об ошибках - `application/problem+json` (RFC 9457) с дополнительным полем `code`:
++            ветвиться в клиенте нужно по `code`, а не по тексту `title`.
++
++            **Версии.** Версия контракта - в `info.version`; история изменений - в `api/CHANGELOG.md`.
++            Устаревшие операции помечены `deprecated`, в описании указаны замена и срок удаления.
++            """
++    });
++
++    c.SupportNonNullableReferenceTypes();
++    c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, $"{typeof(Program).Assembly.GetName().Name}.xml"));
++    c.SchemaFilter<ContractSchemaFilter>();
++    c.OperationFilter<ContractOperationFilter>();
++
++    c.AddSecurityDefinition(ApiKeyAuthenticationHandler.SchemeName, new OpenApiSecurityScheme
++    {
++        Type = SecuritySchemeType.ApiKey,
++        In = ParameterLocation.Header,
++        Name = ApiKeyAuthenticationHandler.HeaderName,
++        Description = "Ключ доступа участника или администратора."
++    });
++    c.AddSecurityRequirement(new OpenApiSecurityRequirement
++    {
++        [new OpenApiSecurityScheme
++        {
++            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = ApiKeyAuthenticationHandler.SchemeName }
++        }] = []
++    });
++});
+ 
+ builder.Services.AddDbContext<BookingsDbContext>((services, options) =>
+     options.UseNpgsql(services.GetRequiredService<IConfiguration>().GetConnectionString("Bookings")));
+diff --git a/src/Bookings.Api/Swagger/ContractOperationFilter.cs b/src/Bookings.Api/Swagger/ContractOperationFilter.cs
+new file mode 100644
+index 0000000..b8f5775
+--- /dev/null
++++ b/src/Bookings.Api/Swagger/ContractOperationFilter.cs
+@@ -0,0 +1,63 @@
++using Bookings.Api.Controllers;
++using Microsoft.OpenApi.Any;
++using Microsoft.OpenApi.Models;
++using Swashbuckle.AspNetCore.SwaggerGen;
++
++namespace Bookings.Api.Swagger;
++
++/// <summary>
++/// Примеры тел ошибок, ответ 401 для каждой операции, границы <c>limit</c>.
++/// </summary>
++public class ContractOperationFilter : IOperationFilter
++{
++    public void Apply(OpenApiOperation operation, OperationFilterContext context)
++    {
++        foreach (var attribute in context.MethodInfo.GetCustomAttributes(typeof(ProblemResponseAttribute), inherit: false).Cast<ProblemResponseAttribute>())
++            SetProblemExample(operation, attribute.StatusCode, attribute.Code, attribute.Title);
++
++        foreach (var attribute in context.MethodInfo.GetCustomAttributes(typeof(ValidationProblemResponseAttribute), inherit: false).Cast<ValidationProblemResponseAttribute>())
++            SetProblemExample(operation, 400, "validation-failed", "One or more validation errors occurred.", attribute.Field, attribute.Message);
++
++        if (!operation.Responses.ContainsKey("401"))
++        {
++            operation.Responses["401"] = new OpenApiResponse
++            {
++                Description = "Ключ доступа не передан или недействителен.",
++                Content = { ["application/problem+json"] = new OpenApiMediaType { Schema = ProblemSchema() } }
++            };
++            SetProblemExample(operation, 401, "unauthorized", "Нужен действующий ключ доступа.");
++        }
++
++        foreach (var parameter in operation.Parameters.Where(p => p.Name == "limit"))
++        {
++            parameter.Schema.Minimum = 1;
++            parameter.Schema.Maximum = context.MethodInfo.DeclaringType == typeof(BookingsController)
++                ? BookingsController.MaxLimit
++                : RoomsController.MaxLimit;
++        }
++    }
++
++    private static OpenApiSchema ProblemSchema() =>
++        new() { Reference = new OpenApiReference { Type = ReferenceType.Schema, Id = "ProblemDetails" } };
++
++    private static void SetProblemExample(
++        OpenApiOperation operation, int status, string code, string title, string? field = null, string? message = null)
++    {
++        if (!operation.Responses.TryGetValue(status.ToString(), out var response)
++            || !response.Content.TryGetValue("application/problem+json", out var media))
++            return;
++
++        var example = new OpenApiObject
++        {
++            ["title"] = new OpenApiString(title),
++            ["status"] = new OpenApiInteger(status),
++            ["code"] = new OpenApiString(code),
++            ["traceId"] = new OpenApiString("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00"),
++        };
++
++        if (field is not null)
++            example["errors"] = new OpenApiObject { [field] = new OpenApiArray { new OpenApiString(message) } };
++
++        media.Example = example;
++    }
++}
+diff --git a/src/Bookings.Api/Swagger/ContractSchemaFilter.cs b/src/Bookings.Api/Swagger/ContractSchemaFilter.cs
+new file mode 100644
+index 0000000..0d3ca34
+--- /dev/null
++++ b/src/Bookings.Api/Swagger/ContractSchemaFilter.cs
+@@ -0,0 +1,113 @@
++using Bookings.Api.Contracts;
++using Bookings.Api.Validation;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.OpenApi.Any;
++using Microsoft.OpenApi.Models;
++using Swashbuckle.AspNetCore.SwaggerGen;
++
++namespace Bookings.Api.Swagger;
++
++/// <summary>
++/// Описания, примеры и ограничения полей моделей контракта; обязательность полей - по правилам сериализации.
++/// </summary>
++public class ContractSchemaFilter : ISchemaFilter
++{
++    private static readonly Dictionary<(Type Type, string Property), (string Description, IOpenApiAny Example)> Fields = new()
++    {
++        [(typeof(BookingDto), "id")] = ("Идентификатор брони.", new OpenApiString("3f2b8c1e-5d4a-4e7b-9a61-0c8f2d7e4b15")),
++        [(typeof(BookingDto), "roomId")] = ("Идентификатор комнаты.", new OpenApiString("room-a")),
++        [(typeof(BookingDto), "title")] = ("Название встречи.", new OpenApiString("Планирование спринта")),
++        [(typeof(BookingDto), "comment")] = ("Комментарий; null, если не указан.", new OpenApiString("Нужен проектор")),
++        [(typeof(BookingDto), "startsAt")] = ("Начало брони, UTC.", new OpenApiString("2026-10-20T09:00:00Z")),
++        [(typeof(BookingDto), "durationMinutes")] = ("Длительность в минутах.", new OpenApiInteger(60)),
++        [(typeof(BookingDto), "endsAt")] = ("Окончание брони (начало + длительность), UTC.", new OpenApiString("2026-10-20T10:00:00Z")),
++        [(typeof(BookingDto), "ownerId")] = ("Идентификатор участника, создавшего бронь.", new OpenApiString("alice")),
++        [(typeof(BookingDto), "status")] = ("Статус: active - бронь действует и занимает комнату, cancelled - отменена и комнату не занимает.", new OpenApiString("active")),
++        [(typeof(BookingDto), "version")] = ("Версия брони; при переносе передаётся обратно как есть (оптимистичная блокировка).", new OpenApiInteger(1042)),
++
++        [(typeof(CreateBookingRequest), "roomId")] = ("Идентификатор существующей комнаты.", new OpenApiString("room-a")),
++        [(typeof(CreateBookingRequest), "title")] = ("Название встречи, 1-120 символов.", new OpenApiString("Планирование спринта")),
++        [(typeof(CreateBookingRequest), "startsAt")] = ("Начало брони: в будущем, не позже чем через 90 дней; передаётся со смещением, хранится в UTC.", new OpenApiString("2026-10-20T09:00:00Z")),
++        [(typeof(CreateBookingRequest), "durationMinutes")] = ("Длительность в минутах: от 15 до 240, кратно 15.", new OpenApiInteger(60)),
++        [(typeof(CreateBookingRequest), "comment")] = ("Необязательный комментарий, до 500 символов.", new OpenApiString("Нужен проектор")),
++
++        [(typeof(RescheduleBookingRequest), "startsAt")] = ("Новое начало брони: в будущем, не позже чем через 90 дней.", new OpenApiString("2026-10-21T14:00:00Z")),
++        [(typeof(RescheduleBookingRequest), "durationMinutes")] = ("Новая длительность в минутах: от 15 до 240, кратно 15.", new OpenApiInteger(30)),
++        [(typeof(RescheduleBookingRequest), "version")] = ("Версия брони, полученная при последнем чтении (поле version брони).", new OpenApiInteger(1042)),
++
++        [(typeof(RoomDto), "id")] = ("Идентификатор комнаты.", new OpenApiString("room-a")),
++        [(typeof(RoomDto), "name")] = ("Название комнаты.", new OpenApiString("Байкал")),
++        [(typeof(RoomDto), "capacity")] = ("Вместимость, человек (1-50).", new OpenApiInteger(12)),
++        [(typeof(RoomDto), "floor")] = ("Этаж.", new OpenApiInteger(3)),
++        [(typeof(RoomDto), "features")] = ("Оснащение комнаты.", new OpenApiArray { new OpenApiString("projector"), new OpenApiString("whiteboard") }),
++    };
++
++    public void Apply(OpenApiSchema schema, SchemaFilterContext context)
++    {
++        var type = context.Type;
++        if (type == typeof(ProblemDetails) || type == typeof(ValidationProblemDetails))
++        {
++            schema.Properties["code"] = new OpenApiSchema
++            {
++                Type = "string",
++                Description = "Машиночитаемый код ошибки (стабилен): room-not-found, booking-not-found, not-owner, "
++                    + "booking-overlap, version-conflict, booking-cancelled, validation-failed, unauthorized, forbidden.",
++                Example = new OpenApiString("booking-not-found")
++            };
++            return;
++        }
++
++        if (type.IsGenericType)
++            ApplyPage(schema, type.GetGenericTypeDefinition());
++
++        if (type.Namespace != typeof(BookingDto).Namespace || schema.Properties.Count == 0)
++            return;
++
++        var isRequest = type.Name.EndsWith("Request", StringComparison.Ordinal);
++        foreach (var (name, property) in schema.Properties)
++        {
++            // Ответы сериализуют все поля (null отдаётся явно); в запросе обязательны только не-nullable.
++            if (!isRequest || !property.Nullable)
++                schema.Required.Add(name);
++
++            if (Fields.TryGetValue((type, name), out var field))
++            {
++                property.Description = field.Description;
++                property.Example = field.Example;
++            }
++        }
++
++        if (type == typeof(CreateBookingRequest))
++        {
++            schema.Properties["title"].MinLength = 1;
++            schema.Properties["title"].MaxLength = BookingRules.TitleMaxLength;
++            schema.Properties["comment"].MaxLength = BookingRules.CommentMaxLength;
++        }
++
++        if (type == typeof(CreateBookingRequest) || type == typeof(RescheduleBookingRequest))
++        {
++            schema.Properties["durationMinutes"].Minimum = BookingRules.MinDurationMinutes;
++            schema.Properties["durationMinutes"].Maximum = BookingRules.MaxDurationMinutes;
++            schema.Properties["durationMinutes"].MultipleOf = BookingRules.DurationStep;
++        }
++    }
++
++    private static void ApplyPage(OpenApiSchema schema, Type definition)
++    {
++        if (definition == typeof(PageDto<>))
++        {
++            schema.Description = "Страница списка с позиционной пагинацией (limit/offset).";
++            schema.Properties["items"].Description = "Элементы страницы.";
++            schema.Properties["total"].Description = "Общее число элементов во всём списке.";
++            schema.Properties["total"].Example = new OpenApiInteger(3);
++        }
++        else if (definition == typeof(CursorPageDto<>))
++        {
++            schema.Description = "Страница ленты с курсорной пагинацией.";
++            schema.Properties["items"].Description = "Элементы страницы.";
++            schema.Properties["nextCursor"].Description =
++                "Непрозрачный курсор следующей страницы; передаётся в параметр cursor без изменений. null - страница последняя.";
++            schema.Properties["nextCursor"].Example = new OpenApiString("NjM5MDAwMDAwMDAwMDAwMDAwOjNmMmI4YzFlNWQ0YTRlN2I5YTYxMGM4ZjJkN2U0YjE1");
++        }
++    }
++}
+diff --git a/src/Bookings.Api/Swagger/ProblemResponseAttribute.cs b/src/Bookings.Api/Swagger/ProblemResponseAttribute.cs
+new file mode 100644
+index 0000000..6fa09d3
+--- /dev/null
++++ b/src/Bookings.Api/Swagger/ProblemResponseAttribute.cs
+@@ -0,0 +1,31 @@
++using Microsoft.AspNetCore.Mvc;
++
++namespace Bookings.Api.Swagger;
++
++/// <summary>
++/// Ошибочный ответ операции в формате problem+json: попадает в swagger.json со схемой и примером тела.
++/// </summary>
++[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
++public sealed class ProblemResponseAttribute(int statusCode, string code, string title)
++    : ProducesResponseTypeAttribute(typeof(ProblemDetails), statusCode, "application/problem+json")
++{
++    /// <summary>Значение поля <c>code</c> в теле ошибки.</summary>
++    public string Code { get; } = code;
++
++    /// <summary>Значение поля <c>title</c> в теле ошибки.</summary>
++    public string Title { get; } = title;
++}
++
++/// <summary>
++/// Ответ 400 с ошибками валидации (поле <c>errors</c>); пример построен на одном поле.
++/// </summary>
++[AttributeUsage(AttributeTargets.Method)]
++public sealed class ValidationProblemResponseAttribute(string field, string message)
++    : ProducesResponseTypeAttribute(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest, "application/problem+json")
++{
++    /// <summary>Поле, на котором построен пример.</summary>
++    public string Field { get; } = field;
++
++    /// <summary>Текст ошибки в примере.</summary>
++    public string Message { get; } = message;
++}

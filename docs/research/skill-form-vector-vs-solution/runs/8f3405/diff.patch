@@ -1,0 +1,90 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..753c4d5
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,84 @@
++# Ревью MR (SalesReport.cs, CustomerExport.cs, CatalogSearch.cs, StockImport.cs)
++
++## 1. CustomerExport.cs — `CustomersWithOrders` — critical
++
++```csharp
++return orders
++    .Select(o => o.Customer)
++    .Distinct()
++    .OrderBy(c => c.Email)
++    .ToList();
++```
++
++`Distinct()` вызывается на объектах `Customer`, у которого не переопределены `Equals`/`GetHashCode` — используется reference equality (пункт чек-листа «Distinct() на объектах»). Запрос выполняется с `AsNoTracking()`, поэтому EF Core **не** делает identity resolution: при нескольких заказах одного клиента в периоде для каждого `Order` будет материализован свой собственный объект `Customer` (разные ссылки с одинаковыми данными). В результате `Distinct()` не уберёт дубликаты, и метод, предназначенный для выгрузки *уникальных* клиентов в CRM, вернёт клиента столько раз, сколько у него заказов в периоде. Это ломает саму цель метода.
++
++Исправление: группировать по `CustomerId` (`orders.GroupBy(o => o.CustomerId).Select(g => g.First().Customer)`), либо использовать `AsNoTrackingWithIdentityResolution()`, либо сразу выбрать `DISTINCT` клиентов через `_db.Customers.Where(c => c.Orders.Any(...))`.
++
++## 2. SalesReport.cs — `Build` — high
++
++```csharp
++var products = await _products.GetAllAsync(ct);
++...
++return products
++    .Where(p => p.IsActive)
++    .Select(p => { var sold = items.Where(i => i.ProductId == p.Id).ToList(); ... })
++```
++
++Несколько наложенных проблем в одном методе:
++
++- **Материализация в начале цепочки**: `GetAllAsync()` тянет из БД *все* продукты (активные и неактивные), фильтр `IsActive` применяется уже в памяти. Нужно фильтровать на стороне БД.
++- **Полная сущность для списка**: для отчёта нужны только `Id`/`Name`, а загружается вся сущность `Product`, включая `Image byte[]` (потенциально тяжёлое поле) и `Description` — лишний трафик и память на каждый вызов отчёта.
++- **Поиск по списку в цикле**: для каждого продукта делается `items.Where(i => i.ProductId == p.Id)` — линейный проход по всему списку `items` внутри `Select` по продуктам, т.е. сложность O(P×I). При заметном числе позиций и товаров это квадратичная деградация. Нужно один раз сгруппировать `items` (`ToLookup(i => i.ProductId)` или `GroupBy` + `ToDictionary`) и обращаться к группе за O(1).
++
++Итог: метод стоит переписать на агрегирующий SQL-запрос (`GroupBy` в EF Core) либо хотя бы убрать полную загрузку и квадратичный поиск.
++
++## 3. StockImport.cs — `Import` — high
++
++```csharp
++var products = await _db.Products.ToListAsync(ct);
++...
++var product = products.FirstOrDefault(p => p.Id == id);
++```
++
++- **Полная сущность для списка**: загружается вся таблица `Products` целиком, включая `Image` и `Description`, хотя нужны только `Id` и `Stock`.
++- **Поиск по списку в цикле**: на каждую строку CSV выполняется `FirstOrDefault` линейным перебором по всему списку продуктов — O(N×M), где N — число товаров, M — число строк файла. Для сколько-нибудь крупного каталога/файла остатков это заметно деградирует импорт.
++
++Исправление: построить `Dictionary<Guid, Product>` один раз перед циклом (или обновлять через `ExecuteUpdateAsync`/batch по совпавшим id), и по возможности не тянуть колонку `Image` (например, отдельным DbSet-проекцией/`Select` без блоба, либо через `ExecuteUpdate`).
++
++## 4. CustomerExport.cs — `HasOrders` — medium
++
++```csharp
++public async Task<bool> HasOrders(Guid customerId, CancellationToken ct = default) =>
++    await _db.Orders.CountAsync(o => o.CustomerId == customerId, ct) > 0;
++```
++
++Классический пункт чек-листа «Проверка наличия через `Count() > 0`». `CountAsync` транслируется в `SELECT COUNT(*)`, требующий подсчёта всех совпадающих строк, вместо `EXISTS`-семантики `AnyAsync`, которая останавливается на первой найденной строке. Нужно заменить на `await _db.Orders.AnyAsync(o => o.CustomerId == customerId, ct)`.
++
++## 5. CatalogSearch.cs — `Search` — low
++
++```csharp
++if (category != null && maxPrice != null) return await ...Select(Card).ToListAsync(ct);
++if (category != null) return await ...Select(Card).ToListAsync(ct);
++if (maxPrice != null) return await ...Select(Card).ToListAsync(ct);
++return await ...Select(Card).ToListAsync(ct);
++```
++
++Соответствует пункту чек-листа «Материализация в каждой ветке динамического запроса»: вместо одного составного `IQueryable` с условными `.Where()` и единственным `ToListAsync()` в конце, код дублирует материализацию в каждой из 4 веток. Прямо сейчас багов это не вызывает (все комбинации покрыты корректно), но подход комбинаторно взрывается при добавлении нового необязательного фильтра (уже 2 параметра → 4 ветки, 3-й параметр → 8 веток) и повышает риск рассинхронизации условий между копипаст-ветками при будущих правках. Стоит переписать через единый запрос:
++
++```csharp
++var query = _db.Products.AsNoTracking().Where(p => p.IsActive);
++if (category != null) query = query.Where(p => p.Category == category);
++if (maxPrice != null) query = query.Where(p => p.Price <= maxPrice);
++return await query.Select(Card).ToListAsync(ct);
++```
++
++---
++
++### Сводка по severity
++| # | Файл / метод | Проблема | Severity |
++|---|---|---|---|
++| 1 | CustomerExport.cs — CustomersWithOrders | `Distinct()` на сущностях без переопределённого Equals + AsNoTracking → дубликаты клиентов | critical |
++| 2 | SalesReport.cs — Build | загрузка всех продуктов (полная сущность) + фильтр IsActive в памяти + O(P×I) поиск items | high |
++| 3 | StockImport.cs — Import | загрузка всей таблицы Products (полная сущность) + O(N×M) линейный поиск в цикле | high |
++| 4 | CustomerExport.cs — HasOrders | `CountAsync(...) > 0` вместо `AnyAsync` | medium |
++| 5 | CatalogSearch.cs — Search | материализация в каждой ветке динамического запроса вместо одного составного IQueryable | low |

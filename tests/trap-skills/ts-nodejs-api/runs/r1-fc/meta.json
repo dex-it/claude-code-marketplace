@@ -1,0 +1,41 @@
+{
+  "id": "r1-fc",
+  "case": "R1",
+  "edition": "final",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.1655568,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 5,
+    "Write": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-16-admin-refunds.md",
+    "git diff main...HEAD -- api/src deploy | cat -n | head -700",
+    "cd <run>/api && cat src/config.ts src/auth.ts; grep -n healthz -r src; grep -n \"errorHandler\\|adminRefunds\" src/app.ts; cat test/admin-r",
+    "grep '\"express\"' api/package.json; grep -n \"version\" node_modules/express/package.json | head -1; grep -n \"express-async\\|unhandledRejection\" -r api/src api/package.json; grep -n \"\" api/src/server.ts ",
+    "sed -i '' -e 's#^deploy/k8s.yaml:51 #deploy/k8s.yaml:41 #' -e 's#^deploy/k8s.yaml:63 #deploy/k8s.yaml:62 #' -e 's#^deploy/k8s.yaml:55 #deploy/k8s.yaml:31 #' REVIEW.md && grep -n '^deploy' REVIEW.md | "
+  ]
+}

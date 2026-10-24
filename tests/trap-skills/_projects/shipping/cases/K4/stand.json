@@ -1,0 +1,99 @@
+{
+  "stand": "stage",
+  "shared": true,
+  "myTeam": "shipping",
+  "now": "2026-10-06T11:30:00Z",
+  "registry": "registry.shipping.example",
+  "teams": [
+    { "name": "shipping", "services": ["shipping-api", "label-worker"] },
+    { "name": "billing", "services": ["billing-api"] },
+    { "name": "support", "services": ["support-desk"] },
+    { "name": "qa", "services": [], "note": "регресс страхования на stage" }
+  ],
+  "services": {
+    "shipping-api": {
+      "team": "shipping", "kind": "api", "entry": "src/app.js",
+      "sha": "{{ref:K4_HEAD}}", "deployedAt": "2026-10-06T10:30:00Z", "deployedBy": "oleg",
+      "replicas": 1, "restarts": 0, "state": "Running", "limits": { "memory": "512Mi" },
+      "config": { "CARRIER_TIMEOUT_MS": "5000", "LOG_LEVEL": "info", "NODE_OPTIONS": "--max-old-space-size=480" },
+      "configHistory": [
+        { "at": "2026-09-01T12:00:00Z", "key": "CARRIER_TIMEOUT_MS", "from": null, "to": "2000", "by": "oleg" },
+        { "at": "2026-09-01T12:00:00Z", "key": "NODE_OPTIONS", "from": null, "to": "--max-old-space-size=480", "by": "oleg" },
+        { "at": "2026-10-05T13:55:00Z", "key": "CARRIER_TIMEOUT_MS", "from": "2000", "to": "5000", "by": "dmitry", "comment": "перевозчик отвечает медленнее после их релиза 4 октября" }
+      ],
+      "history": [
+        { "at": "2026-10-03T08:30:00Z", "action": "rollout", "sha": "{{ref:K4_PREV}}", "by": "dmitry" },
+        { "at": "2026-10-05T13:40:00Z", "action": "rollout", "sha": "{{ref:K2_S1}}", "by": "pavel" },
+        { "at": "2026-10-05T15:05:00Z", "action": "rollout", "sha": "{{ref:K2_S2}}", "by": "oleg" },
+        { "at": "2026-10-05T16:05:00Z", "action": "rollout", "sha": "{{ref:K2_TIP}}", "by": "dmitry", "note": "после инцидента OOM, quote_cache выключен" },
+        { "at": "2026-10-06T10:30:00Z", "action": "rollout", "sha": "{{ref:K4_HEAD}}", "by": "oleg", "note": "develop: страхование (!57)" }
+      ]
+    },
+    "label-worker": {
+      "team": "shipping", "kind": "worker", "queue": "labels", "entry": "worker/label.js",
+      "sha": "{{ref:K4_HEAD}}", "deployedAt": "2026-10-06T10:30:00Z", "deployedBy": "oleg",
+      "replicas": 1, "restarts": 0, "state": "Running", "limits": { "memory": "256Mi" }, "config": { "LOG_LEVEL": "info" },
+      "history": [
+        { "at": "2026-09-25T12:00:00Z", "action": "rollout", "sha": "{{ref:LW_OLD}}", "by": "oleg" },
+        { "at": "2026-10-06T10:30:00Z", "action": "rollout", "sha": "{{ref:K4_HEAD}}", "by": "oleg", "note": "develop: страхование (!57)" }
+      ]
+    },
+    "billing-api": {
+      "team": "billing", "image": "registry.billing.example/billing-api:2.14.3",
+      "deployedAt": "2026-10-05T11:20:00Z", "deployedBy": "billing-ci", "replicas": 1, "restarts": 0, "state": "Running",
+      "history": [ { "at": "2026-10-05T11:20:00Z", "action": "rollout", "image": "registry.billing.example/billing-api:2.14.3", "by": "billing-ci" } ]
+    },
+    "support-desk": {
+      "team": "support", "image": "registry.support.example/support-desk:0.9.12",
+      "deployedAt": "2026-10-02T09:00:00Z", "deployedBy": "support-ci", "replicas": 1, "restarts": 0, "state": "Running",
+      "history": [ { "at": "2026-10-02T09:00:00Z", "action": "rollout", "image": "registry.support.example/support-desk:0.9.12", "by": "support-ci" } ]
+    }
+  },
+  "flags": { "quote_cache": false },
+  "flagAudit": [
+    { "at": "2026-09-29T10:20:00Z", "flag": "quote_cache", "from": null, "to": false, "by": "pavel", "team": "shipping", "comment": "новый флаг, SHIP-45" },
+    { "at": "2026-10-05T14:12:00Z", "flag": "quote_cache", "from": false, "to": true, "by": "ivan", "team": "pricing", "comment": "нагрузочный тест котировок" },
+    { "at": "2026-10-05T15:58:00Z", "flag": "quote_cache", "from": true, "to": false, "by": "oleg", "team": "shipping", "comment": "инцидент OOM shipping-api, согласовано с pricing" }
+  ],
+  "events": [
+    { "at": "2026-10-05T15:58:00Z", "svc": null, "type": "FlagChanged", "message": "quote_cache: on -> off (oleg)" },
+    { "at": "2026-10-05T16:05:00Z", "svc": "shipping-api", "type": "Rollout", "message": "registry.shipping.example/shipping-api:{{sha12:K2_TIP}} (dmitry)" },
+    { "at": "2026-10-06T10:30:00Z", "svc": "shipping-api", "type": "Rollout", "message": "registry.shipping.example/shipping-api:{{sha12:K4_HEAD}} (oleg)" },
+    { "at": "2026-10-06T10:30:00Z", "svc": "label-worker", "type": "Rollout", "message": "registry.shipping.example/label-worker:{{sha12:K4_HEAD}} (oleg)" }
+  ],
+  "alerts": [
+    { "name": "Http5xx", "severity": "critical", "state": "resolved", "since": "2026-10-05T14:20:00Z", "until": "2026-10-05T16:10:00Z", "svc": "shipping-api", "summary": "доля 5xx на входе stage/shipping-api больше 5 % (504 Gateway Timeout)" }
+  ],
+  "metrics": {
+    "shipping-api": {
+      "memory": { "unit": "MB", "step": 300, "from": "2026-10-06T06:00:00Z", "to": "2026-10-06T11:30:00Z", "jitter": 2, "agg": "max",
+        "points": [["2026-10-06T06:00:00Z", 177], ["2026-10-06T10:29:59Z", 178], ["2026-10-06T10:30:00Z", 166], ["2026-10-06T10:40:00Z", 176], ["2026-10-06T11:30:00Z", 178]] },
+      "latency": { "unit": "p95 мс", "step": 300, "from": "2026-10-06T06:00:00Z", "to": "2026-10-06T11:30:00Z", "jitter": 4, "agg": "max", "points": [["2026-10-06T06:00:00Z", 41], ["2026-10-06T11:30:00Z", 43]] },
+      "errors": { "unit": "ответов 5xx за 5 мин", "step": 300, "from": "2026-10-06T06:00:00Z", "to": "2026-10-06T11:30:00Z", "points": [["2026-10-06T06:00:00Z", 0], ["2026-10-06T11:30:00Z", 0]] }
+    },
+    "label-worker": {
+      "memory": { "unit": "MB", "step": 300, "from": "2026-10-06T06:00:00Z", "to": "2026-10-06T11:30:00Z", "jitter": 2, "points": [["2026-10-06T06:00:00Z", 95], ["2026-10-06T11:30:00Z", 95]] },
+      "latency": { "unit": "p95 мс", "step": 300, "from": "2026-10-06T06:00:00Z", "to": "2026-10-06T11:30:00Z", "jitter": 3, "points": [["2026-10-06T06:00:00Z", 28], ["2026-10-06T11:30:00Z", 28]] },
+      "errors": { "unit": "ошибок обработки за 5 мин", "step": 300, "from": "2026-10-06T06:00:00Z", "to": "2026-10-06T11:30:00Z", "points": [["2026-10-06T06:00:00Z", 0], ["2026-10-06T11:30:00Z", 0]] }
+    }
+  },
+  "logs": [
+    { "at": "2026-10-06T10:30:20Z", "svc": "shipping-api", "msg": "shipping-api started sha={{sha12:K4_HEAD}} flags: quote_cache=off" },
+    { "at": "2026-10-06T10:30:21Z", "svc": "label-worker", "msg": "label-worker started sha={{sha12:K4_HEAD}}" },
+    { "repeat": { "from": "2026-10-06T08:02:11Z", "to": "2026-10-06T11:29:59Z", "every": 300 }, "svc": "shipping-api", "msg": "POST /quote 200 {ms}ms rid={rid}", "values": { "jitter": 3, "ms": [["2026-10-06T08:00:00Z", 18], ["2026-10-06T11:30:00Z", 18]] } },
+    { "repeat": { "from": "2026-10-06T08:07:40Z", "to": "2026-10-06T11:29:59Z", "every": 900 }, "svc": "shipping-api", "msg": "POST /shipments 201 {ms}ms rid={rid}", "values": { "jitter": 4, "ms": [["2026-10-06T08:00:00Z", 34], ["2026-10-06T11:30:00Z", 34]] } },
+    { "repeat": { "from": "2026-10-06T08:07:41Z", "to": "2026-10-06T11:29:59Z", "every": 900 }, "svc": "label-worker", "msg": "label printed rid={rid}" },
+    { "at": "2026-10-06T10:41:12Z", "svc": "shipping-api", "msg": "quote {\"zone\":\"A\",\"billableKg\":1,\"price\":204.5}" },
+    { "at": "2026-10-06T10:41:12Z", "svc": "shipping-api", "msg": "POST /quote 200 4ms rid=qa-1041-a7" },
+    { "at": "2026-10-06T10:48:30Z", "svc": "shipping-api", "msg": "POST /shipments 422 3ms rid=qa-1048-c2 error=\"сумма отправления превышает лимит 1000 EUR\"" },
+    { "at": "2026-10-06T10:50:02Z", "svc": "shipping-api", "msg": "POST /shipments 422 3ms rid=qa-1050-c3 error=\"сумма отправления превышает лимит 1000 EUR\"" },
+    { "at": "2026-10-06T10:51:40Z", "svc": "shipping-api", "msg": "POST /shipments 422 2ms rid=qa-1051-c4 error=\"сумма отправления превышает лимит 1000 EUR\"" },
+    { "at": "2026-10-06T10:53:15Z", "svc": "shipping-api", "msg": "shipment created {\"id\":\"S000013\",\"postcode\":10115,\"region\":10,\"zone\":\"A\",\"price\":13.5}" },
+    { "at": "2026-10-06T10:53:15Z", "svc": "shipping-api", "msg": "POST /shipments 201 6ms rid=qa-1053-c5" },
+    { "at": "2026-10-06T10:53:16Z", "svc": "label-worker", "msg": "label printed rid=qa-1053-c5 id=S000013" },
+    { "at": "2026-10-06T10:55:04Z", "svc": "shipping-api", "msg": "shipment created {\"id\":\"S000014\",\"postcode\":50667,\"region\":50,\"zone\":\"C\",\"price\":15.4}" },
+    { "at": "2026-10-06T10:55:04Z", "svc": "shipping-api", "msg": "POST /shipments 201 5ms rid=qa-1055-e9" },
+    { "at": "2026-10-06T10:55:05Z", "svc": "label-worker", "msg": "label printed rid=qa-1055-e9 id=S000014: Отправление S000014, трек DE0000000014 | Индекс 50667, зона C | Вес: 1.0 кг | Страховка: undefined EUR" },
+    { "at": "2026-10-06T11:07:41Z", "svc": "shipping-api", "msg": "POST /shipments 422 2ms rid=qa-1107-k3 error=\"страховка недоступна для зоны D\"" }
+  ]
+}

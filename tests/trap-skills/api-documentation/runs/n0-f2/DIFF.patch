@@ -1,0 +1,13 @@
+diff --git a/src/Bookings.Api/Validation/BookingRules.cs b/src/Bookings.Api/Validation/BookingRules.cs
+index 1e84c1e..8e0293d 100644
+--- a/src/Bookings.Api/Validation/BookingRules.cs
++++ b/src/Bookings.Api/Validation/BookingRules.cs
+@@ -43,7 +43,7 @@ public static class BookingRules
+ 
+     public static bool IsValidDuration(int durationMinutes) =>
+         durationMinutes >= MinDurationMinutes
+-        && durationMinutes < MaxDurationMinutes
++        && durationMinutes <= MaxDurationMinutes
+         && durationMinutes % DurationStep == 0;
+ 
+     public static bool IsInBookingWindow(DateTimeOffset startsAt, DateTimeOffset now) =>

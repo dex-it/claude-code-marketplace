@@ -1,0 +1,9 @@
+--- a/api/src/services/reservation.ts	2026-10-06 08:19:25
++++ b/api/src/services/reservation.ts	2026-10-06 08:19:25
+@@ -44,5 +44,5 @@
+ }
+ 
+ export function isHoldExpired(holdUntilMs: number, now = Date.now()): boolean {
+-  return now > holdUntilMs;
++  return now >= holdUntilMs;
+ }

@@ -1,0 +1,164 @@
+diff --git a/src/Billing.Api/Api/InvoiceEndpoints.cs b/src/Billing.Api/Api/InvoiceEndpoints.cs
+index f9eb308..89fbeb6 100644
+--- a/src/Billing.Api/Api/InvoiceEndpoints.cs
++++ b/src/Billing.Api/Api/InvoiceEndpoints.cs
+@@ -5,6 +5,8 @@ namespace Billing.Api.Api;
+ 
+ public sealed record CreateInvoiceRequest(Guid CustomerId, long AmountMinor, string Currency, DateOnly DueDate);
+ 
++public sealed record RefundInvoiceRequest(long AmountMinor);
++
+ public static class InvoiceEndpoints
+ {
+     public static IEndpointRouteBuilder MapInvoiceEndpoints(this IEndpointRouteBuilder app)
+@@ -24,6 +26,10 @@ public static class InvoiceEndpoints
+             (await handler.HandleAsync(new CancelInvoiceCommand(new InvoiceId(id)), ct))
+             .ToHttp(_ => Results.NoContent()));
+ 
++        invoices.MapPost("/{id:guid}/refunds", async (Guid id, RefundInvoiceRequest body, RefundInvoiceHandler handler, CancellationToken ct) =>
++            (await handler.HandleAsync(new RefundInvoiceCommand(new InvoiceId(id), body.AmountMinor), ct))
++            .ToHttp(refundId => Results.Created($"/invoices/{id}/refunds/{refundId}", new { id = refundId })));
++
+         invoices.MapGet("/{id:guid}/quote", async (Guid id, string currency, QuoteInvoiceHandler handler, CancellationToken ct) =>
+             (await handler.HandleAsync(new QuoteInvoiceQuery(new InvoiceId(id), currency), ct))
+             .ToHttp(money => Results.Ok(new { amountMinor = money.Minor, currency = money.Currency })));
+diff --git a/src/Billing.Api/Application/Handlers/Invoices/CancelInvoiceHandler.cs b/src/Billing.Api/Application/Handlers/Invoices/CancelInvoiceHandler.cs
+index 53290c2..e0bd50e 100644
+--- a/src/Billing.Api/Application/Handlers/Invoices/CancelInvoiceHandler.cs
++++ b/src/Billing.Api/Application/Handlers/Invoices/CancelInvoiceHandler.cs
+@@ -18,7 +18,7 @@ public sealed class CancelInvoiceHandler(IInvoiceRepository invoices, IOutbox ou
+ 
+         if (invoice.Status == InvoiceStatus.Paid)
+         {
+-            var reversal = invoice.Amount with { Minor = -invoice.Amount.Minor };
++            var reversal = invoice.Amount with { Minor = -(invoice.Amount.Minor - invoice.RefundedMinor) };
+             await outbox.EnqueueAsync(new LedgerPostingRequested($"cancel-{invoice.Id}", reversal, "Invoice cancelled"), ct);
+         }
+ 
+diff --git a/src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs b/src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs
+new file mode 100644
+index 0000000..0fc3a1c
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs
+@@ -0,0 +1,36 @@
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Application.Messages;
++using Billing.Api.Domain;
++
++namespace Billing.Api.Application.Handlers.Invoices;
++
++public sealed record RefundInvoiceCommand(InvoiceId InvoiceId, long AmountMinor);
++
++public sealed class RefundInvoiceHandler(
++    IInvoiceRepository invoices,
++    IOutbox outbox,
++    RefundInvoiceValidator validator,
++    TimeProvider clock)
++{
++    public async Task<Result<Guid>> HandleAsync(RefundInvoiceCommand command, CancellationToken ct)
++    {
++        if (validator.Check(command) is { } error)
++            return error;
++
++        var invoice = await invoices.FindAsync(command.InvoiceId, ct);
++        if (invoice is null)
++            return new InvoiceNotFoundError(command.InvoiceId);
++        if (invoice.Status != InvoiceStatus.Paid)
++            return new InvoiceInvalidStateError(invoice.Id, invoice.Status, "refund");
++
++        var refund = new Refund(Guid.NewGuid(), invoice.Amount with { Minor = command.AmountMinor }, clock.GetUtcNow());
++        if (!invoice.TryAddRefund(refund))
++            return new RefundExceedsInvoiceError(invoice.Id, command.AmountMinor, invoice.RefundedMinor, invoice.Amount.Minor);
++
++        // Знак минус - как у сторно в CancelInvoiceHandler.
++        var reversal = refund.Amount with { Minor = -refund.Amount.Minor };
++        await outbox.EnqueueAsync(new LedgerPostingRequested($"refund-{invoice.Id}-{refund.Id}", reversal, "Invoice refund"), ct);
++        await invoices.SaveAsync(invoice, ct);
++        return refund.Id;
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceValidator.cs b/src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceValidator.cs
+new file mode 100644
+index 0000000..af4d0c2
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceValidator.cs
+@@ -0,0 +1,12 @@
++using Billing.Api.Application.Validation;
++using FluentValidation;
++
++namespace Billing.Api.Application.Handlers.Invoices;
++
++public sealed class RefundInvoiceValidator : BillingValidator<RefundInvoiceCommand>
++{
++    public RefundInvoiceValidator()
++    {
++        RuleFor(x => x.AmountMinor).GreaterThan(0);
++    }
++}
+diff --git a/src/Billing.Api/Domain/Errors.cs b/src/Billing.Api/Domain/Errors.cs
+index 54e83b4..310c5a0 100644
+--- a/src/Billing.Api/Domain/Errors.cs
++++ b/src/Billing.Api/Domain/Errors.cs
+@@ -12,3 +12,7 @@ public sealed record InvoiceInvalidStateError(InvoiceId Id, InvoiceStatus Status
+ 
+ public sealed record ValidationError(string Field, string Message)
+     : BillingError("validation", $"{Field}: {Message}");
++
++public sealed record RefundExceedsInvoiceError(InvoiceId Id, long RequestedMinor, long RefundedMinor, long InvoiceMinor)
++    : BillingError("invoice.refund_exceeds_amount",
++        $"Invoice {Id}: refund {RequestedMinor} on top of already refunded {RefundedMinor} exceeds invoice amount {InvoiceMinor}");
+diff --git a/src/Billing.Api/Domain/Invoice.cs b/src/Billing.Api/Domain/Invoice.cs
+index f6ae5a6..a2788f5 100644
+--- a/src/Billing.Api/Domain/Invoice.cs
++++ b/src/Billing.Api/Domain/Invoice.cs
+@@ -12,6 +12,31 @@ public sealed class Invoice
+     public InvoiceStatus Status { get; private set; } = InvoiceStatus.Draft;
+     public DateTimeOffset? PaidAt { get; private set; }
+ 
++    private readonly object _refundsLock = new();
++    private readonly List<Refund> _refunds = [];
++
++    public IReadOnlyList<Refund> Refunds
++    {
++        get { lock (_refundsLock) return _refunds.ToArray(); }
++    }
++
++    public long RefundedMinor
++    {
++        get { lock (_refundsLock) return _refunds.Sum(r => r.Amount.Minor); }
++    }
++
++    // Проверка остатка и добавление под одним замком: параллельные возвраты не должны вместе превысить сумму счёта.
++    public bool TryAddRefund(Refund refund)
++    {
++        lock (_refundsLock)
++        {
++            if (_refunds.Sum(r => r.Amount.Minor) + refund.Amount.Minor > Amount.Minor)
++                return false;
++            _refunds.Add(refund);
++            return true;
++        }
++    }
++
+     public void Issue() => Status = InvoiceStatus.Issued;
+ 
+     public void MarkPaid(DateTimeOffset at)
+@@ -22,3 +47,5 @@ public sealed class Invoice
+ 
+     public void Cancel() => Status = InvoiceStatus.Cancelled;
+ }
++
++public sealed record Refund(Guid Id, Money Amount, DateTimeOffset CreatedAt);
+diff --git a/src/Billing.Api/Modules/InvoicesModule.cs b/src/Billing.Api/Modules/InvoicesModule.cs
+index ccb1877..73ba954 100644
+--- a/src/Billing.Api/Modules/InvoicesModule.cs
++++ b/src/Billing.Api/Modules/InvoicesModule.cs
+@@ -13,6 +13,8 @@ public static class InvoicesModule
+         services.AddScoped<CreateInvoiceHandler>();
+         services.AddScoped<PayInvoiceHandler>();
+         services.AddScoped<CancelInvoiceHandler>();
++        services.AddScoped<RefundInvoiceValidator>();
++        services.AddScoped<RefundInvoiceHandler>();
+         services.AddScoped<QuoteInvoiceHandler>();
+         return services;
+     }

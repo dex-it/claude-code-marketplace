@@ -1,0 +1,128 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d4d7e9c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,122 @@
++# Ревью MR !238
++
++## 1. `VehicleService.ReplaceEquipmentAsync` — старая комплектация не удаляется
++**Файл/метод:** `VehicleService.cs`, `ReplaceEquipmentAsync`
++**Severity: critical**
++
++`vehicle = await FindVehicleAsync(vehicleId)` не делает `Include(v => v.Equipment)`, поэтому навигация
++`vehicle.Equipment` в этот момент не загружена из БД — это пустой список, созданный конструктором (`= new()`).
++`vehicle.Equipment.Clear()` чистит именно этот пустой список, а не строки в БД: EF ничего не узнаёт о
++существующих записях `vehicle_equipment` и не помечает их на удаление. Дальше добавляются новые строки, и:
++
++- старые строки остаются в таблице навечно (комплектация не «заменяется целиком», как требует FLEET-104, а
++  только пополняется);
++- при повторной отправке той же комплектации (а аптечка/огнетушитель — стандартные позиции, повторяющиеся из
++  раза в раз) новые строки с тем же `(vehicle_id, code)` конфликтуют с уникальным индексом
++  `ix_vehicle_equipment_vehicle_id_code`, и `SaveChangesAsync` бросает `DbUpdateException`.
++
++Рядом в том же MR есть правильный образец — `DriverService.ReplacePermitsAsync` делает
++`_db.Drivers.Include(d => d.Permits)` перед `Clear()`. В `ReplaceEquipmentAsync` нужно аналогично подгружать
++`Equipment` перед очисткой (SKILL: разрыв required-связи рассчитан на загруженную коллекцию).
++
++## 2. `TripService.GetOpenWaybillsAsync` — фильтр по машине ломает запрос
++**Файл/метод:** `TripService.cs`, `GetOpenWaybillsAsync`
++**Severity: critical**
++
++Raw SQL в `FromSqlRaw` заканчивается точкой с запятой (`ORDER BY t.started_at;`). Пока `vehicleId == null`,
++строка выполняется как есть и работает. Но когда передан `vehicleId`, код дальше делает
++`query.Where(t => t.VehicleId == id)` — EF Core должен скомпоновать это поверх raw SQL, оборачивая исходный
++текст в подзапрос: `SELECT ... FROM ( <raw sql> ) AS t WHERE t.vehicle_id = @id`. Точка с запятой перед
++закрывающей скобкой подзапроса — синтаксическая ошибка Postgres, запрос упадёт с `PostgresException`.
++
++Именно фильтр по машине — ключевая часть FLEET-112 («с фильтром по машине»), и именно этот путь не упомянут в
++разделе «Проверено локально» MR («список незакрытых листов по всему парку» — т.е. без фильтра). Нужно убрать
++`;` из текста SQL (и, как следствие, перепроверить, что `ORDER BY` внутри подзапроса сохраняет порядок для
++внешнего результата — явный `ORDER BY` снаружи надёжнее).
++
++## 3. `TripService.OffDayTripsAsync` — запрос нетранслируем, эндпоинт всегда падает
++**Файл/метод:** `TripService.cs` / `TripRows.ToRows`, `OffDayTripsAsync`
++**Severity: critical**
++
++`ToRows()` вычисляet `OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` — обычный C#-метод (работает с
++`TimeZoneInfo` и `HashSet<DateOnly>` праздников), он не транслируется в SQL. EF Core допускает клиентское
++вычисление такого выражения только в **финальной** проекции запроса. В `GetVehicleTripsAsync` это так
++(`.ToRows().ToListAsync()` — Select последний), и там всё работает.
++
++В `OffDayTripsAsync` после `.ToRows()` идут ещё `.Where(r => r.OffDay)` и `.OrderByDescending(r => r.Km)` —
++то есть Select не финальный оператор. EF Core не может скомпоновать нетранслируемое выражение из середины
++конвейера и бросит `InvalidOperationException: ... could not be translated`. Эндпоинт `GET /trips/off-days`
++(FLEET-109) будет падать при любом вызове. Это тот самый случай из чек-листа — «нетранслируемое условие
++фильтра»: клиентская часть нужна только явно через `AsEnumerable`/`ToList` после серверного сужения выборки,
++а не замешана в середину запроса.
++
++## 4. `TripService.StartTripAsync` — допуск считается истёкшим на день раньше срока
++**Файл/метод:** `TripService.cs`, `StartTripAsync`
++**Severity: high**
++
++Требование FLEET-107: «допуск действует по указанную в нём дату включительно». Код:
++`driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today)` использует строгое `>`. В день,
++равный `ValidUntil`, условие `ValidUntil > today` ложно — допуск считается недействующим, хотя по требованию
++должен быть действующим. Нужно `p.ValidUntil >= today`. Последствие — диспетчер не может выпустить машину с
++водителем, у которого допуск истекает именно сегодня, хотя это разрешено бизнес-правилом.
++
++## 5. `VehicleService.GetLastInspectionAsync` — «последний осмотр» определяется по времени получения, а не по времени осмотра
++**Файл/метод:** `VehicleService.cs`, `GetLastInspectionAsync` (используется в `TripService.StartTripAsync`)
++**Severity: high**
++
++Сортировка `OrderByDescending(i => i.CreatedAt)` берёт осмотр с самым поздним временем **получения сервером**,
++а не с самым поздним реальным временем осмотра (`InspectedAt`). Комментарий в `SyncInspectionsAsync` явно
++описывает сценарий, где это различие существенно: планшет копит осмотры без сети и шлёт пачкой, когда
++появляется связь. Из-за этого возможна ситуация: машину осмотрели в 10:00 и нашли блокирующий дефект, отправили
++сразу (`CreatedAt` 10:05); другая, более раннюя, но «чистая» проверка той же машины в 08:00 застряла без сети и
++дошла до сервера только в 15:00 (`CreatedAt` 15:00). По `CreatedAt` «последним» окажется осмотр 08:00 без
++замечаний, хотя по факту последний реальный осмотр (10:00) нашёл блокирующий дефект — машину выпустят на линию,
++хотя по бизнес-правилу не должны. Сортировать нужно по `InspectedAt`, а не `CreatedAt` (возможно, с отдельным
++индексом под это).
++
++## 6. `Program.cs` — эндпоинт замены комплектации без ограничения по роли
++**Файл/метод:** `Program.cs`, `PUT /api/vehicles/{id}/equipment`
++**Severity: high**
++
++Все остальные эндпоинты, меняющие данные, явно указывают политику: `RequireAuthorization("Hr")`,
++`("FleetManager")`, `("Mechanic")`, `("Dispatcher")`. У `PUT /vehicles/{id}/equipment` нет
++`.RequireAuthorization(...)` — он наследует только общий `RequireAuthorization()` группы `/api`, то есть
++достаточно быть аутентифицированным пользователем с любой ролью (водитель, HR и т.п.), чтобы менять
++комплектацию машины. По смыслу FLEET-104 это должно быть ограничено ролью механика (`"Mechanic"`), как и
++`POST /inspections/sync`.
++
++## 7. Миграция сужает `vehicles.model` без переноса/проверки существующих данных
++**Файл/метод:** `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs`, `Up`
++**Severity: high**
++
++`AlterColumn` меняет `model` с `varchar(200)` на `varchar(40)` напрямую, без какой-либо предварительной
++проверки/обработки существующих строк. Если в проде есть хотя бы одна машина с названием модели длиннее 40
++символов, `ALTER TABLE ... ALTER COLUMN TYPE character varying(40)` упадёт с ошибкой Postgres
++(«value too long for type character varying(40)»), и миграция (bundle) не накатится. В MR сказано лишь, что
++миграция применена на dev-базе — для продакшена нужно сначала проверить реальные длины в данных (и
++обрезать/согласовать с бизнесом), а не просто сузить тип, как требует чек-лист по схемным миграциям и
++историческим данным.
++
++## 8. `VehicleService.FindByPlateAsync` — трекинг на чтение
++**Файл/метод:** `VehicleService.cs`, `FindByPlateAsync`
++**Severity: low**
++
++Метод используется только для чтения (`GET /vehicles/by-plate/{plate}`), сущность не изменяется, но запрос не
++помечен `AsNoTracking()` — машина попадает в change tracker без необходимости. Стоит добавить `AsNoTracking()`
++после `.Where(...)`.
++
++## 9. `TripService.StartTripAsync` — лишний трекинг водителя и машины
++**Файл/метод:** `TripService.cs`, `StartTripAsync`
++**Severity: low**
++
++`_db.Vehicles.FirstOrDefaultAsync(...)` и `_db.Drivers.Include(d => d.Permits).FirstOrDefaultAsync(...)`
++читаются только для проверки условий — ни `Vehicle`, ни `Driver` в этом методе не изменяются и не
++сохраняются. Обе выборки стоит делать с `AsNoTracking()`.
++
++## 10. `TripService.StartTripAsync` — нет проверки на уже открытый путевой лист той же машины
++**Файл/метод:** `TripService.cs`, `StartTripAsync`
++**Severity: medium**
++
++Метод не проверяет, есть ли у машины уже не закрытый (`FinishedAt == null`) рейс, прежде чем открыть новый.
++Это позволяет диспетчеру дважды «выпустить» одну и ту же машину на линию параллельно, что прямо связано с
++темой FLEET-112 (незакрытые путевые листы) — стоит обсудить, требуется ли такая защита в рамках этого MR.

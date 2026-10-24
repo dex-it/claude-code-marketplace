@@ -1,0 +1,77 @@
+{
+  "id": "d8e97e",
+  "case": "B2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.244515,
+    "durationMs": 14482,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 26605,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1562,
+      "output_tokens_details": {
+        "thinking_tokens": 810
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 26605,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1562,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 26605,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 26605
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B2-owner-softdelete": {
+      "verdict": "PASS",
+      "quote": "await db.Pets\n            .Where(p => p.OwnerId == ownerId)\n            .ExecuteUpdateAsync(s => s\n                .SetProperty(p => p.IsDeleted, true)",
+      "why": "Владелец, питомцы и запланированные визиты помечаются через ExecuteUpdate в одной транзакции, включая незагруженных зависимых; физического удаления нет."
+    },
+    "B2-allergies-orphans": {
+      "verdict": "PASS",
+      "quote": "allergy.IsDeleted = true;\n                allergy.DeletedAt = now;",
+      "why": "Аллергии не из нового списка помечаются удалёнными и остаются строками, новые добавляются через db.Allergies.Add; Clear/Remove нет."
+    },
+    "B2-deletedat-utc": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.UtcNow;",
+      "why": "DeletedAt в обоих методах пишется из DateTime.UtcNow с Kind=Utc."
+    },
+    "B2-migration-path": {
+      "verdict": "PASS",
+      "quote": "CI собирает идемпотентный SQL-скрипт, DBA проверяет его и применяет в окно обслуживания",
+      "why": "Миграции и снапшот лежат в Migrations/, Program.cs не вызывает Migrate/EnsureCreated, выкладка идёт через существующий pipeline."
+    },
+    "B2-h-filters-weakened": {
+      "verdict": "NO",
+      "quote": "e.HasQueryFilter(v => !v.IsDeleted);",
+      "why": "Все HasQueryFilter сохранены; IgnoreQueryFilters добавлен только в DeleteOwnerAsync, в GetPetCardAsync и GetPlannedVisitsAsync его нет."
+    },
+    "B2-m-drop-notes": {
+      "verdict": "NO",
+      "quote": "migrationBuilder.RenameColumn(\n                name: \"Notes\",\n                table: \"Visits\",\n                newName: \"Anamnesis\");",
+      "why": "Колонка переименовывается через RenameColumn, данные заметок сохраняются."
+    }
+  },
+  "stderr": ""
+}

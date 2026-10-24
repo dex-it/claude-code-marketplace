@@ -1,0 +1,85 @@
+{
+ "id": "k4-c1",
+ "case": "K4",
+ "skill": "-",
+ "model": "claude-sonnet-5-5",
+ "effort": "medium",
+ "initModel": "claude-sonnet-5-5",
+ "cliVersion": "2.1.291",
+ "tools": [
+  "Bash",
+  "Edit",
+  "Glob",
+  "Grep",
+  "Read",
+  "Write"
+ ],
+ "mcp": [],
+ "cost": 0.6290076000000001,
+ "turns": [
+  {
+   "n": 1,
+   "exit": 0,
+   "cost": 0.1291446,
+   "turns": 9,
+   "tools": {
+    "Read": 1,
+    "Bash": 7
+   },
+   "standctl": 3,
+   "outside": []
+  },
+  {
+   "n": 2,
+   "exit": 0,
+   "cost": 0.1417246,
+   "turns": 1,
+   "tools": {},
+   "standctl": 0,
+   "outside": []
+  },
+  {
+   "n": 3,
+   "exit": 0,
+   "cost": 0.17291940000000003,
+   "turns": 2,
+   "tools": {
+    "Bash": 1
+   },
+   "standctl": 1,
+   "outside": []
+  },
+  {
+   "n": 4,
+   "exit": 0,
+   "cost": 0.18521900000000002,
+   "turns": 1,
+   "tools": {},
+   "standctl": 0,
+   "outside": []
+  }
+ ],
+ "operator": [
+  {
+   "turn": 3,
+   "picked": {
+    "branch": "fix/SHIP-53-insurance",
+    "sha": "aa2d7a1f463a15f73edfedb1466f77642d56d5cf"
+   },
+   "rollouts": [
+    {
+     "svc": "shipping-api",
+     "exit": 0,
+     "out": "shipping-api: выкачен registry.shipping.example/shipping-api:aa2d7a1f463a (aa2d7a1f463a15f73edfedb1466f77642d56d5cf) в 2026-10-06T11:31:00Z",
+     "err": ""
+    },
+    {
+     "svc": "label-worker",
+     "exit": 0,
+     "out": "label-worker: выкачен registry.shipping.example/label-worker:aa2d7a1f463a (aa2d7a1f463a15f73edfedb1466f77642d56d5cf) в 2026-10-06T11:32:00Z",
+     "err": ""
+    }
+   ]
+  }
+ ]
+}

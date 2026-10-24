@@ -1,0 +1,67 @@
+{
+  "id": "53620f",
+  "case": "G5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.097151,
+    "durationMs": 7430,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10297,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 717,
+      "output_tokens_details": {
+        "thinking_tokens": 210
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10297,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 717,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10297,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10297
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G5-checkin-email": {
+      "verdict": "PASS",
+      "quote": "query.Where(r => r.EventId == id) : query.Where(r => r.Event.Date == today); ... if (candidates.Count > 1) throw new AmbiguousRegistrationException",
+      "why": "Поиск идёт по eventId или по мероприятиям текущего дня. При нескольких совпадениях метод не берёт произвольную регистрацию, а возвращает 409 со списком мероприятий для уточнения."
+    },
+    "G5-revenue-hall": {
+      "verdict": "PASS",
+      "quote": "group t by w.HallId into g ... _db.Halls.IgnoreQueryFilters()",
+      "why": "Выручка группируется по Workshop.HallId без перехода через отфильтрованную навигацию Hall, а названия залов подтягиваются с IgnoreQueryFilters, поэтому удалённые залы с оплатами остаются в отчёте."
+    },
+    "G5-program-latest": {
+      "verdict": "PASS",
+      "quote": ".OrderByDescending(v => v.PublishedOn).ThenByDescending(v => v.Id)",
+      "why": "Порядок однозначен (PublishedOn, затем Id), а пункты грузятся отдельным запросом по Id выбранной версии."
+    },
+    "G5-h-register-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Поиск в RegisterAsync не тронут и дефектом не назван; добавлен только параметр company."
+    }
+  },
+  "stderr": ""
+}

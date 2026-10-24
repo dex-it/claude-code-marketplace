@@ -1,0 +1,112 @@
+{
+  "id": "1864b0",
+  "case": "BR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.136467,
+    "durationMs": 13863,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12954,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1620,
+      "output_tokens_details": {
+        "thinking_tokens": 325
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12954,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1620,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12954,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12954
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BR-long-stays": {
+      "verdict": "PASS",
+      "quote": "EF не может перевести `s.DaysInWard > 14` в SQL и на выполнении бросает `InvalidOperationException`",
+      "why": "Находка называет нетранслируемое вычисляемое свойство. Исправление транслируемое: `s.AdmittedOn < border`, граница вычислена до запроса."
+    },
+    "BR-box-occupant": {
+      "verdict": "PASS",
+      "quote": "при двух и более пациентах `SingleOrDefaultAsync` бросает `InvalidOperationException`, и карточка бокса возвращает 500",
+      "why": "Находка опирается на Capacity из README. Предложено вернуть список текущих пациентов."
+    },
+    "BR-decommission-filter": {
+      "verdict": "PASS",
+      "quote": "Для required-навигации EF строит INNER JOIN на отфильтрованные `Boxes`",
+      "why": "Указаны пропажа пациентов в GetWardPatientsAsync и отчёте по занятости и падение DischargeAsync с Include(Box). Предложено применять фильтр только при подборе бокса."
+    },
+    "BR-medplan-clear": {
+      "verdict": "PASS",
+      "quote": "Связь настроена как `DeleteBehavior.Restrict`, поэтому `SaveChangesAsync` бросает `InvalidOperationException`",
+      "why": "Находка называет исключение при разрыве обязательной связи. Исправление по README: ставить CancelledAt и добавлять новые назначения."
+    },
+    "BR-latest-stay-split": {
+      "verdict": "PASS",
+      "quote": "при неуникальной сортировке они могут выбрать разные госпитализации",
+      "why": "Находка называет неуникальный AdmittedOn в сочетании с AsSplitQuery. Предложено добавить ThenByDescending(Id)."
+    },
+    "BR-occupancy-sql": {
+      "verdict": "PASS",
+      "quote": "значение `ward` передавать параметром. `sortBy` — идентификатор, параметром его не передать, поэтому нужен белый список столбцов",
+      "why": "Указана инъекция через оба параметра. Предложены параметр для значения и белый список для сортировки, без экранирования кавычек."
+    },
+    "BR-startup-migrate": {
+      "verdict": "PASS",
+      "quote": "В EF Core 8 нет блокировки миграций",
+      "why": "Названы все три последствия: отсутствие DDL-прав у vet_app, обход ревью DBA, гонка реплик. Предложено убрать вызов и оставить db-migrate."
+    },
+    "BR-billing": {
+      "verdict": "FOUND",
+      "quote": "при выписке в день поступления сумма равна 0",
+      "why": "Находка называет недостающий +1 календарный день."
+    },
+    "BR-discharge-auth": {
+      "verdict": "FOUND",
+      "quote": "Стоит `.RequireAuthorization()` без политики",
+      "why": "Находка указывает, что эндпоинт выписки не закрыт политикой Vet."
+    },
+    "BR-h-box-code": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindBoxByCodeAsync в выходе не упоминается."
+    },
+    "BR-h-history-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetPetHistoryAsync не объявлен инъекцией."
+    },
+    "BR-m-cascade-fix": {
+      "verdict": "NO",
+      "quote": "Настройка каскада проблему не решит: README запрещает физически удалять назначения",
+      "why": "Исполнитель прямо отвергает каскад и RemoveRange."
+    },
+    "BR-m-ddl-grant": {
+      "verdict": "NO",
+      "quote": "Убрать вызов из `Program.cs`",
+      "why": "Выдать роли vet_app права на DDL исполнитель не предлагает."
+    }
+  },
+  "stderr": ""
+}
