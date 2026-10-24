@@ -1,3 +1,8 @@
+> [!IMPORTANT]
+> **Проект переименован и переехал: [dex-it/ai-kit](https://github.com/dex-it/ai-kit).**
+> Этот репозиторий больше не развивается. Новые изменения, Pull Request и issues - в новом репозитории, документация - на [dex-it.github.io/ai-kit](https://dex-it.github.io/ai-kit/).
+> Подключить каталог из нового места: `claude plugin marketplace add dex-it/ai-kit`. Имя каталога `dex-claude-marketplace` не меняется, команды `плагин@dex-claude-marketplace` остаются прежними.
+
 <p align="center">
   <img alt="DEX AI KIT" src="assets/dexaikit-banner-light.svg#gh-light-mode-only" width="420">
   <img alt="DEX AI KIT" src="assets/dexaikit-banner-dark.svg#gh-dark-mode-only" width="420">
@@ -20,7 +25,7 @@
 </p>
 
 <p align="center">
-  <a href="https://dex-it.github.io/claude-code-marketplace/"><b>Сайт документации</b></a> |
+  <a href="https://dex-it.github.io/ai-kit/"><b>Сайт документации</b></a> |
   <a href="#быстрый-старт">Быстрый старт</a> |
   <a href="#что-вы-получите">Что вы получите</a> |
   <a href="#от-идеи-до-pr">От идеи до PR</a> |
@@ -595,7 +600,7 @@ claude-code-marketplace/
 
 Хотите добавить плагин или поправить существующий? Начните с [CLAUDE.md](./CLAUDE.md): там правила разработки каталога.
 
-Пользовательская документация с примерами и каталогом плагинов - [сайт](https://dex-it.github.io/claude-code-marketplace/); его страницы лежат в [docs/guide/](./docs/guide/), проект сайта - в [site/](./site/).
+Пользовательская документация с примерами и каталогом плагинов - [сайт](https://dex-it.github.io/ai-kit/); его страницы лежат в [docs/guide/](./docs/guide/), проект сайта - в [site/](./site/).
 
 1. Форкните репозиторий и создайте ветку от `develop`.
 2. Прочитайте устройство артефакта, который правите ([Agent](./docs/AGENT_FRAMEWORK.md), [Skill](./docs/SKILL_FRAMEWORK.md), [Command](./docs/COMMAND_FRAMEWORK.md), [Mod](./docs/MOD_FRAMEWORK.md)).
